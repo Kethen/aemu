@@ -26,6 +26,9 @@
 // Basic Types
 #include <stdint.h>
 
+// Basic type conversion
+#include <ctype.h>
+
 // Standard Library
 #include <stdlib.h>
 
@@ -38,6 +41,7 @@
 // Time Access
 #include <time.h>
 
+typedef uint8_t u8;
 // WLAN Switch Access
 #include <pspwlan.h>
 

@@ -19,8 +19,8 @@
 
 // Prototypes
 int _setupMatchingThreads(SceNetAdhocMatchingContext * context, int event_th_prio, int event_th_stack, int input_th_prio, int input_th_stack);
-int _matchingEventThread(uint32_t args, void * argp);
-int _matchingInputThread(uint32_t args, void * argp);
+int _matchingEventThread(SceSize args, void * argp);
+int _matchingInputThread(SceSize args, void * argp);
 
 // Packet Handler
 void _actOnPingPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac);
@@ -222,7 +222,7 @@ int _setupMatchingThreads(SceNetAdhocMatchingContext * context, int event_th_pri
  * @param argp SceNetAdhocMatchingContext *
  * @return Exit Point is never reached...
  */
-int _matchingEventThread(uint32_t args, void * argp)
+int _matchingEventThread(SceSize args, void * argp)
 {
 	// Cast Context
 	SceNetAdhocMatchingContext * context = *(SceNetAdhocMatchingContext **)argp;
@@ -308,7 +308,7 @@ int _matchingEventThread(uint32_t args, void * argp)
  * @param argp SceNetAdhocMatchingContext *
  * @return Exit Point is never reached...
  */
-int _matchingInputThread(uint32_t args, void * argp)
+int _matchingInputThread(SceSize args, void * argp)
 {
 	// Cast Context
 	SceNetAdhocMatchingContext * context = *(SceNetAdhocMatchingContext **)argp;

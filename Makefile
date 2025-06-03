@@ -70,7 +70,7 @@ all:
 #	@echo 192.168.1.103 > $(DISTRIBUTE)/seplugins/server.txt
 #	@touch $(DISTRIBUTE)/seplugins/server.txt || true
 
-	@cd $(PROCFW); make deps
+#	@cd $(PROCFW); make deps
 	@cd $(ATPRO); make $(FLAGS)
 	@cd $(MEMAB); make $(FLAGS)
 	@cd $(PSPNET_ADHOC_AUTH); make $(FLAGS)

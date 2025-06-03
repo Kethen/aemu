@@ -32,6 +32,8 @@
 // Time Access
 #include <time.h>
 
+// wait pspwlan.h did not carry u8 type itself huh
+typedef uint8_t u8;
 // WLAN Switch Access
 #include <pspwlan.h>
 
@@ -40,6 +42,15 @@
 
 // Netconfig Utility
 #include <psputility.h>
+
+// PSP thread control
+#include <pspthreadman.h>
+
+// PSP Module Loader
+#include <pspmodulemgr.h>
+
+// PSP file IO
+#include <pspiofilemgr.h>
 
 // --- Kernel Debugger ---
 

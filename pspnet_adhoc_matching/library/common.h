@@ -35,6 +35,8 @@
 // Time Access
 #include <time.h>
 
+// XXX
+typedef uint8_t u8;
 // WLAN Switch Access
 #include <pspwlan.h>
 
@@ -56,6 +58,9 @@
 
 // Adhoc Matching Common Functions
 #include "functions.h"
+
+// PSP thread control
+#include <pspthreadman.h>
 
 // --- Improved PSPSDK Header ---
 

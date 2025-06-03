@@ -16,6 +16,7 @@
  */
 
 #include "../common.h"
+#include <ctype.h>
 
 // Library State
 int _init = 0;
@@ -444,6 +445,37 @@ uint32_t _readLine(int fd, char * buffer, uint32_t buflen)
 	
 	// Return true Length
 	return strlen(buffer);
+}
+
+static int stricmp(const char *lhs, const char *rhs)
+{
+	int lhs_len = strlen(lhs);
+	int rhs_len = strlen(rhs);
+	char *buf_lhs = (char *)malloc(lhs_len + 1);
+	if (buf_lhs == NULL)
+	{
+		return 0;
+	}
+	buf_lhs[lhs_len] = 0;
+	char *buf_rhs = (char *)malloc(rhs_len + 1);
+	if (buf_rhs == NULL)
+	{
+		free(buf_lhs);
+		return 0;
+	}
+	buf_rhs[rhs_len] = 0;
+	#define TO_LOWER(dst, src, len) { \
+		for(int _i = 0;_i < len;_i++) { \
+			dst[_i] = tolower(src[_i]); \
+		} \
+	}
+	TO_LOWER(buf_lhs, lhs, lhs_len);
+	TO_LOWER(buf_rhs, rhs, rhs_len);
+	#undef TO_LOWER
+	int result = strcmp(buf_lhs, buf_rhs);
+	free(buf_lhs);
+	free(buf_rhs);
+	return result;
 }
 
 /**

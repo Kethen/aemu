@@ -41,6 +41,9 @@
 // PSP Access Point Control (for IP)
 #include <pspnet_apctl.h>
 
+// PSP thread control
+#include <pspthreadman.h>
+
 // --- Kernel Debugger ---
 
 // Kernel Debug Printer

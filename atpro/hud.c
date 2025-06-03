@@ -255,11 +255,11 @@ void drawInfo(CANVAS * canvas)
 	fillRectangle(canvas, 211, 205, 2 * volume, 5, RGB_8888(0xA0, 0xA0, 0xA0), RGB_8888(0x00, 0x00, 0x00));
 	
 	// Show Local PSP Time
-	pspTime local_time;
+	ScePspDateTime local_time;
 	uint32_t k1 = pspSdkSetK1(0);
 	sceRtcGetCurrentClockLocalTime(&local_time);
 	pspSdkSetK1(k1);
-	char time[16]; sprintf(time, "%02u:%02u", local_time.hour, local_time.minutes);
+	char time[16]; sprintf(time, "%02u:%02u", local_time.hour, local_time.minute);
 	drawSmallFont(canvas, time, HORIZONTAL_PADDING, VERTICAL_PADDING, RGB_8888(0xFF, 0xFF, 0xFF));
 	
 	// Draw Exit Example
