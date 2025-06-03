@@ -65,10 +65,12 @@ all:
 	@mkdir $(DISTRIBUTE)/server || true
 	@touch $(DISTRIBUTE)/seplugins/hotspot.txt || true
 #	@cp -r $(CONTRIBUTIONS)/PSP $(DISTRIBUTE)
-	@echo coldbird.uk.to > $(DISTRIBUTE)/seplugins/server.txt
+	@echo socom.cc > $(DISTRIBUTE)/seplugins/server.txt
+#	@echo coldbird.uk.to > $(DISTRIBUTE)/seplugins/server.txt
 #	@echo home.coldbird.uk.to > $(DISTRIBUTE)/seplugins/server.txt
 #	@echo 192.168.1.103 > $(DISTRIBUTE)/seplugins/server.txt
 #	@touch $(DISTRIBUTE)/seplugins/server.txt || true
+	@echo 10000 > $(DISTRIBUTE)/seplugins/port_offset.txt
 
 #	@cd $(PROCFW); make deps
 	@cd $(ATPRO); make $(FLAGS)

@@ -17,11 +17,61 @@
 
 #include <pspsdk.h>
 #include <pspkernel.h>
+#include <stdlib.h>
 #include "library/common.h"
 
 #define MODULENAME "sceNetAdhoc_Library"
 PSP_MODULE_INFO(MODULENAME, PSP_MODULE_USER + 6, 1, 4);
 PSP_HEAP_SIZE_KB(100);
+
+int port_offset = 0;
+
+static uint16_t reverse_port(uint16_t port)
+{
+	return port - port_offset;
+}
+
+static uint16_t offset_destination_port(uint16_t port)
+{
+	return port + port_offset;
+}
+
+static uint16_t offset_source_port(uint16_t port)
+{
+	// follow ppsspp
+	if (port == 0)
+	{
+		return 0;
+	}
+	port += port_offset;
+	if (port == 0)
+	{
+		return 65535;
+	}
+	return port;
+}
+
+static void _readPortOffsetConfig(void)
+{
+	// Line Buffer
+	static char line[128];
+
+	// Open Configuration File
+	int fd = sceIoOpen("ms0:/seplugins/port_offset.txt", PSP_O_RDONLY, 0777);
+
+	// Opened Configuration File
+	if(fd >= 0)
+	{
+		char read_buf[1024] = {0};
+		sceIoRead(fd, read_buf, sizeof(read_buf) - 1);
+
+		port_offset = atoi(read_buf);
+
+		// Close Configuration File
+		sceIoClose(fd);
+	}
+}
+
 
 // Stubs (Optimizer converts those to Jumps)
 int sceNetAdhocInit(void)
@@ -33,6 +83,9 @@ int sceNetAdhocInit(void)
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
+
+	_readPortOffsetConfig();
+
 	return result;
 }
 
@@ -89,7 +142,8 @@ int sceNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
-	int result = proNetAdhocPdpCreate(saddr, sport, bufsize, flag);
+
+	int result = proNetAdhocPdpCreate(saddr, offset_source_port(sport), bufsize, flag);
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -101,7 +155,7 @@ int sceNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
-	int result = proNetAdhocPdpSend(id, daddr, dport, data, len, timeout, flag);
+	int result = proNetAdhocPdpSend(id, daddr, offset_destination_port(dport), data, len, timeout, flag);
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -129,6 +183,7 @@ int sceNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
+	*sport = reverse_port(*sport);
 	return result;
 }
 
@@ -156,7 +211,7 @@ int sceNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
-	int result = proNetAdhocPtpOpen(saddr, sport, daddr, dport, bufsize, rexmt_int, rexmt_cnt, flag);
+	int result = proNetAdhocPtpOpen(saddr, offset_source_port(sport), daddr, offset_destination_port(dport), bufsize, rexmt_int, rexmt_cnt, flag);
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -180,7 +235,8 @@ int sceNetAdhocPtpListen(const SceNetEtherAddr * saddr, uint16_t sport, uint32_t
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
-	int result = proNetAdhocPtpListen(saddr, sport, bufsize, rexmt_int, rexmt_cnt, backlog, flag);
+	uint16_t new_port = sport;
+	int result = proNetAdhocPtpListen(saddr, offset_source_port(sport), bufsize, rexmt_int, rexmt_cnt, backlog, flag);
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
