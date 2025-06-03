@@ -1,3 +1,5 @@
+set -xe
+
 cp  procfw_sdk_prebuilt/include/* /usr/local/pspdev/psp/sdk/include/
 cp  procfw_sdk_prebuilt/lib/* /usr/local/pspdev/psp/sdk/lib/
 
@@ -6,3 +8,5 @@ cp  procfw_sdk_prebuilt/lib/* /usr/local/pspdev/psp/sdk/lib/
 
 make clean
 make CONFIG_660=1
+rm -r dist_660
+mv dist dist_660

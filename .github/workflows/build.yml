@@ -1,0 +1,43 @@
+name: Build package
+
+on: [ push, pull_request, workflow_dispatch ]
+
+# written referencing apollo save tool psp's CI
+
+jobs:
+  build_pkg:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Install server build deps
+      run: |
+        sudo apt update
+        sudo apt install -y gcc libsqlite3-dev
+
+    - name: Download PSP SDK
+      run: |
+        curl -sL https://github.com/pspdev/pspdev/releases/download/v20240701/pspdev-ubuntu-latest-x86_64.tar.gz | tar xvz -C ./
+
+    - name: Set env vars
+      run: |
+        echo "sha_name=$(echo ${GITHUB_SHA} | cut -c1-8)" >> $GITHUB_ENV
+        echo "PSPDEV=${GITHUB_WORKSPACE}/pspdev" >> $GITHUB_ENV
+        echo "${GITHUB_WORKSPACE}/pspdev/bin" >> $GITHUB_PATH
+
+    - name: Build
+      run: |
+        cp procfw_sdk_prebuilt/include/* pspdev/psp/sdk/include/
+        cp procfw_sdk_prebuilt/lib/* pspdev/psp/sdk/lib/
+        make CONFIG_660=1
+        mv dist dist_660
+
+    - name: Push package artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: aemu_${{ env.sha_name }}
+        path: |
+           dist_660
+        if-no-files-found: error
