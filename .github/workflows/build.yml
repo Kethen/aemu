@@ -6,7 +6,7 @@ on: [ push, pull_request, workflow_dispatch ]
 
 jobs:
   build_pkg:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
 
     - name: Checkout
@@ -19,7 +19,7 @@ jobs:
 
     - name: Download PSP SDK
       run: |
-        curl -sL https://github.com/pspdev/pspdev/releases/download/v20240701/pspdev-ubuntu-latest-x86_64.tar.gz | tar xvz -C ./
+        curl -sL https://github.com/pspdev/pspdev/releases/download/v20250601/pspdev-ubuntu-latest-x86_64.tar.gz | tar xvz -C ./
 
     - name: Set env vars
       run: |
