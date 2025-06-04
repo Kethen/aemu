@@ -36,7 +36,7 @@ void * _malloc(uint32_t size)
  */
 void _free(void * buffer)
 {
-	return free(buffer);
+	free(buffer);
 }
 
 #if 0

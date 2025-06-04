@@ -18,9 +18,6 @@
 #ifndef _ADHOC_MATCHING_GLOBALS_H_
 #define _ADHOC_MATCHING_GLOBALS_H_
 
-// Maximum (and real) Heap Size (in kb)
-#define HEAP_SIZE 100
-
 // Error Codes
 #define ADHOC_MATCHING_INVALID_MODE 0x80410801
 #define ADHOC_MATCHING_INVALID_MAXNUM 0x80410803

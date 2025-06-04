@@ -84,6 +84,4 @@ extern int _netconf_status;
 extern int _one;
 extern int _zero;
 
-#define HEAP_SIZE 100
-
 #endif

@@ -37,7 +37,7 @@ LIBS = -lpspwlan
 OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LIBRARYOBJS)
 
 #CFLAGS = -Os -G0 -Wall -fno-pic
-CFLAGS = -O0 -G0 -Wall -fno-pic
+CFLAGS = -O0 -G0 -Wall -fno-pic -DHEAP_SIZE=1000
 
 ifeq ($(CONFIG_620), 1)
 CFLAGS += -DCONFIG_620=1

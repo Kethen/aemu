@@ -4,8 +4,6 @@
 #include "tinyalloc-master/tinyalloc.h"
 #include <stddef.h>
 
-#define HEAP_SIZE 100
-
 // Available Heap Memory (in Bytes)
 static SceUID memblockid = -1;
 
@@ -14,7 +12,7 @@ void * malloc(uint32_t size)
 	if (__builtin_expect(memblockid < 0, 0))
 	{
 		static const SceSize size = HEAP_SIZE * 1024;
-		memblockid = sceKernelAllocPartitionMemory(2, "pspnet_adhoc_matching", PSP_SMEM_Low, size, NULL);
+		memblockid = sceKernelAllocPartitionMemory(2, "tinyalloc", PSP_SMEM_Low, size, NULL);
 		if (memblockid < 0)
 		{
 			return NULL;
