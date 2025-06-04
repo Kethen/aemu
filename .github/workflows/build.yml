@@ -31,7 +31,7 @@ jobs:
       run: |
         cp procfw_sdk_prebuilt/include/* pspdev/psp/sdk/include/
         cp procfw_sdk_prebuilt/lib/* pspdev/psp/sdk/lib/
-        make CONFIG_660=1
+        make CONFIG_660=1 RELEASE=1
         mv dist dist_660
 
     - name: Push package artifact
