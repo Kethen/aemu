@@ -447,24 +447,21 @@ uint32_t _readLine(int fd, char * buffer, uint32_t buflen)
 	return strlen(buffer);
 }
 
+#if 0
 static int stricmp(const char *lhs, const char *rhs)
 {
 	int lhs_len = strlen(lhs);
 	int rhs_len = strlen(rhs);
-	char *buf_lhs = (char *)malloc(lhs_len + 1);
-	if (buf_lhs == NULL)
+	if (lhs_len > 511 || rhs_len > 511)
 	{
+		// giving up, nametags shoud not be longer than 512
 		return 0;
 	}
-	buf_lhs[lhs_len] = 0;
-	char *buf_rhs = (char *)malloc(rhs_len + 1);
-	if (buf_rhs == NULL)
-	{
-		free(buf_lhs);
-		return 0;
-	}
-	buf_rhs[rhs_len] = 0;
+	char buf_lhs[512];
+	char buf_rhs[512];
+
 	#define TO_LOWER(dst, src, len) { \
+		dst[len] = 0; \
 		for(int _i = 0;_i < len;_i++) { \
 			dst[_i] = tolower(src[_i]); \
 		} \
@@ -472,11 +469,9 @@ static int stricmp(const char *lhs, const char *rhs)
 	TO_LOWER(buf_lhs, lhs, lhs_len);
 	TO_LOWER(buf_rhs, rhs, rhs_len);
 	#undef TO_LOWER
-	int result = strcmp(buf_lhs, buf_rhs);
-	free(buf_lhs);
-	free(buf_rhs);
-	return result;
+	return strcmp(buf_lhs, buf_rhs);
 }
+#endif
 
 /**
  * Friend Finder Thread (Receives Peer Information)
@@ -586,8 +581,11 @@ int _friendFinder(SceSize args, void * argp)
 					// Cast Packet
 					SceNetAdhocctlChatPacketS2C * packet = (SceNetAdhocctlChatPacketS2C *)rx;
 					
+					// what is the ME name tag? I need a history lesson on it... disabling for now
+					#if 0
 					// Fix for Idiots that try to troll the "ME" Nametag
 					if(stricmp((char *)packet->name.data, "ME") == 0) strcpy((char *)packet->name.data, "NOT ME");
+					#endif
 					
 					// Add Incoming Chat to HUD
 					addChatLog((char *)packet->name.data, packet->base.message);

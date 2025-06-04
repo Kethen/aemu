@@ -19,8 +19,6 @@
 
 #include <pspsysmem.h>
 #include "../../tinyalloc-master/tinyalloc.h"
-// Available Heap Memory (in Bytes)
-SceUID memblockid = -1;
 
 /**
  * Allocate Buffer from Heap
@@ -29,19 +27,7 @@ SceUID memblockid = -1;
  */
 void * _malloc(uint32_t size)
 {
-	if (__builtin_expect(memblockid < 0, 0))
-	{
-		static const SceSize size = HEAP_SIZE * 1024;
-		memblockid = sceKernelAllocPartitionMemory(2, "pspnet_adhoc_matching", PSP_SMEM_Low, size, NULL);
-		if (memblockid < 0)
-		{
-			return NULL;
-		}
-		void *block = sceKernelGetBlockHeadAddr(memblockid);
-		ta_init(block, block + size, 256, 16, 8);
-	}
-
-	return ta_alloc(size + sizeof(uint32_t));
+	return malloc(size);
 }
 
 /**
@@ -50,12 +36,7 @@ void * _malloc(uint32_t size)
  */
 void _free(void * buffer)
 {
-	if (__builtin_expect(memblockid < 0, 0))
-	{
-		return;
-	}
-
-	ta_free(buffer);
+	return free(buffer);
 }
 
 #if 0

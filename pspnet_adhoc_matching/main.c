@@ -245,19 +245,3 @@ int module_stop(SceSize args, void * argp)
 	printk(MODULENAME " stop!\n");
 	return 0;
 }
-
-// various libc replacements
-void *memcpy(void *dst, const void *src, size_t len)
-{
-	return __builtin_memcpy(dst, src, len);
-}
-
-void *memset(void *dst, int val, size_t len)
-{
-	return __builtin_memset(dst, val, len);
-}
-
-int memcmp(const void *lhs, const void *rhs, size_t len)
-{
-	return __builtin_memcmp(lhs, rhs, len);
-}

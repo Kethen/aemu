@@ -34,7 +34,7 @@ library/calls/netconf/shutdown.o
 
 LIBS = -lpspwlan
 
-OBJS = main.o ../memab/ATPRO.o $(LIBRARYOBJS)
+OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LIBRARYOBJS)
 
 #CFLAGS = -Os -G0 -Wall -fno-pic
 CFLAGS = -O0 -G0 -Wall -fno-pic
@@ -83,9 +83,8 @@ ASFLAGS = $(CFLAGS)
 BUILD_PRX = 1
 PRX_EXPORTS = exports.exp
 
-USE_PSPSDK_LIBC = 1
-
 LDFLAGS = -nostartfiles
+LIBS = -nostdlib -lpspuser -lpspwlan -lpspnet_inet -lpspnet_resolver -lpspmodinfo -lpsputility
 
 PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build.mak

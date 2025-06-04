@@ -24,7 +24,7 @@ library/calls/getpoolstat.o
 #IMPORTS = \
 #imports/sceNetAdhoc.o
 
-OBJS = main.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
+OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
 
 CFLAGS = -Os -G0 -Wall -fno-pic
 
