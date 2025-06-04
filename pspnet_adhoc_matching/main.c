@@ -245,3 +245,9 @@ int module_stop(SceSize args, void * argp)
 	printk(MODULENAME " stop!\n");
 	return 0;
 }
+
+// XXX hack https://github.com/pspdev/psplinkusb/pull/52
+void _exit(int status)
+{
+	sceKernelExitGame();
+}

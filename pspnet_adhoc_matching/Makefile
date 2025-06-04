@@ -21,8 +21,8 @@ library/calls/getmembers.o \
 library/calls/getpoolmaxalloc.o \
 library/calls/getpoolstat.o
 
-IMPORTS = \
-imports/sceNetAdhoc.o
+#IMPORTS = \
+#imports/sceNetAdhoc.o
 
 OBJS = main.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
 
@@ -56,9 +56,8 @@ ASFLAGS = $(CFLAGS)
 BUILD_PRX = 1
 PRX_EXPORTS = exports.exp
 
-USE_PSPSDK_LIBC = 1
-
 LDFLAGS = -nostartfiles
+LIBS = -lpspnet_adhoc
 
 PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build.mak

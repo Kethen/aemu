@@ -284,3 +284,9 @@ void sceNetPortClose(const char * protocol, uint16_t port)
 		RemoveRedirect(&_urls, &_data, sport, protocol);
 	}
 }
+
+// XXX hack https://github.com/pspdev/psplinkusb/pull/52
+void _exit(int status)
+{
+	sceKernelExitGame();
+}
