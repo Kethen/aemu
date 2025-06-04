@@ -160,11 +160,15 @@ int _setupMatchingThreads(SceNetAdhocMatchingContext * context, int event_th_pri
 	// Thread Name Buffer
 	char threadname[128];
 	
+	#if 0
 	// Create Event Thread Name
 	sprintf(threadname, "matching_ev%d", context->id);
-	
 	// Create Event Thread
 	context->event_thid = sceKernelCreateThread(threadname, _matchingEventThread, event_th_prio, event_th_stack, 0, NULL);
+	#else
+	// Create Event Thread
+	context->event_thid = sceKernelCreateThread("matching_ev", _matchingEventThread, event_th_prio, event_th_stack, 0, NULL);
+	#endif
 	
 	// Created Event Thread
 	if(context->event_thid > 0)
@@ -173,10 +177,13 @@ int _setupMatchingThreads(SceNetAdhocMatchingContext * context, int event_th_pri
 		if(sceKernelStartThread(context->event_thid, sizeof(context), &context) == 0)
 		{
 			// Create IO Thread Name
+			#if 0
 			sprintf(threadname, "matching_io%d", context->id);
-			
 			// Create IO Thread
 			context->input_thid = sceKernelCreateThread(threadname, _matchingInputThread, input_th_prio, input_th_stack, 0, NULL);
+			#else
+			context->input_thid = sceKernelCreateThread("matching_io", _matchingInputThread, input_th_prio, input_th_stack, 0, NULL);
+			#endif
 			
 			// Created IO Thread
 			if(context->input_thid > 0)

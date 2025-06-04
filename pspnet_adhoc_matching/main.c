@@ -246,8 +246,18 @@ int module_stop(SceSize args, void * argp)
 	return 0;
 }
 
-// XXX hack https://github.com/pspdev/psplinkusb/pull/52
-void _exit(int status)
+// various libc replacements
+void *memcpy(void *dst, const void *src, size_t len)
 {
-	sceKernelExitGame();
+	return __builtin_memcpy(dst, src, len);
+}
+
+void *memset(void *dst, int val, size_t len)
+{
+	return __builtin_memset(dst, val, len);
+}
+
+int memcmp(const void *lhs, const void *rhs, size_t len)
+{
+	return __builtin_memcmp(lhs, rhs, len);
 }

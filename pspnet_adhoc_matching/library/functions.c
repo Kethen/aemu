@@ -17,8 +17,10 @@
 
 #include "common.h"
 
+#include <pspsysmem.h>
+#include "../../tinyalloc-master/tinyalloc.h"
 // Available Heap Memory (in Bytes)
-uint32_t _available_heap = HEAP_SIZE * 1024;
+SceUID memblockid = -1;
 
 /**
  * Allocate Buffer from Heap
@@ -27,21 +29,19 @@ uint32_t _available_heap = HEAP_SIZE * 1024;
  */
 void * _malloc(uint32_t size)
 {
-	// Allocate Memory
-	void * buffer = malloc(size + sizeof(uint32_t));
-	
-	// Allocation Success
-	if(buffer != NULL)
+	if (__builtin_expect(memblockid < 0, 0))
 	{
-		// Save Size Field
-		*((uint32_t *)buffer) = size;
-		
-		// Decrease Heap Size
-		_available_heap -= size + sizeof(uint32_t);
+		static const SceSize size = HEAP_SIZE * 1024;
+		memblockid = sceKernelAllocPartitionMemory(2, "pspnet_adhoc_matching", PSP_SMEM_Low, size, NULL);
+		if (memblockid < 0)
+		{
+			return NULL;
+		}
+		void *block = sceKernelGetBlockHeadAddr(memblockid);
+		ta_init(block, block + size, 256, 16, 8);
 	}
-	
-	// Return Pointer
-	return buffer + sizeof(uint32_t);
+
+	return ta_alloc(size + sizeof(uint32_t));
 }
 
 /**
@@ -50,23 +50,15 @@ void * _malloc(uint32_t size)
  */
 void _free(void * buffer)
 {
-	// Valid Address
-	if(buffer != NULL)
+	if (__builtin_expect(memblockid < 0, 0))
 	{
-		// Restore Original Pointer
-		buffer -= sizeof(uint32_t);
-		
-		// Grab Size Field
-		uint32_t size = *((uint32_t *)buffer);
-		
-		// Free Memory
-		free(buffer);
-		
-		// Restore Heap Size
-		_available_heap += size + sizeof(uint32_t);
+		return;
 	}
+
+	ta_free(buffer);
 }
 
+#if 0
 /**
  * Get Free Heap Size
  * @return Free Heap Size in Bytes
@@ -76,6 +68,7 @@ uint32_t _getFreeHeapSize(void)
 	// Return Variable
 	return _available_heap - sizeof(uint32_t);
 }
+#endif
 
 /**
  * Find Free Matching ID
