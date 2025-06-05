@@ -346,11 +346,14 @@ int sceUtilityNetconfShutdownStartKernel(void)
 	return result;
 }
 
+void init_littlec();
+
 // Module Start Event
 int module_start(SceSize args, void * argp)
 {
 	printk(MODULENAME " start!\n");
 	patch_netconf_utility(sceUtilityNetconfInitStartKernel, sceUtilityNetconfGetStatusKernel, sceUtilityNetconfUpdateKernel, sceUtilityNetconfShutdownStartKernel);
+	init_littlec();
 	return 0;
 }
 

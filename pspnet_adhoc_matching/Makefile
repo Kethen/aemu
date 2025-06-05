@@ -25,6 +25,7 @@ library/calls/getpoolstat.o
 #imports/sceNetAdhoc.o
 
 OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
+#OBJS = main.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
 
 CFLAGS = -Os -G0 -Wall -fno-pic -DHEAP_SIZE=100
 
@@ -58,6 +59,7 @@ PRX_EXPORTS = exports.exp
 
 LDFLAGS = -nostartfiles
 LIBS = -nostdlib -lpspuser -lpspnet -lpspnet_adhoc -lpspmodinfo
+#LIBS = -lpspnet_adhoc
 
 PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build.mak
