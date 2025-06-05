@@ -37,10 +37,11 @@ imports/sceNetAdhocctlIOLock.o \
 imports/sceNetAdhocctlInternal.o \
 imports/sceNetMiniUPnP.o
 
-OBJS = main.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
+#OBJS = main.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
+OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
 
 #CFLAGS = -Os -G0 -Wall -fno-pic
-CFLAGS = -O0 -G0 -Wall -fno-pic
+CFLAGS = -O0 -G0 -Wall -fno-pic -DHEAP_SIZE=100
 
 ifeq ($(CONFIG_620), 1)
 CFLAGS += -DCONFIG_620=1
@@ -77,6 +78,7 @@ PRX_EXPORTS = exports.exp
 USE_PSPSDK_LIBC = 1
 
 LDFLAGS = -nostartfiles
+LIBS = -nostdlib -lpspuser -lpspnet_inet -lpspmodinfo -lpsputility
 
 PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build.mak

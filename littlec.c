@@ -12,6 +12,7 @@
 #define TINYALLOC_USE_PARTITION_MEM 1
 #define LOG_MALLOC 0
 #define LOG_CSTRING 0
+#define LOG_CSTDLIB 0
 
 #if USE_TINYALLOC
 
@@ -249,4 +250,23 @@ void *memmove(void *dst, const void *src, size_t len)
 	#endif
 
 	return memcpy(dst, src, len);
+}
+
+int atoi(const char *s)
+{
+	int result = 0;
+	size_t offset = 0;
+	while(s[offset] != '\0' && s[offset] != '\r' && s[offset] != '\n')
+	{
+		int new_digit = s[offset] - '0';
+		result *= 10;
+		result += new_digit;
+		offset++;
+	}
+
+	#if LOG_CSTDLIB
+	printk("%s: %s %d\n", __func__, s, result);
+	#endif
+
+	return result;
 }

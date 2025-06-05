@@ -34,7 +34,12 @@ uint32_t _getRandomNumber(uint32_t max)
 	if(randinit == 0)
 	{
 		// Initialize Mersenne Twister
+		#if 0
 		sceKernelUtilsMt19937Init(&ctx, time(NULL));
+		#else
+		// It does not really need to be different every boot...
+		sceKernelUtilsMt19937Init(&ctx, 0xBEEFBEEF);
+		#endif
 		
 		// Prevent Duplicate Initialization
 		randinit = 1;

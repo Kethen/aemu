@@ -73,17 +73,6 @@ int _friendFinder(SceSize args, void * argp);
 void _addFriend(SceNetAdhocctlConnectPacketS2C * packet);
 void _deleteFriendByIP(uint32_t ip);
 
-static void *_malloc(size_t size)
-{
-	return malloc(size);
-}
-
-static void _free(void *buf)
-{
-	free(buf);
-	return;
-}
-
 /**
  * Initialize the Adhoc-Control Emulator
  * @param stacksize Stacksize of the Internal Thread
@@ -688,7 +677,7 @@ int _friendFinder(SceSize args, void * argp)
 					SceNetAdhocctlScanPacketS2C * packet = (SceNetAdhocctlScanPacketS2C *)rx;
 					
 					// Allocate Structure Data
-					SceNetAdhocctlScanInfo * group = (SceNetAdhocctlScanInfo *)_malloc(sizeof(SceNetAdhocctlScanInfo));
+					SceNetAdhocctlScanInfo * group = (SceNetAdhocctlScanInfo *)malloc(sizeof(SceNetAdhocctlScanInfo));
 					
 					// Allocated Structure Data
 					if(group != NULL)
@@ -843,7 +832,7 @@ void _freeNetworkLock(void)
 void _addFriend(SceNetAdhocctlConnectPacketS2C * packet)
 {
 	// Allocate Structure
-	SceNetAdhocctlPeerInfo * peer = (SceNetAdhocctlPeerInfo *)_malloc(sizeof(SceNetAdhocctlPeerInfo));
+	SceNetAdhocctlPeerInfo * peer = (SceNetAdhocctlPeerInfo *)malloc(sizeof(SceNetAdhocctlPeerInfo));
 	
 	// Allocated Structure
 	if(peer != NULL)
@@ -905,7 +894,7 @@ void _deleteFriendByIP(uint32_t ip)
 			_freePeerLock();
 			
 			// Free Memory
-			_free(peer);
+			free(peer);
 			
 			// Stop Search
 			break;

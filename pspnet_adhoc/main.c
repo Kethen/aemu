@@ -387,10 +387,13 @@ int sceNetAdhocGameModeDeleteReplica(int id)
 	return result;
 }
 
+void init_littlec();
+
 // Module Start Event
 int module_start(SceSize args, void * argp)
 {
 	printk(MODULENAME " start!\n");
+	init_littlec();
 	return 0;
 }
 
