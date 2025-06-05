@@ -38,7 +38,7 @@ OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LI
 #OBJS = main.o ../memab/ATPRO.o $(LIBRARYOBJS)
 
 #CFLAGS = -Os -G0 -Wall -fno-pic
-CFLAGS = -Os -fno-builtin -G0 -Wall -fno-pic -DHEAP_SIZE=100
+CFLAGS = -Os -fno-builtin -G0 -Wall -fno-pic -DHEAP_SIZE=25
 
 ifeq ($(CONFIG_620), 1)
 CFLAGS += -DCONFIG_620=1

@@ -6,11 +6,14 @@
 #include "tinyalloc-master/tinyalloc.h"
 #include <stddef.h>
 
+//#define DEBUG 1
 #include "atpro/logs.h"
 
 #define USE_TINYALLOC 1
 #define TINYALLOC_USE_PARTITION_MEM 1
+
 #define LOG_MALLOC 0
+#define DEBUG_MALLOC 0
 #define LOG_CSTRING 0
 #define LOG_CSTDLIB 0
 
@@ -119,10 +122,18 @@ void init_littlec()
 	#endif
 }
 
+#if DEBUG_MALLOC
+static uint32_t allocated_heap = 0;
+#endif
+
 void *malloc(uint32_t size)
 {
 	#if LOG_MALLOC
 	printk("%s: allocating %d\n", __func__, size);
+	#endif
+
+	#if DEBUG_MALLOC
+	size += sizeof(uint32_t);
 	#endif
 
 	#if USE_TINYALLOC
@@ -139,16 +150,39 @@ void *malloc(uint32_t size)
 	else
 	{
 		printk("%s: failed alocating %d\n", __func__, size);
+		return NULL;
 	}
 	#endif
 
+	#if DEBUG_MALLOC
+	((uint32_t *)buf)[0] = size;
+	allocated_heap += size;
+	printk("%s: allocated heap %d\n", __func__, allocated_heap);
+	return buf + sizeof(uint32_t);
+	#else
 	return buf;
+	#endif
 }
 
-void free(void * buf)
+void free(void *buf)
 {
 	#if LOG_MALLOC
 	printk("%s: freeing 0x%x\n", __func__, buf);
+	#endif
+
+	#if DEBUG_MALLOC
+	if (buf == 0)
+	{
+		printk("%s: freeing NULL from 0x%x\n", __func__, __builtin_return_address(0));
+		return;
+	}
+	#endif
+
+	#if DEBUG_MALLOC
+	buf -= sizeof(uint32_t);
+	uint32_t size = ((uint32_t *)buf)[0];
+	allocated_heap -= size;
+	printk("%s: allocated heap %d\n", __func__, allocated_heap);
 	#endif
 
 	#if USE_TINYALLOC
