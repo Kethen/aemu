@@ -237,7 +237,10 @@ void drawInfo(CANVAS * canvas)
 		lastbatteryquery = sceKernelGetSystemTimeWide();
 		
 		// Update Battery Level
-		batterycharge = scePowerGetBatteryLifePercent();
+		if(scePowerIsBatteryExist())
+			batterycharge = scePowerGetBatteryLifePercent();
+		else
+			batterycharge = 0;
 	}
 	
 	// Show Battery Status
