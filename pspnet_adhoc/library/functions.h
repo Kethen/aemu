@@ -68,6 +68,13 @@ int _getPDPSocketCount(void);
 int _isBroadcastMAC(const SceNetEtherAddr * addr);
 
 /**
+ * Zero MAC check
+ * @param addr to be checked
+ * @return 1 if mac is made of 0s
+ */
+int _isZeroMac(void *addr);
+
+/**
  * PTP Socket Counter
  * @return Number of internal PTP Sockets
  */

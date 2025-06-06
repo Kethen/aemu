@@ -37,7 +37,7 @@ int proNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 		if(dport != 0)
 		{
 			// Valid Data Length
-			if(len > 0)
+			if(len >= 0) // matching PPSSPP, which allows empty pdp packets
 			{
 				// Valid Socket ID
 				if(id > 0 && id <= 255 && _pdp[id - 1] != NULL)
@@ -49,7 +49,7 @@ int proNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 					if(data != NULL)
 					{
 						// Valid Destination Address
-						if(daddr != NULL)
+						if(daddr != NULL && !_isZeroMac(daddr)) // matching PPSSPP, which drops zero dst
 						{
 							// Log Destination
 							#ifdef DEBUG

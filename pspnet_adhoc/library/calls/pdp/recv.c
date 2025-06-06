@@ -80,7 +80,18 @@ int proNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 				_acquireNetworkLock();
 				
 				// Receive Data
-				int received = sceNetInetRecvfrom(socket->id, buf, *len, ((flag != 0) ? (INET_MSG_DONTWAIT) : (0)), (SceNetInetSockaddr *)&sin, &sinlen);
+				// Detect oversize packets, as PPSSPP does
+				void *recv_buf = malloc(*len + 1);
+				int received = 0;
+				if (__builtin_expect(recv_buf != NULL, 1))
+				{
+					received = sceNetInetRecvfrom(socket->id, recv_buf, *len + 1, ((flag != 0) ? (INET_MSG_DONTWAIT) : (0)), (SceNetInetSockaddr *)&sin, &sinlen);
+				}
+				else
+				{
+					printk("%s: failed allocating size test buffer\n", __func__);
+					received = sceNetInetRecvfrom(socket->id, buf, *len, ((flag != 0) ? (INET_MSG_DONTWAIT) : (0)), (SceNetInetSockaddr *)&sin, &sinlen);
+				}
 				
 				// Received Data
 				if(received > 0)
@@ -91,23 +102,46 @@ int proNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 					// Find Peer MAC
 					if(_resolveIP(sin.sin_addr, &mac) == 0)
 					{
+						// Free Network Lock
+						_freeNetworkLock();
+
 						// Provide Sender Information
 						*saddr = mac;
 						*sport = sceNetNtohs(sin.sin_port);
-						
-						// Save Length
-						*len = received;
-						
-						// Free Network Lock
-						_freeNetworkLock();
-						
+
+						int ret = 0;
+						int recv_len = received;
+
+						if (__builtin_expect(received <= *len, 1))
+						{
+							// Save Length
+							*len = received;
+						}
+						else
+						{
+							// The packet is bigger than expected
+							ret = ADHOC_NOT_ENOUGH_SPACE;
+							recv_len = *len;
+						}
+
+						if (__builtin_expect(recv_buf != NULL, 1))
+						{
+							memcpy(buf, recv_buf, recv_len);
+							free(recv_buf);
+						}
+
 						// Return Success
-						return 0;
+						return ret;
 					}
 				}
 				
 				// Free Network Lock
 				_freeNetworkLock();
+
+				if (__builtin_expect(recv_buf != NULL, 1))
+				{
+					free(recv_buf);
+				}
 				
 				#ifdef PDP_DIRTY_MAGIC
 				// Restore Nonblocking Flag for Return Value
