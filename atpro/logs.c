@@ -328,6 +328,8 @@ static void printk_output(int printed_len)
 
 	kout = sceKernelStdout();
 	sceIoWrite(kout, printk_buf, printed_len);
+
+	#if 1
 	fd = printk_open_output();
 
 	if (fd >= 0) {
@@ -340,6 +342,7 @@ static void printk_output(int printed_len)
 	} else {
 		append_to_memory_log(printed_len);
 	}
+	#endif
 
 	sceKernelDelayThread(10000);
 }

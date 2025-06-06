@@ -32,12 +32,16 @@ jobs:
         cp procfw_sdk_prebuilt/include/* pspdev/psp/sdk/include/
         cp procfw_sdk_prebuilt/lib/* pspdev/psp/sdk/lib/
         make CONFIG_660=1 RELEASE=1
-        mv dist dist_660
+        mv dist dist_660_release
+        make clean
+        make CONFIG_660=1
+        mv dist dist_660_debug
 
     - name: Push package artifact
       uses: actions/upload-artifact@v4
       with:
         name: aemu_${{ env.sha_name }}
         path: |
-           dist_660
+           dist_660_release
+           dist_660_debug
         if-no-files-found: error

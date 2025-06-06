@@ -35,7 +35,7 @@ int proNetAdhocMatchingTerm(void)
 		// Stop and delete all contexts
 		while(_contexts != NULL)
 		{
-			printk("%s: removing %d 0x%x\n", __func__, contexts->id, _contexts);
+			printk("%s: removing %d 0x%x\n", __func__, _contexts->id, _contexts);
 			proNetAdhocMatchingStop(_contexts->id);
 			proNetAdhocMatchingDelete(_contexts->id);
 		}

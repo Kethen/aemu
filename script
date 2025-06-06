@@ -10,6 +10,8 @@ make clean
 make CONFIG_660=1 RELEASE=1
 rm -rf dist_660_release
 mv dist dist_660_release
+
+make clean
 make CONFIG_660=1
 rm -rf dist_660_debug
 mv dist dist_660_debug
