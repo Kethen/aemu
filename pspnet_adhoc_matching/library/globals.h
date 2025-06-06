@@ -102,4 +102,7 @@ extern uint32_t _fake_poolsize;
 // Context List
 extern SceNetAdhocMatchingContext * _contexts;
 
+// List lock for create/start/stop/delete
+extern SceLwMutexWorkarea context_list_lock;
+
 #endif

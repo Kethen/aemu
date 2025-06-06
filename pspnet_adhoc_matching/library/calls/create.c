@@ -31,6 +31,12 @@
  */
 int proNetAdhocMatchingCreate(int mode, int maxnum, uint16_t port, int rxbuflen, uint32_t hello_int, uint32_t keepalive_int, int init_count, uint32_t rexmt_int, SceNetAdhocMatchingHandler handler)
 {
+	sceKernelLockLwMutex(&context_list_lock, 1, 0);
+	#define RETURN_UNLOCK(_v) { \
+		sceKernelUnlockLwMutex(&context_list_lock, 1); \
+		return _v; \
+	}
+
 	// Library initialized
 	if(_init == 1)
 	{
@@ -47,7 +53,7 @@ int proNetAdhocMatchingCreate(int mode, int maxnum, uint16_t port, int rxbuflen,
 					SceNetAdhocMatchingContext * item = _contexts; for(; item != NULL; item = item->next)
 					{
 						// Port Match found
-						if(item->port == port) return ADHOC_MATCHING_PORT_IN_USE;
+						if(item->port == port) RETURN_UNLOCK(ADHOC_MATCHING_PORT_IN_USE);
 					}
 					
 					// Allocate Context Memory
@@ -99,7 +105,7 @@ int proNetAdhocMatchingCreate(int mode, int maxnum, uint16_t port, int rxbuflen,
 								_contexts = context;
 								
 								// Return Matching ID
-								return context->id;
+								RETURN_UNLOCK(context->id);
 							}
 							
 							// Close PDP Socket
@@ -110,26 +116,26 @@ int proNetAdhocMatchingCreate(int mode, int maxnum, uint16_t port, int rxbuflen,
 						_free(context);
 						
 						// Port in use
-						if(socket < 1) return ADHOC_MATCHING_PORT_IN_USE;
+						if(socket < 1) RETURN_UNLOCK(ADHOC_MATCHING_PORT_IN_USE);
 					}
 					
 					// Out of Memory
-					return ADHOC_MATCHING_NO_SPACE;
+					RETURN_UNLOCK(ADHOC_MATCHING_NO_SPACE);
 				}
 				
 				// Invalid Arguments
-				return ADHOC_MATCHING_INVALID_ARG;
+				RETURN_UNLOCK(ADHOC_MATCHING_INVALID_ARG);
 			}
 			
 			// Invalid Receive Buffer Size
-			return ADHOC_MATCHING_RXBUF_TOO_SHORT;
+			RETURN_UNLOCK(ADHOC_MATCHING_RXBUF_TOO_SHORT);
 		}
 		
 		// Invalid Member Limit
-		return ADHOC_MATCHING_INVALID_MAXNUM;
+		RETURN_UNLOCK(ADHOC_MATCHING_INVALID_MAXNUM);
 	}
 	
 	// Uninitialized Library
-	return ADHOC_MATCHING_NOT_INITIALIZED;
+	RETURN_UNLOCK(ADHOC_MATCHING_NOT_INITIALIZED);
 }
 

@@ -24,6 +24,12 @@
  */
 int proNetAdhocMatchingStop(int id)
 {
+	sceKernelLockLwMutex(&context_list_lock, 1, 0);
+	#define RETURN_UNLOCK(_v) { \
+		sceKernelUnlockLwMutex(&context_list_lock, 1); \
+		return _v; \
+	}
+
 	// Library initialized
 	if(_init == 1)
 	{
@@ -63,14 +69,14 @@ int proNetAdhocMatchingStop(int id)
 			}
 			
 			// Return Success
-			return 0;
+			RETURN_UNLOCK(0);
 		}
 		
 		// Invalid Matching ID
-		return ADHOC_MATCHING_INVALID_ID;
+		RETURN_UNLOCK(ADHOC_MATCHING_INVALID_ID);
 	}
 	
 	// Uninitialized Library
-	return ADHOC_MATCHING_NOT_INITIALIZED;
+	RETURN_UNLOCK(ADHOC_MATCHING_NOT_INITIALIZED);
 }
 

@@ -26,6 +26,8 @@ PSP_HEAP_SIZE_KB(HEAP_SIZE);
 // Original Matching Handler
 SceNetAdhocMatchingHandler originalHandler = NULL;
 
+SceLwMutexWorkarea context_list_lock;
+
 // Replacement Matching Handler
 void replacementHandler(int id, int event, SceNetEtherAddr * peer, int optlen, void * opt)
 {
@@ -233,12 +235,18 @@ int sceNetAdhocMatchingGetPoolStat(SceNetMallocStat * poolstat)
 }
 
 void init_littlec();
+void clean_littlec();
 
 // Module Start Event
 int module_start(SceSize args, void * argp)
 {
 	printk(MODULENAME " start!\n");
 	init_littlec();
+	int mutex_create_status = sceKernelCreateLwMutex(&context_list_lock, "adhoc_matching_ctx_list", PSP_LW_MUTEX_ATTR_RECURSIVE, 0, NULL);
+	if (mutex_create_status != 0)
+	{
+		printk("%s: failed creating matching context list mutex, 0x%x\n", __func__, mutex_create_status);
+	}
 	return 0;
 }
 
@@ -246,5 +254,7 @@ int module_start(SceSize args, void * argp)
 int module_stop(SceSize args, void * argp)
 {
 	printk(MODULENAME " stop!\n");
+	clean_littlec();
+	sceKernelDeleteLwMutex(&context_list_lock);
 	return 0;
 }

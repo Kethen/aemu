@@ -20,6 +20,8 @@
 // Helper Functions
 static void _deleteAllGMB_Internal(SceNetAdhocGameModeBufferStat * node);
 
+int sceNetAdhocMatchingTerm();
+
 /**
  * Adhoc Emulator Socket Library Term-Call
  * @return 0 on success or... ADHOC_BUSY
@@ -29,6 +31,12 @@ int proNetAdhocTerm(void)
 	// Library is initialized
 	if(_init)
 	{
+		// Stop adhoc_matching
+		sceNetAdhocMatchingTerm();
+
+		// Stop adhocctl
+		sceNetAdhocctlTerm();
+
 		// Delete PDP Sockets
 		_deleteAllPDP();
 		

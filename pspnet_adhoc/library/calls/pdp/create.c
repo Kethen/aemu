@@ -33,18 +33,30 @@ int proNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 		// Valid Arguments are supplied
 		if(saddr != NULL && bufsize > 0)
 		{
+			// Just force local mac for now, seems fine on PPSSPP
+			SceNetEtherAddr local_mac = {0};
+			sceNetGetLocalEtherAddr(&local_mac);
+			if (memcmp(&local_mac, saddr, ETHER_ADDR_LEN) != 0)
+			{
+				printk("%s: createing pdp with a non local mac..? local %x:%x:%x:%x:%x:%x desired %x:%x:%x:%x:%x:%x\n", __func__, (uint32_t)(local_mac.data[0]), (uint32_t)(local_mac.data[1]), (uint32_t)(local_mac.data[2]), (uint32_t)(local_mac.data[3]), (uint32_t)(local_mac.data[4]), (uint32_t)(local_mac.data[5]), (uint32_t)(saddr->data[0]), (uint32_t)(saddr->data[1]), (uint32_t)(saddr->data[2]), (uint32_t)(saddr->data[3]), (uint32_t)(saddr->data[4]), (uint32_t)(saddr->data[5]));
+			}
 			// Valid MAC supplied
-			if(_IsLocalMAC(saddr))
+			//if(_IsLocalMAC(saddr))
 			{
 				// Random Port required
 				if(sport == 0)
 				{
 					// Find unused Port
-					while(sport == 0 || _IsPDPPortInUse(sport))
+					while(sport < 0 || _IsPDPPortInUse(sport))
 					{
 						// Generate Port Number
 						sport = (uint16_t)_getRandomNumber(65535);
 					}
+				}else
+				{
+					// Warn about priv ports for playing with PPSSPP
+					if (__builtin_expect(sport < 1024, 0))
+						printk("%s: using sport %d, might have issues when playing with PPSSPP, change your port offset here and on PPSSPP\n", __func__, sport);
 				}
 				
 				// Unused Port supplied
@@ -87,7 +99,8 @@ int proNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 								{
 									// Fill in Data
 									internal->id = socket;
-									internal->laddr = *saddr;
+									//internal->laddr = *saddr;
+									internal->laddr = local_mac;
 									internal->lport = sport;
 									internal->rcv_sb_cc = bufsize;
 									

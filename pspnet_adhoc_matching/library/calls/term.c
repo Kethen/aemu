@@ -23,9 +23,30 @@
  */
 int proNetAdhocMatchingTerm(void)
 {
+	sceKernelLockLwMutex(&context_list_lock, 1, 0);
+	#define RETURN_UNLOCK(_v) { \
+		sceKernelUnlockLwMutex(&context_list_lock, 1); \
+		return _v; \
+	}
+
 	// Library initialized
 	if(_init == 1)
 	{
+		// Stop and delete all contexts
+		while(_contexts != NULL)
+		{
+			printk("%s: removing %d 0x%x\n", __func__, contexts->id, _contexts);
+			proNetAdhocMatchingStop(_contexts->id);
+			proNetAdhocMatchingDelete(_contexts->id);
+		}
+
+		// Mark Library as shutdown
+		_init = 0;
+
+		// Clear Fake Pool Size
+		_fake_poolsize = 0;
+
+		#if 0
 		// No Context alive
 		if(_contexts == NULL)
 		{
@@ -38,9 +59,10 @@ int proNetAdhocMatchingTerm(void)
 		
 		// Library is busy
 		else return ADHOC_MATCHING_BUSY;
+		#endif
 	}
 	
 	// Return Success
-	return 0;
+	RETURN_UNLOCK(0);
 }
 

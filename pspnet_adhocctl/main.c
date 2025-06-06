@@ -347,6 +347,7 @@ int sceUtilityNetconfShutdownStartKernel(void)
 }
 
 void init_littlec();
+void clean_littlec();
 
 // Module Start Event
 int module_start(SceSize args, void * argp)
@@ -361,5 +362,6 @@ int module_start(SceSize args, void * argp)
 int module_stop(SceSize args, void * argp)
 {
 	printk(MODULENAME " stop!\n");
+	clean_littlec();
 	return 0;
 }

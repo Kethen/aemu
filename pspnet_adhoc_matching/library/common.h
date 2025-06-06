@@ -43,6 +43,9 @@ typedef uint8_t u8;
 // Netconfig Utility
 #include <psputility.h>
 
+// Threading
+#include <pspthreadman.h>
+
 // --- Kernel Debugger ---
 
 // Kernel Debug Printer

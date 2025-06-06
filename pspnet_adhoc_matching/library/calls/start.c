@@ -67,6 +67,12 @@ uint8_t _broadcast[ETHER_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
  */
 int proNetAdhocMatchingStart(int id, int event_th_prio, int event_th_stack, int input_th_prio, int input_th_stack, int hello_optlen, const void * hello_opt)
 {
+	sceKernelLockLwMutex(&context_list_lock, 1, 0);
+	#define RETURN_UNLOCK(_v) { \
+		sceKernelUnlockLwMutex(&context_list_lock, 1); \
+		return _v; \
+	}
+
 	// Library initialized
 	if(_init == 1)
 	{
@@ -95,7 +101,7 @@ int proNetAdhocMatchingStart(int id, int event_th_prio, int event_th_stack, int 
 						if(safe_hello_opt != NULL) memcpy(safe_hello_opt, hello_opt, hello_optlen);
 						
 						// Out of Memory
-						else return ADHOC_MATCHING_NO_SPACE;
+						else RETURN_UNLOCK(ADHOC_MATCHING_NO_SPACE);
 					}
 					
 					// Save Hello Data
@@ -109,7 +115,7 @@ int proNetAdhocMatchingStart(int id, int event_th_prio, int event_th_stack, int 
 						context->running = 1;
 						
 						// Start Success
-						return 0;
+						RETURN_UNLOCK(0);
 					}
 					
 					// Clean up Memory on Thread Setup Failure
@@ -124,23 +130,23 @@ int proNetAdhocMatchingStart(int id, int event_th_prio, int event_th_stack, int 
 					}
 					
 					// Out of Memory
-					return ADHOC_MATCHING_NO_SPACE;
+					RETURN_UNLOCK(ADHOC_MATCHING_NO_SPACE);
 				}
 				
 				// Invalid Hello Data Length
-				return ADHOC_MATCHING_INVALID_OPTLEN;
+				RETURN_UNLOCK(ADHOC_MATCHING_INVALID_OPTLEN);
 			}
 			
 			// Already started
-			return ADHOC_MATCHING_IS_RUNNING;
+			RETURN_UNLOCK(ADHOC_MATCHING_IS_RUNNING);
 		}
 		
 		// Invalid Matching ID
-		return ADHOC_MATCHING_INVALID_ID;
+		RETURN_UNLOCK(ADHOC_MATCHING_INVALID_ID);
 	}
 	
 	// Uninitialized Library
-	return ADHOC_MATCHING_NOT_INITIALIZED;
+	RETURN_UNLOCK(ADHOC_MATCHING_NOT_INITIALIZED);
 }
 
 /**
@@ -157,10 +163,9 @@ int _setupMatchingThreads(SceNetAdhocMatchingContext * context, int event_th_pri
 	// Fix Input Thread Stack Size
 	input_th_stack = 50 * 1024;
 	
+	#if 0
 	// Thread Name Buffer
 	char threadname[128];
-	
-	#if 0
 	// Create Event Thread Name
 	sprintf(threadname, "matching_ev%d", context->id);
 	// Create Event Thread

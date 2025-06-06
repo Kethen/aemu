@@ -96,4 +96,6 @@ int _resolveMAC(SceNetEtherAddr * mac, uint32_t * ip);
  */
 SceNetAdhocctlPeerInfo * _getInternalPeerList(void);
 
+// some more functions
+int sceNetAdhocctlTerm (void);
 #endif

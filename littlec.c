@@ -54,6 +54,29 @@ static void tinyalloc_allocate_partition_memory()
 	#endif
 }
 
+static void tinyalloc_free_partition_memory()
+{
+	#if TINYALLOC_USE_PARTITION_MEM
+	int interrupts = sceKernelCpuSuspendIntr();
+	SceUID old_memblockid = memblockid;
+	if (memblockid < 0)
+	{
+		sceKernelCpuResumeIntrWithSync(interrupts);
+		printk("%s: no partition memory was allocated\n", __func__);
+		return;
+	}
+	sceKernelFreePartitionMemory(memblockid);
+	memblockid = -1;
+	sceKernelCpuResumeIntrWithSync(interrupts);
+	#endif
+
+	#if TINYALLOC_USE_PARTITION_MEM
+	printk("%s: freed partition memory 0x%x\n", __func__, old_memblockid);
+	#else
+	printk("%s: nothing to do in global heap mode\n", __func__);
+	#endif
+}
+
 static void *malloc_tinyalloc(uint32_t size)
 {
 	int interrupts = sceKernelCpuSuspendIntr();
@@ -119,6 +142,13 @@ void init_littlec()
 {
 	#if USE_TINYALLOC
 	tinyalloc_allocate_partition_memory();
+	#endif
+}
+
+void clean_littlec()
+{
+	#if USE_TINYALLOC
+	tinyalloc_free_partition_memory();
 	#endif
 }
 

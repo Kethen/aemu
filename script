@@ -8,6 +8,8 @@ cp  procfw_sdk_prebuilt/lib/* /usr/local/pspdev/psp/sdk/lib/
 
 make clean
 make CONFIG_660=1 RELEASE=1
-#make CONFIG_660=1
-rm -r dist_660
-mv dist dist_660
+rm -rf dist_660_release
+mv dist dist_660_release
+make CONFIG_660=1
+rm -rf dist_660_debug
+mv dist dist_660_debug
