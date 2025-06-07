@@ -41,7 +41,8 @@ int proNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 			if(socket->state == PTP_STATE_LISTEN)
 			{
 				// Valid Arguments
-				if(addr != NULL && port != NULL)
+				//if(addr != NULL && port != NULL)
+				// PPSSPP allows null addr and port for a few games, such as GTA:VCS and Bomberman Panic Bomber
 				{
 					// Address Information
 					SceNetInetSockaddrIn peeraddr;
@@ -98,7 +99,10 @@ int proNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 						// Enable Port Re-use
 						sceNetInetSetsockopt(newsocket, SOL_SOCKET, SO_REUSEADDR, &_one, sizeof(_one));
 						sceNetInetSetsockopt(newsocket, SOL_SOCKET, SO_REUSEPORT, &_one, sizeof(_one));
-						
+
+						// Enable keep alive like PPSSPP
+						sceNetInetSetsockopt(newsocket, SOL_SOCKET, SO_KEEPALIVE, &_one, sizeof(_one));
+
 						// Grab Local Address
 						if(sceNetInetGetsockname(newsocket, (SceNetInetSockaddr *)&local, &locallen) == 0)
 						{
@@ -138,8 +142,10 @@ int proNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 										internal->state = PTP_STATE_ESTABLISHED;
 										
 										// Return Peer Address Information
-										*addr = internal->paddr;
-										*port = internal->pport;
+										if (addr != NULL)
+											*addr = internal->paddr;
+										if (port != NULL)
+											*port = internal->pport;
 										
 										// Link PTP Socket
 										_ptp[i] = internal;
@@ -169,7 +175,7 @@ int proNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 				}
 				
 				// Invalid Arguments
-				return ADHOC_INVALID_ARG;
+				//return ADHOC_INVALID_ARG;
 			}
 			
 			// Client Socket

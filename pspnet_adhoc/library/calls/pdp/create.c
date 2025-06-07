@@ -36,10 +36,12 @@ int proNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 			// Just force local mac for now, seems fine on PPSSPP
 			SceNetEtherAddr local_mac = {0};
 			sceNetGetLocalEtherAddr(&local_mac);
+			#ifdef DEBUG
 			if (memcmp(&local_mac, saddr, ETHER_ADDR_LEN) != 0)
 			{
 				printk("%s: createing pdp with a non local mac..? local %x:%x:%x:%x:%x:%x desired %x:%x:%x:%x:%x:%x\n", __func__, (uint32_t)(local_mac.data[0]), (uint32_t)(local_mac.data[1]), (uint32_t)(local_mac.data[2]), (uint32_t)(local_mac.data[3]), (uint32_t)(local_mac.data[4]), (uint32_t)(local_mac.data[5]), (uint32_t)(saddr->data[0]), (uint32_t)(saddr->data[1]), (uint32_t)(saddr->data[2]), (uint32_t)(saddr->data[3]), (uint32_t)(saddr->data[4]), (uint32_t)(saddr->data[5]));
 			}
+			#endif
 			// Valid MAC supplied
 			//if(_IsLocalMAC(saddr))
 			{

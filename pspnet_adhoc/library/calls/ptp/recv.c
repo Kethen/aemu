@@ -43,7 +43,7 @@ int proNetAdhocPtpRecv(int id, void * buf, int * len, uint32_t timeout, int flag
 				// Schedule Timeout Removal
 				if(flag) timeout = 0;
 				
-				// Apply Send Timeout Settings to Socket
+				// Apply Receive Timeout Settings to Socket
 				sceNetInetSetsockopt(socket->id, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 				
 				// Acquire Network Lock

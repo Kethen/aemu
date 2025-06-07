@@ -34,14 +34,38 @@ int proNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 	// Library is initialized
 	if(_init)
 	{
-		// Valid Addresses
-		if(saddr != NULL && _IsLocalMAC(saddr) && daddr != NULL && !_isBroadcastMAC(daddr))
+		// force local MAC like PPSSPP
+		SceNetEtherAddr local_mac = {0};
+		sceNetGetLocalEtherAddr(&local_mac);
+		#ifdef DEBUG
+		if (saddr != NULL && memcmp(&local_mac, saddr, ETHER_ADDR_LEN) != 0)
 		{
+			printk("%s: createing pdp with a non local mac..? local %x:%x:%x:%x:%x:%x desired %x:%x:%x:%x:%x:%x\n", __func__, (uint32_t)(local_mac.data[0]), (uint32_t)(local_mac.data[1]), (uint32_t)(local_mac.data[2]), (uint32_t)(local_mac.data[3]), (uint32_t)(local_mac.data[4]), (uint32_t)(local_mac.data[5]), (uint32_t)(saddr->data[0]), (uint32_t)(saddr->data[1]), (uint32_t)(saddr->data[2]), (uint32_t)(saddr->data[3]), (uint32_t)(saddr->data[4]), (uint32_t)(saddr->data[5]));
+		}
+		#endif
+
+		// Valid Addresses
+		//if(saddr != NULL && _IsLocalMAC(saddr) && daddr != NULL && !_isBroadcastMAC(daddr))
+		// Reject zero mac like with PPSSPP
+		if(saddr != NULL && daddr != NULL && !_isBroadcastMAC(daddr) && !_isZeroMac(daddr))
+		{
+			// dport cannot be 0
+			if (dport == 0)
+			{
+				return ADHOC_INVALID_PORT;
+			}
+
+			// check in-use port here like PPSSPP
+			if (sport != 0 && _IsPTPPortInUse(sport, 0, daddr, dport))
+			{
+				return ADHOC_PORT_IN_USE;
+			}
+
 			// Random Port required
 			if(sport == 0)
 			{
 				// Find unused Port
-				while(sport == 0 || _IsPTPPortInUse(sport))
+				while(sport == 0 || _IsPTPPortInUse(sport, 0, daddr, dport))
 				{
 					// Generate Port Number
 					sport = (uint16_t)_getRandomNumber(65535);
@@ -49,7 +73,7 @@ int proNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 			}
 			
 			// Valid Ports
-			if(!_IsPTPPortInUse(sport) && dport != 0)
+			//if(!_IsPTPPortInUse(sport, 0, daddr, dport) && dport != 0)
 			{
 				// Valid Arguments
 				if(bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0)
@@ -64,6 +88,9 @@ int proNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 						sceNetInetSetsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &_one, sizeof(_one));
 						sceNetInetSetsockopt(socket, SOL_SOCKET, SO_REUSEPORT, &_one, sizeof(_one));
 						
+						// Enable keep alive like PPSSPP
+						sceNetInetSetsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, &_one, sizeof(_one));
+
 						// Binding Information for local Port
 						SceNetInetSockaddrIn addr;
 						addr.sin_len = sizeof(addr);
@@ -93,7 +120,8 @@ int proNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 									internal->id = socket;
 									
 									// Copy Address Information
-									internal->laddr = *saddr;
+									//internal->laddr = *saddr;
+									internal->laddr = local_mac;
 									internal->paddr = *daddr;
 									internal->lport = sport;
 									internal->pport = dport;
@@ -126,7 +154,7 @@ int proNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 			}
 			
 			// Invalid Ports
-			return ADHOC_INVALID_PORT;
+			//return ADHOC_INVALID_PORT;
 		}
 		
 		// Invalid Addresses
@@ -137,15 +165,35 @@ int proNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 	return ADHOC_NOT_INITIALIZED;
 }
 
+int _isMacMatch(const void *lhs, const void *rhs)
+{
+	// PPSSPP matches the end 5 bytes, because Gran Turismo modifies the first byte somewhere
+	return memcmp(lhs + 1, rhs + 1, 5);
+}
+
 /**
  * Check whether PTP Port is in use or not
  * @param port To-be-checked Port Number
  * @return 1 if in use or... 0
  */
-int _IsPTPPortInUse(uint16_t port)
+int _IsPTPPortInUse(uint16_t sport, int listen, SceNetEtherAddr *daddr, uint16_t dport)
 {
 	// Iterate Sockets
-	int i = 0; for(; i < 255; i++) if(_ptp[i] != NULL && _ptp[i]->lport == port) return 1;
+	for (int i = 0; i < 255; i++) {
+		if (_ptp[i] != NULL)
+		{
+			// Based on PPSSPP's new implementation
+			// Fingers crossed that the PSP has netbsd inet socket, and allows open + listen on the same sport
+			SceNetAdhocPtpStat *sock = _ptp[i];
+			if (sock->lport == sport &&
+			    ((listen && sock->state == PTP_STATE_LISTEN) ||
+			     (!listen && sock->state != PTP_STATE_LISTEN &&
+			      sock->pport == dport && daddr != NULL && _isMacMatch(&sock->paddr, daddr)))) 
+			{
+				return 1;
+			}
+		}
+	}
 	
 	// Unused Port
 	return 0;

@@ -34,6 +34,7 @@
 
 // Option Names
 #define SO_REUSEADDR 0x0004
+#define SO_KEEPALIVE 0x0008
 #define SO_REUSEPORT 0x0200
 #define SO_SNDTIMEO 0x1005
 #define SO_RCVTIMEO 0x1006

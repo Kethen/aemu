@@ -33,14 +33,31 @@ int proNetAdhocPtpListen(const SceNetEtherAddr * saddr, uint16_t sport, uint32_t
 	// Library is initialized
 	if(_init)
 	{
-		// Valid Address
-		if(saddr != NULL && _IsLocalMAC(saddr))
+		// force local MAC like PPSSPP
+		SceNetEtherAddr local_mac = {0};
+		sceNetGetLocalEtherAddr(&local_mac);
+		#ifdef DEBUG
+		if (saddr != NULL && memcmp(&local_mac, saddr, ETHER_ADDR_LEN) != 0)
 		{
+			printk("%s: createing pdp with a non local mac..? local %x:%x:%x:%x:%x:%x desired %x:%x:%x:%x:%x:%x\n", __func__, (uint32_t)(local_mac.data[0]), (uint32_t)(local_mac.data[1]), (uint32_t)(local_mac.data[2]), (uint32_t)(local_mac.data[3]), (uint32_t)(local_mac.data[4]), (uint32_t)(local_mac.data[5]), (uint32_t)(saddr->data[0]), (uint32_t)(saddr->data[1]), (uint32_t)(saddr->data[2]), (uint32_t)(saddr->data[3]), (uint32_t)(saddr->data[4]), (uint32_t)(saddr->data[5]));
+		}
+		#endif
+
+		// Valid Address
+		//if(saddr != NULL && _IsLocalMAC(saddr))
+		if(saddr != NULL)
+		{
+			// check for in-use port here like PPSSPP
+			if (sport != 0 && _IsPTPPortInUse(sport, 1, NULL, 0))
+			{
+				return ADHOC_PORT_IN_USE;
+			}
+
 			// Random Port required
 			if(sport == 0)
 			{
 				// Find unused Port
-				while(sport == 0 || _IsPTPPortInUse(sport))
+				while(sport == 0 || _IsPTPPortInUse(sport, 1, NULL, 0))
 				{
 					// Generate Port Number
 					sport = (uint16_t)_getRandomNumber(65535);
@@ -48,7 +65,7 @@ int proNetAdhocPtpListen(const SceNetEtherAddr * saddr, uint16_t sport, uint32_t
 			}
 			
 			// Valid Ports
-			if(!_IsPTPPortInUse(sport))
+			//if(!_IsPTPPortInUse(sport, 1, NULL, 0))
 			{
 				// Valid Arguments
 				if(bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0 && backlog > 0)
@@ -62,7 +79,10 @@ int proNetAdhocPtpListen(const SceNetEtherAddr * saddr, uint16_t sport, uint32_t
 						// Enable Port Re-use
 						sceNetInetSetsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &_one, sizeof(_one));
 						sceNetInetSetsockopt(socket, SOL_SOCKET, SO_REUSEPORT, &_one, sizeof(_one));
-						
+
+						// Enable keep alive like PPSSPP
+						sceNetInetSetsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, &_one, sizeof(_one));
+
 						// Binding Information for local Port
 						SceNetInetSockaddrIn addr;
 						addr.sin_len = sizeof(addr);
@@ -95,7 +115,8 @@ int proNetAdhocPtpListen(const SceNetEtherAddr * saddr, uint16_t sport, uint32_t
 										internal->id = socket;
 										
 										// Copy Address Information
-										internal->laddr = *saddr;
+										//internal->laddr = *saddr;
+										internal->laddr = local_mac;
 										internal->lport = sport;
 										
 										// Flag Socket as Listener
@@ -133,7 +154,7 @@ int proNetAdhocPtpListen(const SceNetEtherAddr * saddr, uint16_t sport, uint32_t
 			}
 			
 			// Invalid Ports
-			return ADHOC_PORT_IN_USE;
+			//return ADHOC_PORT_IN_USE;
 		}
 		
 		// Invalid Addresses

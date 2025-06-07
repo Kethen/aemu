@@ -34,6 +34,12 @@ int proNetAdhocPtpConnect(int id, uint32_t timeout, int flag)
 		{
 			// Cast Socket
 			SceNetAdhocPtpStat * socket = _ptp[id - 1];
+
+			// PPSSPP's Phantasy Star Portable 2 fix, allow re-calling connect
+			if (socket->state == PTP_STATE_ESTABLISHED) 
+			{
+				return 0;
+			}
 			
 			// Valid Client Socket
 			if(socket->state == 0)
@@ -123,10 +129,13 @@ int proNetAdhocPtpConnect(int id, uint32_t timeout, int flag)
 							return ADHOC_TIMEOUT;
 						}
 					}
+					// Cannot connect for any other reasons
+					return ADHOC_CONNECTION_REFUSED;
 				}
-				
 				// Peer not found
-				return ADHOC_CONNECTION_REFUSED;
+				//return ADHOC_CONNECTION_REFUSED;
+				// PPSSPP returns this instead here
+				return ADHOC_INVALID_ADDR;
 			}
 			
 			// Not a valid Client Socket

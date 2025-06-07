@@ -82,10 +82,13 @@ int _getPTPSocketCount(void);
 
 /**
  * Check whether PTP Port is in use or not
- * @param port To-be-checked Port Number
+ * @param sport source port
+ * @param listen intended use of the port
+ * @param daddr destination mac address
+ * @param dport destination port
  * @return 1 if in use or... 0
  */
-int _IsPTPPortInUse(uint16_t port);
+int _IsPTPPortInUse(uint16_t sport, int listen, SceNetEtherAddr *daddr, uint16_t dport);
 
 /**
  * Add Port Forward to Router
@@ -100,5 +103,13 @@ void sceNetPortOpen(const char * protocol, uint16_t port);
  * @param port To-be-removed Port Number
  */
 void sceNetPortClose(const char * protocol, uint16_t port);
+
+/**
+ * Match mac addresses
+ * @param lhs
+ * @param rhs
+ * @return 1 when they are the same
+ */
+int _isMacMatch(const void *lhs, const void *rhs);
 
 #endif

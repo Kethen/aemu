@@ -57,7 +57,14 @@ int proNetAdhocPtpSend(int id, const void * data, int * len, uint32_t timeout, i
 					
 					// Free Network Lock
 					_freeNetworkLock();
-					
+
+					int errno = 0;
+
+					if (sent == -1)
+					{
+						errno = sceNetInetGetErrno();
+					}
+
 					// Success
 					if(sent > 0)
 					{
@@ -69,7 +76,7 @@ int proNetAdhocPtpSend(int id, const void * data, int * len, uint32_t timeout, i
 					}
 					
 					// Non-Critical Error
-					else if(sent == -1 && sceNetInetGetErrno() == EAGAIN)
+					else if(sent == -1 && (errno == EAGAIN || errno == 0x80010069 || errno == 0x8001000C))
 					{
 						// Blocking Situation
 						if(flag) return ADHOC_WOULD_BLOCK;
