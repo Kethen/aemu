@@ -24,6 +24,48 @@
  */
 int proNetAdhocGameModeDeleteReplica(int id)
 {
-	THROW_UNIMPLEMENTED(__func__);
-	return 0;
+	sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
+	#define RETURN_UNLOCK(_v) { \
+		sceKernelUnlockLwMutex(&_gamemode_lock, 1); \
+		printk("%s: %d, 0x%x", __func__, id, _v); \
+		return _v; \
+	}
+
+	if (!_init)
+	{
+		RETURN_UNLOCK(ADHOC_NOT_INITIALIZED);
+	}
+
+	if (id <= 0 || id > sizeof(_gamemode_replicas) / sizeof(GamemodeInternal *))
+	{
+		RETURN_UNLOCK(ADHOC_NOT_CREATED);
+	}
+
+	GamemodeInternal *gamemode = _gamemode_replicas[id - 1];
+	if (gamemode == NULL)
+	{
+		RETURN_UNLOCK(ADHOC_NOT_CREATED);
+	}
+
+	gamemode->stop_thread = 1;
+
+	// Make sure it's stopped
+	sceKernelWaitThreadEnd(gamemode->thread_id, NULL);
+
+	// Delete thread
+	int thread_delete_status = sceKernelDeleteThread(gamemode->thread_id);
+	if (thread_delete_status < 0)
+	{
+		printk("%s: failed removing receive thread, 0x%x\n", __func__, thread_delete_status);
+	}
+
+	// Remove the pdp socket
+	sceNetAdhocPdpDelete(gamemode->pdp_sock_id, 0);
+
+	// Free data
+	free(gamemode->recv_buf);
+	free(gamemode);
+	_gamemode_replicas[id - 1] = NULL;
+
+	RETURN_UNLOCK(0);
 }

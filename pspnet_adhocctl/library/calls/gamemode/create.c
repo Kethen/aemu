@@ -17,6 +17,11 @@
 
 #include "../../common.h"
 
+int _num_gamemode_peers = 0;
+SceNetEtherAddr _gamemode_peers[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
+int _in_gamemode = 0;
+SceNetEtherAddr _gamemode_host;
+
 /**
  * Create and Join a GameMode Network as Host
  * @param group_name Virtual Network Name
@@ -29,6 +34,66 @@
  */
 int proNetAdhocctlCreateEnterGameMode(const SceNetAdhocctlGroupName * group_name, int game_type, int num, const SceNetEtherAddr * members, uint32_t timeout, int flag)
 {
-	THROW_UNIMPLEMENTED(__func__);
-	return -1;
+	if (!_init)
+	{
+		return ADHOCCTL_NOT_INITIALIZED;
+	}
+
+	if (group_name == NULL || num < 0)
+	{
+		return ADHOCCTL_INVALID_ARG;
+	}
+
+	if (num > ADHOCCTL_GAMEMODE_MAX_MEMBERS)
+	{
+		printk("%s: okay... the game is supplying more than %d macs (%d), not good\n", __func__, ADHOCCTL_GAMEMODE_MAX_MEMBERS, num);
+		return ADHOCCTL_INVALID_ARG;
+	}
+
+	// XXX this might have to be on another thread? The real impl seems to be non block
+
+	// join the adhoc network by group name
+	int join_status = proNetAdhocctlCreate(group_name);
+	if (join_status < 0)
+	{
+		return join_status;
+	}
+
+	// save member list
+	memcpy(_gamemode_peers, members, sizeof(SceNetEtherAddr) * num);
+	_num_gamemode_peers = num;
+
+	// wait for all members to show up
+	int begin = sceKernelGetSystemTimeLow();
+	while (sceKernelGetSystemTimeLow() - begin < timeout)
+	{
+		sceKernelDelayThread(10000);
+		int all_found = 1;
+		for (int i = 0;i < _num_gamemode_peers;i++)
+		{
+			uint32_t ip;
+			if (_resolveMAC(&_gamemode_peers[i], &ip) == 0)
+			{
+				// Someone is missing
+				all_found = 0;
+				break;
+			}
+		}
+
+		if (all_found) {
+			break;
+		}
+	}
+
+	// Notify, we go into game mode regardless of if everyone made it it seems
+	for (int i = 0; i < ADHOCCTL_MAX_HANDLER; i++)
+	{
+		// Active Handler
+		if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_GAMEMODE, 0, _event_args[i]);
+	}
+
+	_in_gamemode = 1;
+	sceNetGetLocalEtherAddr(&_gamemode_host);
+
+	return 0;
 }

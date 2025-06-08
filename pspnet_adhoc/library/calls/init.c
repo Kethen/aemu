@@ -47,10 +47,6 @@ int proNetAdhocInit(void)
 	// Library uninitialized
 	if(!_init)
 	{
-		// Reset gamemode master
-		proNetAdhocGameModeDeleteMaster();
-		_deleteAllGMB();
-
 		// Initialize Internet Library
 		int result = sceNetInetInit();
 		

@@ -55,7 +55,7 @@ uint32_t _getRandomNumber(uint32_t max)
 	return number;
 }
 
-int _isZeroMac(void *addr)
+int _isZeroMac(const void *addr)
 {
 	static const uint8_t zero_mac[ETHER_ADDR_LEN] = {0};
 	return memcmp(addr, zero_mac, sizeof(zero_mac)) == 0;

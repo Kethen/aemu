@@ -23,6 +23,50 @@
  */
 int proNetAdhocGameModeDeleteMaster(void)
 {
-	THROW_UNIMPLEMENTED(__func__);
-	return 0;
+	sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
+	#define RETURN_UNLOCK(_v) { \
+		sceKernelUnlockLwMutex(&_gamemode_lock, 1); \
+		printk("%s: 0x%x", __func__, _v); \
+		return _v; \
+	}
+
+	if (!_init)
+	{
+		RETURN_UNLOCK(ADHOC_NOT_INITIALIZED);
+	}
+
+	// Check if we're in game mode
+	SceNetAdhocctlGameModeInfo gamemode_info;
+	int gamemode_info_get_status = sceNetAdhocctlGetGameModeInfo(&gamemode_info);
+	if (gamemode_info_get_status != 0)
+	{
+		RETURN_UNLOCK(ADHOC_NOT_IN_GAMEMODE);
+	}
+
+	// Check if there is a master
+	if (_gamemode.data == NULL)
+	{
+		RETURN_UNLOCK(ADHOC_NOT_CREATED);
+	}
+
+	// Remove the master thread
+	_gamemode.stop_thread = 1;
+
+	// Making sure it has stopped
+	sceKernelWaitThreadEnd(_gamemode.thread_id, NULL);
+
+	// Delete Thread
+	int thread_delete_status = sceKernelDeleteThread(_gamemode.thread_id);
+	if (thread_delete_status < 0)
+	{
+		printk("%s: failed removing broadcast thread, 0x%x\n", __func__, thread_delete_status);
+	}
+
+	// Remove the pdp socket
+	sceNetAdhocPdpDelete(_gamemode.pdp_sock_id, 0);
+
+	// Clean data
+	memset(&_gamemode, 0, sizeof(GamemodeInternal));
+
+	RETURN_UNLOCK(0);
 }

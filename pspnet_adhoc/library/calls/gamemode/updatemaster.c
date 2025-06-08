@@ -23,6 +23,34 @@
  */
 int proNetAdhocGameModeUpdateMaster(void)
 {
-	THROW_UNIMPLEMENTED(__func__);
-	return 0;
+	sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
+	#define RETURN_UNLOCK(_v) { \
+		sceKernelUnlockLwMutex(&_gamemode_lock, 1); \
+		printk("%s: 0x%x", __func__, _v); \
+		return _v; \
+	}
+
+	if (!_init)
+	{
+		RETURN_UNLOCK(ADHOC_NOT_INITIALIZED);
+	}
+
+	// Check if we're in game mode
+	SceNetAdhocctlGameModeInfo gamemode_info;
+	int gamemode_info_get_status = sceNetAdhocctlGetGameModeInfo(&gamemode_info);
+	if (gamemode_info_get_status != 0)
+	{
+		RETURN_UNLOCK(ADHOC_NOT_IN_GAMEMODE);
+	}
+
+	// Check if there is a master
+	if (_gamemode.data == NULL)
+	{
+		RETURN_UNLOCK(ADHOC_NOT_CREATED);
+	}
+
+	// Kind of inaccurate, we re-send now in non block mode
+	sceNetAdhocPdpSend(_gamemode.pdp_sock_id, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.data, _gamemode.data_size, 0, 1);
+
+	RETURN_UNLOCK(0);
 }

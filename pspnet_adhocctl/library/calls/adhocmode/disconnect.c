@@ -69,7 +69,11 @@ int proNetAdhocctlDisconnect(void)
 			// Active Handler
 			if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_DISCONNECT, 0, _event_args[i]);
 		}
-		
+
+		// Either way it's not game mode anymore
+		_num_gamemode_peers = 0;
+		_in_gamemode = 0;
+
 		// Return Success
 		return 0;
 	}

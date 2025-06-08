@@ -98,4 +98,6 @@ SceNetAdhocctlPeerInfo * _getInternalPeerList(void);
 
 // some more functions
 int sceNetAdhocctlTerm (void);
+
+int sceNetAdhocctlGetGameModeInfo(struct SceNetAdhocctlGameModeInfo *gamemodeinfo);
 #endif

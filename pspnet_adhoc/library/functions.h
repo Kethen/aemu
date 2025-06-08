@@ -72,7 +72,7 @@ int _isBroadcastMAC(const SceNetEtherAddr * addr);
  * @param addr to be checked
  * @return 1 if mac is made of 0s
  */
-int _isZeroMac(void *addr);
+int _isZeroMac(const void *addr);
 
 /**
  * PTP Socket Counter
@@ -88,7 +88,7 @@ int _getPTPSocketCount(void);
  * @param dport destination port
  * @return 1 if in use or... 0
  */
-int _IsPTPPortInUse(uint16_t sport, int listen, SceNetEtherAddr *daddr, uint16_t dport);
+int _IsPTPPortInUse(uint16_t sport, int listen, const SceNetEtherAddr *daddr, uint16_t dport);
 
 /**
  * Add Port Forward to Router
@@ -112,4 +112,8 @@ void sceNetPortClose(const char * protocol, uint16_t port);
  */
 int _isMacMatch(const void *lhs, const void *rhs);
 
+int sceNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufsize, int flag);
+int sceNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, const void * data, int len, uint32_t timeout, int flag);
+int sceNetAdhocPdpDelete(int id, int flag);
+int sceNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void * buf, int * len, uint32_t timeout, int flag);
 #endif

@@ -176,7 +176,7 @@ int _isMacMatch(const void *lhs, const void *rhs)
  * @param port To-be-checked Port Number
  * @return 1 if in use or... 0
  */
-int _IsPTPPortInUse(uint16_t sport, int listen, SceNetEtherAddr *daddr, uint16_t dport)
+int _IsPTPPortInUse(uint16_t sport, int listen, const SceNetEtherAddr *daddr, uint16_t dport)
 {
 	// Iterate Sockets
 	for (int i = 0; i < 255; i++) {

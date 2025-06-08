@@ -23,6 +23,5 @@
  */
 int proNetAdhocctlExitGameMode(void)
 {
-	THROW_UNIMPLEMENTED(__func__);
-	return -1;
+	return proNetAdhocctlDisconnect();
 }

@@ -28,6 +28,7 @@ int sceNetAdhocMatchingTerm();
  */
 int proNetAdhocTerm(void)
 {
+	sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
 	// Library is initialized
 	if(_init)
 	{
@@ -36,6 +37,16 @@ int proNetAdhocTerm(void)
 
 		// Stop adhocctl
 		sceNetAdhocctlTerm();
+
+		// Stop gamemodes
+		proNetAdhocGameModeDeleteMaster();
+		for (int i = 0;i < sizeof(_gamemode_replicas) / sizeof(GamemodeInternal *);i++)
+		{
+			if (_gamemode_replicas[i] != NULL)
+			{
+				proNetAdhocGameModeDeleteReplica(i + 1);
+			}
+		}
 
 		// Delete PDP Sockets
 		_deleteAllPDP();
@@ -58,7 +69,9 @@ int proNetAdhocTerm(void)
 		// Library shutdown
 		_init = 0;
 	}
-	
+
+	sceKernelUnlockLwMutex(&_gamemode_lock, 1);
+
 	// Success
 	return 0;
 }

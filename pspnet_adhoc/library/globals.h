@@ -87,4 +87,18 @@ extern int _one;
 // Global Zero
 extern int _zero;
 
+// One gamemode state
+extern GamemodeInternal _gamemode;
+extern SceLwMutexWorkarea _gamemode_lock;
+
+#define ADHOC_GAMEMODE_PORT 31000
+#define GAMEMODE_UPDATE_INTERVAL_USEC 500
+#define GAMEMODE_INIT_DELAY_USEC 10000
+#define GAMEMODE_SYNC_TIMEOUT_USEC 250000
+
+// Broadcast mac
+extern const SceNetEtherAddr _broadcast_mac;
+
+extern GamemodeInternal *_gamemode_replicas[256];
+
 #endif

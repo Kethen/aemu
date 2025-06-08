@@ -115,12 +115,14 @@ int _resolveIP(uint32_t ip, SceNetEtherAddr * mac);
  * @param ip OUT: Peer IP
  * @return 0 on success or... ADHOC_NO_ENTRY
  */
-int _resolveMAC(SceNetEtherAddr * mac, uint32_t * ip);
+int _resolveMAC(const SceNetEtherAddr * mac, uint32_t * ip);
 
 /**
  * Get First Peer List Element
  * @return First Internal Peer List Element
  */
 SceNetAdhocctlPeerInfo * _getInternalPeerList(void);
+
+int _isMacMatch(const void *lhs, const void *rhs);
 
 #endif

@@ -84,4 +84,9 @@ extern int _netconf_status;
 extern int _one;
 extern int _zero;
 
+extern int _num_gamemode_peers;
+extern SceNetEtherAddr _gamemode_peers[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
+extern int _in_gamemode;
+extern SceNetEtherAddr _gamemode_host;
+
 #endif

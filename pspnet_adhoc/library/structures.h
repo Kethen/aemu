@@ -70,4 +70,23 @@ typedef struct SceNetAdhocGameModeBufferStat {
 	SceNetAdhocGameModeOptData opt;
 } __attribute__((packed)) SceNetAdhocGameModeBufferStat;
 
+// Current Gamemode
+typedef struct GamemodeInternal {
+	SceNetEtherAddr saddr;
+	void *data;
+	uint32_t data_size;
+	int data_updated;
+	int pdp_sock_id;
+	SceUID thread_id;
+	int stop_thread;
+	void *recv_buf;
+	uint64_t last_recv;
+} __attribute__((packed)) GamemodeInternal;
+
+#define ADHOCCTL_GAMEMODE_MAX_MEMBERS 16
+typedef struct SceNetAdhocctlGameModeInfo {
+	int num;
+	SceNetEtherAddr member[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
+} __attribute__((packed)) SceNetAdhocctlGameModeInfo;
+
 #endif

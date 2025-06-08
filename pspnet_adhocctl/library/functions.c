@@ -72,19 +72,25 @@ int _resolveIP(uint32_t ip, SceNetEtherAddr * mac)
 	return ADHOC_NO_ENTRY;
 }
 
+int _isMacMatch(const void *lhs, const void *rhs)
+{
+	// PPSSPP matches the end 5 bytes, because Gran Turismo modifies the first byte somewhere
+	return memcmp(lhs + 1, rhs + 1, 5);
+}
+
 /**
  * Resolve MAC to IP
  * @param mac Peer MAC Address
  * @param ip OUT: Peer IP
  * @return 0 on success or... ADHOC_NO_ENTRY
  */
-int _resolveMAC(SceNetEtherAddr * mac, uint32_t * ip)
+int _resolveMAC(const SceNetEtherAddr * mac, uint32_t * ip)
 {
 	// Get Local MAC Address
 	uint8_t localmac[6]; sceWlanGetEtherAddr((void *)localmac);
 	
 	// Local MAC Requested
-	if(memcmp(localmac, mac, sizeof(SceNetEtherAddr)) == 0)
+	if(_isMacMatch(localmac, mac))
 	{
 		// Get Local IP Address
 		union SceNetApctlInfo info; if(sceNetApctlGetInfo(PSP_NET_APCTL_INFO_IP, &info) == 0)
@@ -107,7 +113,7 @@ int _resolveMAC(SceNetEtherAddr * mac, uint32_t * ip)
 	for(; peer != NULL; peer = peer->next)
 	{
 		// Found Matching Peer
-		if(memcmp(&peer->mac_addr, mac, sizeof(SceNetEtherAddr)) == 0)
+		if(_isMacMatch(&peer->mac_addr, mac))
 		{
 			// Copy Data
 			*ip = peer->ip_addr;

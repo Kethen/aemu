@@ -235,7 +235,6 @@ int sceNetAdhocPtpListen(const SceNetEtherAddr * saddr, uint16_t sport, uint32_t
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
-	uint16_t new_port = sport;
 	int result = proNetAdhocPtpListen(saddr, offset_source_port(sport), bufsize, rexmt_int, rexmt_cnt, backlog, flag);
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
@@ -395,6 +394,11 @@ int module_start(SceSize args, void * argp)
 {
 	printk(MODULENAME " start!\n");
 	init_littlec();
+	int mutex_create_status = sceKernelCreateLwMutex(&_gamemode_lock, "adhoc_gamemode_mutex", PSP_LW_MUTEX_ATTR_RECURSIVE, 0, NULL);
+	if (mutex_create_status != 0)
+	{
+		printk("%s: failed creating gamemode mutex, 0x%x\n", __func__, mutex_create_status);
+	}
 	return 0;
 }
 
@@ -403,5 +407,6 @@ int module_stop(SceSize args, void * argp)
 {
 	printk(MODULENAME " stop!\n");
 	clean_littlec();
+	sceKernelDeleteLwMutex(&_gamemode_lock);
 	return 0;
 }

@@ -25,6 +25,57 @@
  */
 int proNetAdhocGameModeUpdateReplica(int id, SceNetAdhocGameModeOptData * opt)
 {
-	THROW_UNIMPLEMENTED(__func__);
-	return 0;
+	sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
+	#define RETURN_UNLOCK(_v) { \
+		sceKernelUnlockLwMutex(&_gamemode_lock, 1); \
+		printk("%s: 0x%x 0x%x, 0x%x", __func__, id, opt, _v); \
+		return _v; \
+	}
+
+	if (!_init)
+	{
+		RETURN_UNLOCK(ADHOC_NOT_INITIALIZED);
+	}
+
+	// Check if we're in game mode
+	SceNetAdhocctlGameModeInfo gamemode_info;
+	int gamemode_info_get_status = sceNetAdhocctlGetGameModeInfo(&gamemode_info);
+	if (gamemode_info_get_status != 0)
+	{
+		RETURN_UNLOCK(ADHOC_NOT_IN_GAMEMODE);
+	}
+
+	if (id > sizeof(_gamemode_replicas) / sizeof(GamemodeInternal *) || id <= 0)
+	{
+		RETURN_UNLOCK(ADHOC_NOT_CREATED);
+	}
+
+	GamemodeInternal *gamemode = _gamemode_replicas[id - 1];
+
+	if (gamemode == NULL)
+	{
+		RETURN_UNLOCK(ADHOC_NOT_CREATED);
+	}
+
+	if (gamemode->data_updated)
+	{
+		// We have new data
+		gamemode->data_updated = 0;
+		memcpy(gamemode->data, gamemode->recv_buf, gamemode->data_size);
+		if (opt != NULL)
+		{
+			opt->size = sizeof(SceNetAdhocGameModeOptData);
+			opt->flag = 1;
+			opt->last_recv = gamemode->last_recv;
+		}
+		RETURN_UNLOCK(0);
+	}
+
+	// no data
+	if (opt != NULL)
+	{
+		opt->size = sizeof(SceNetAdhocGameModeOptData);
+		opt->flag = 0;
+	}
+	RETURN_UNLOCK(0);
 }

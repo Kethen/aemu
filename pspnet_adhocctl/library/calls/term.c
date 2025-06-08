@@ -73,7 +73,11 @@ int proNetAdhocctlTerm(void)
 		
 		// Terminate Access Point Control
 		sceNetApctlTerm();
-		
+
+		// clear state
+		_in_gamemode = 0;
+		_num_gamemode_peers = 0;
+
 		// Issue Library cooldown
 		_init = 0;
 	}
