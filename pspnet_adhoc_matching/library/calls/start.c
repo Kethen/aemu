@@ -228,6 +228,67 @@ int _setupMatchingThreads(SceNetAdhocMatchingContext * context, int event_th_pri
 	return -1;
 }
 
+static const char *get_opcode_name(uint32_t opcode){
+	switch(opcode)
+	{
+		case ADHOC_MATCHING_PACKET_PING:
+			return "ping";
+		case ADHOC_MATCHING_PACKET_HELLO:
+			return "hello";
+		case ADHOC_MATCHING_PACKET_JOIN:
+			return "join";
+		case ADHOC_MATCHING_PACKET_ACCEPT:
+			return "accept";
+		case ADHOC_MATCHING_PACKET_CANCEL:
+			return "cancel";
+		case ADHOC_MATCHING_PACKET_BULK:
+			return "bulk";
+		case ADHOC_MATCHING_PACKET_BULK_ABORT:
+			return "bulk abort";
+		case ADHOC_MATCHING_PACKET_BIRTH:
+			return "birth";
+		case ADHOC_MATCHING_PACKET_DEATH:
+			return "death";
+		case ADHOC_MATCHING_PACKET_BYE:
+			return "bye";
+	}
+	return "unknown";
+}
+
+static const char *get_event_name(uint32_t event)
+{
+	switch(event)
+	{
+		case ADHOC_MATCHING_EVENT_HELLO:
+			return "hello";
+		case ADHOC_MATCHING_EVENT_REQUEST:
+			return "request";
+		case ADHOC_MATCHING_EVENT_LEAVE:
+			return "leave";
+		case ADHOC_MATCHING_EVENT_DENY:
+			return "deny";
+		case ADHOC_MATCHING_EVENT_CANCEL:
+			return "cancel";
+		case ADHOC_MATCHING_EVENT_ACCEPT:
+			return "accept";
+		case ADHOC_MATCHING_EVENT_ESTABLISHED:
+			return "established";
+		case ADHOC_MATCHING_EVENT_TIMEOUT:
+			return "timeout";
+		case ADHOC_MATCHING_EVENT_ERROR:
+			return "error";
+		case ADHOC_MATCHING_EVENT_BYE:
+			return "bye";
+		case ADHOC_MATCHING_EVENT_DATA:
+			return "data";
+		case ADHOC_MATCHING_EVENT_DATA_ACK:
+			return "data ack";
+		case ADHOC_MATCHING_EVENT_DATA_TIMEOUT:
+			return "date timeout";
+	}
+	return "unknown";
+}
+
 /**
  * Matching Event Dispatcher Thread
  * @param args sizeof(SceNetAdhocMatchingContext *)
@@ -258,7 +319,7 @@ int _matchingEventThread(SceSize args, void * argp)
 				if(msg->optlen > 0) opt = ((void *)msg) + sizeof(ThreadMessage);
 				
 				// Log Matching Events
-				printk("Matching Event [ID=%d] [EVENT=%d]\n", context->id, msg->opcode);
+				printk("%s: Matching Event [ID=%d] [EVENT=%d/%s]\n", __func__, context->id, msg->opcode, get_event_name(msg->opcode));
 				
 				// Call Event Handler
 				context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
@@ -372,7 +433,9 @@ int _matchingInputThread(SceSize args, void * argp)
 				
 				// Grab Optional Data
 				if(msg->optlen > 0) opt = ((void *)msg) + sizeof(ThreadMessage);
-				
+
+				printk("%s: Sending packet (Opcode:%d/%s), optlen %d, opt 0x%x\n", __func__, msg->opcode, get_opcode_name(msg->opcode), msg->optlen, opt);
+
 				// Send Accept Packet
 				if(msg->opcode == ADHOC_MATCHING_PACKET_ACCEPT) _sendAcceptPacket(context, &msg->mac, msg->optlen, opt);
 				
@@ -387,7 +450,10 @@ int _matchingInputThread(SceSize args, void * argp)
 				
 				// Send Birth Packet
 				else if(msg->opcode == ADHOC_MATCHING_PACKET_BIRTH) _sendBirthPacket(context, &msg->mac);
-				
+
+				// Send Death Packet
+				else if (msg->opcode == ADHOC_MATCHING_PACKET_DEATH) _sendDeathPacket(context, &msg->mac);
+
 				// Cancel Bulk Data Transfer (does nothing as of now as we fire and forget anyway)
 				// else if(msg->opcode == ADHOC_MATCHING_PACKET_BULK_ABORT) blabla;
 			}
@@ -409,7 +475,7 @@ int _matchingInputThread(SceSize args, void * argp)
 		if(recvresult == 0 && rxbuflen > 0 && context->port == senderport)
 		{
 			// Log Receive Success
-			printk("Received %d Bytes (Opcode: %d)\n", rxbuflen, context->rxbuf[0]);
+			printk("%s: Received %d Bytes (Opcode: %d/%s)\n", __func__, rxbuflen, context->rxbuf[0], get_opcode_name(context->rxbuf[0]));
 			
 			// Ping Packet
 			if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_PING) _actOnPingPacket(context, &sendermac);
@@ -627,6 +693,9 @@ void _actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 						
 						// Spawn Request Event
 						_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_REQUEST, sendermac, optlen, opt);
+
+						// Update timer
+						peer->lastping = sceKernelGetSystemTimeWide();
 						
 						// Return Success
 						return;
@@ -697,7 +766,28 @@ void _actOnAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 							_postAcceptCleanPeerList(context);
 							
 							// Add Sibling Peers
-							if(context->mode == ADHOC_MATCHING_MODE_CHILD) _postAcceptAddSiblings(context, siblingcount, siblings);
+							if(context->mode == ADHOC_MATCHING_MODE_CHILD)
+							{
+								_postAcceptAddSiblings(context, siblingcount, siblings);
+
+								// PPSSPP adds self here
+								SceNetEtherAddr local_mac = {0};
+								sceNetGetLocalEtherAddr(&local_mac);
+								SceNetAdhocMatchingMemberInternal *self = _findPeer(context, &local_mac);
+								if (self == NULL)
+								{
+									SceNetAdhocMatchingMemberInternal *self = (SceNetAdhocMatchingMemberInternal *)_malloc(sizeof(SceNetAdhocMatchingMemberInternal));
+									if (self != NULL)
+									{
+										memset(self, 0, sizeof(SceNetAdhocMatchingMemberInternal));
+										// self->state = 0; // 0 state means self
+										self->mac = local_mac;
+										self->lastping = sceKernelGetSystemTimeWide();
+										self->next = context->peerlist;
+										context->peerlist = self;
+									}
+								}
+							}
 							
 							// IMPORTANT! The Event Order here is ok!
 							// Internally the Event Stack appends to the front, so the order will be switched around.
@@ -763,7 +853,8 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 						_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_DENY, sendermac, optlen, opt);
 						
 						// Delete Peer from List
-						_deletePeer(context, peer);
+						//_deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 					
 					// Kicked from Room
@@ -795,7 +886,8 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 						_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_CANCEL, sendermac, optlen, opt);
 						
 						// Delete Peer from List
-						_deletePeer(context, peer);
+						//_deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 					
 					// Leave Room
@@ -805,7 +897,8 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 						_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_LEAVE, sendermac, optlen, opt);
 						
 						// Delete Peer from List
-						_deletePeer(context, peer);
+						//_deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 				}
 				
@@ -819,7 +912,9 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 						_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_DENY, sendermac, optlen, opt);
 						
 						// Delete Peer from List
-						_deletePeer(context, peer);
+						//_deletePeer(context, peer);
+						// PPSSPP timesout the peer here
+						peer->lastping = 0;
 					}
 					
 					// Kicked from Room
@@ -829,7 +924,8 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 						_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_LEAVE, sendermac, optlen, opt);
 						
 						// Delete Peer from List
-						_deletePeer(context, peer);
+						//_deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 					
 					// Cancel Join Request
@@ -839,7 +935,8 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 						_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_CANCEL, sendermac, optlen, opt);
 						
 						// Delete Peer from List
-						_deletePeer(context, peer);
+						//_deletePeer(context, peer);
+						peer->lastping = 0;
 					}
 				}
 			}
@@ -962,7 +1059,7 @@ void _actOnDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 			{
 				// Spawn Leave Event
 				_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_LEAVE, &mac, 0, NULL);
-				
+
 				// Delete Peer
 				_deletePeer(context, deadkid);
 			}
@@ -986,7 +1083,10 @@ void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 		// P2P or Child Bye
 		if((context->mode == ADHOC_MATCHING_MODE_PARENT && peer->state == ADHOC_MATCHING_PEER_CHILD) || 
 		(context->mode == ADHOC_MATCHING_MODE_CHILD && peer->state == ADHOC_MATCHING_PEER_CHILD) ||
-		(context->mode == ADHOC_MATCHING_MODE_P2P && peer->state == ADHOC_MATCHING_PEER_P2P))
+		/*(context->mode == ADHOC_MATCHING_MODE_P2P && peer->state == ADHOC_MATCHING_PEER_P2P))*/
+		// PPSSPP logic
+		(context->mode == ADHOC_MATCHING_MODE_P2P &&
+		(peer->state == ADHOC_MATCHING_PEER_P2P || peer->state == ADHOC_MATCHING_PEER_OFFER || peer->state == ADHOC_MATCHING_PEER_INCOMING_REQUEST || peer->state == ADHOC_MATCHING_PEER_OUTGOING_REQUEST || peer->state == ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS)))
 		{
 			// Spawn Leave / Kick Event
 			_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_BYE, sendermac, 0, NULL);
@@ -998,6 +1098,7 @@ void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 		// Parent Bye
 		else if(context->mode == ADHOC_MATCHING_MODE_CHILD && peer->state == ADHOC_MATCHING_PEER_PARENT)
 		{
+			#if 0
 			// Iterate Peers
 			SceNetAdhocMatchingMemberInternal * item = context->peerlist; for(; item != NULL; item = item->next)
 			{
@@ -1008,6 +1109,10 @@ void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 					_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_BYE, &item->mac, 0, NULL);
 				}
 			}
+			#endif
+
+			// PPSSPP does one event only
+			_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_BYE, sendermac, 0, NULL);
 			
 			// Delete Peer from List
 			_clearPeerList(context);
@@ -1049,10 +1154,23 @@ void _postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcou
 	uint8_t * siblings_u8 = (uint8_t *)siblings;
 	
 	// Iterate Siblings
-	int i = 0; for(; i < siblingcount; i++)
+	//int i = 0; for(; i < siblingcount; i++)
+	int i = siblingcount - 1; for(; i >= 0; i--) // reverse order like on PPSSPP
 	{
+		SceNetEtherAddr sibling_addr = {0};
+		memcpy(&sibling_addr, siblings_u8 + sizeof(SceNetEtherAddr) * i, sizeof(SceNetEtherAddr));
+
+		SceNetAdhocMatchingMemberInternal *sibling = _findPeer(context, &sibling_addr);
+		if (sibling != NULL)
+		{
+			sibling->state = ADHOC_MATCHING_PEER_CHILD;
+			sibling->sending = 0;
+			sibling->lastping = sceKernelGetSystemTimeWide();
+			continue;
+		}
+
 		// Allocate Memory
-		SceNetAdhocMatchingMemberInternal * sibling = (SceNetAdhocMatchingMemberInternal *)_malloc(sizeof(SceNetAdhocMatchingMemberInternal));
+		sibling = (SceNetAdhocMatchingMemberInternal *)_malloc(sizeof(SceNetAdhocMatchingMemberInternal));
 		
 		// Allocated Memory
 		if(sibling != NULL)
@@ -1074,7 +1192,8 @@ void _postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcou
 			context->peerlist = sibling;
 			
 			// Spawn Established Event
-			_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
+			// PPSSPP doesn't do that..
+			//_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
 		}
 	}
 }
@@ -1137,13 +1256,29 @@ void _handleTimeout(SceNetAdhocMatchingContext * context)
 		if((sceKernelGetSystemTimeWide() - peer->lastping) >= (context->keepalive_int * context->keepalivecounter))
 		{
 			// Spawn Timeout Event
-			if((context->mode == ADHOC_MATCHING_MODE_CHILD && (peer->state == ADHOC_MATCHING_PEER_CHILD || peer->state == ADHOC_MATCHING_PEER_PARENT)) || 
+			// sync logic with PPSSPP
+			if(
+			/*(context->mode == ADHOC_MATCHING_MODE_CHILD && (peer->state == ADHOC_MATCHING_PEER_CHILD || peer->state == ADHOC_MATCHING_PEER_PARENT)) || */
+			(context->mode == ADHOC_MATCHING_MODE_CHILD) && (peer->state == ADHOC_MATCHING_MODE_PARENT)  ||
 			(context->mode == ADHOC_MATCHING_MODE_PARENT && peer->state == ADHOC_MATCHING_PEER_CHILD) || 
-			(context->mode == ADHOC_MATCHING_MODE_P2P && peer->state == ADHOC_MATCHING_PEER_P2P))
+			/*(context->mode == ADHOC_MATCHING_MODE_P2P && peer->state == ADHOC_MATCHING_PEER_P2P))*/
+			(context->mode == ADHOC_MATCHING_MODE_P2P && 
+			(peer->state == ADHOC_MATCHING_PEER_P2P || peer->state == ADHOC_MATCHING_PEER_OFFER || peer->state == ADHOC_MATCHING_PEER_INCOMING_REQUEST || peer->state == ADHOC_MATCHING_PEER_OUTGOING_REQUEST || peer->state == ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS)))
 			_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_TIMEOUT, &peer->mac, 0, NULL);
-			
+
+			// PPSSPP send messages here
+			if (context->mode != ADHOC_MATCHING_MODE_PARENT)
+			{
+				_sendDeathPacket(context, &peer->mac);
+			}
+			else
+			{
+				_sendCancelPacket(context, &peer->mac, 0, NULL);
+			}
+
+			// Need to keep peer to send the final messages
 			// Delete Peer from List
-			_deletePeer(context, peer);
+			//_deletePeer(context, peer);
 		}
 		
 		// Move Pointer
@@ -1416,9 +1551,6 @@ void _sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 		// Packet Buffer
 		uint8_t packet[7];
 		
-		// Set Opcode
-		packet[0] = ADHOC_MATCHING_PACKET_DEATH;
-		
 		// Set abandoned Child MAC
 		memcpy(packet + 1, mac, sizeof(SceNetEtherAddr));
 		
@@ -1426,15 +1558,30 @@ void _sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 		SceNetAdhocMatchingMemberInternal * peer = context->peerlist; for(; peer != NULL; peer = peer->next)
 		{
 			// Skip dead Child
-			if(peer == deadkid) continue;
-			
+			//if(peer == deadkid) continue;
+
+			// Send bye as PPSSPP does
+			if(peer == deadkid)
+			{
+				packet[0] = ADHOC_MATCHING_PACKET_BYE;
+				// Send Packet
+				sceNetAdhocPdpSend(context->socket, &peer->mac, context->port, packet, sizeof(packet[0]), 0, ADHOC_F_NONBLOCK);
+				continue;
+			}
+
 			// Send only to children
 			if(peer->state == ADHOC_MATCHING_PEER_CHILD)
 			{
+				// Set Opcode
+				packet[0] = ADHOC_MATCHING_PACKET_DEATH;
+
 				// Send Packet
 				sceNetAdhocPdpSend(context->socket, &peer->mac, context->port, packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
 			}
 		}
+
+		// Delete peer
+		_deletePeer(context, peer);
 	}
 }
 

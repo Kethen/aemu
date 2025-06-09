@@ -44,7 +44,8 @@ int proNetAdhocMatchingCreate(int mode, int maxnum, uint16_t port, int rxbuflen,
 		if(maxnum > 1 && maxnum <= 16)
 		{
 			// Valid Receive Buffer size
-			if(rxbuflen >= 1024) // Maybe 2048?
+			//if(rxbuflen >= 1024) // Maybe 2048?
+			if(rxbuflen > 0) // PPSSPP checks for 1 instead
 			{
 				// Valid Arguments
 				if(mode >= 1 && mode <= 3)
