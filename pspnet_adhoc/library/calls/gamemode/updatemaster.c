@@ -49,8 +49,14 @@ int proNetAdhocGameModeUpdateMaster(void)
 		RETURN_UNLOCK(ADHOC_NOT_CREATED);
 	}
 
-	// Kind of inaccurate, we re-send now in non block mode
-	sceNetAdhocPdpSend(_gamemode.pdp_sock_id, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.data, _gamemode.data_size, 0, 1);
+	// Copy data to data buffer
+	memcpy(_gamemode.recv_buf, _gamemode.data, _gamemode.data_size);
+
+	// Let the data repeat begin
+	_gamemode.data_updated = 1;
+
+	// Kind of inaccurate, we send now in non block mode
+	sceNetAdhocPdpSend(_gamemode.pdp_sock_id, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 1);
 
 	RETURN_UNLOCK(0);
 }

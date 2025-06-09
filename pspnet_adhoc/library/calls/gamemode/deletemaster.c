@@ -35,6 +35,8 @@ int proNetAdhocGameModeDeleteMaster(void)
 		RETURN_UNLOCK(ADHOC_NOT_INITIALIZED);
 	}
 
+	// Delete master if we have a master
+	#if 0
 	// Check if we're in game mode
 	SceNetAdhocctlGameModeInfo gamemode_info;
 	int gamemode_info_get_status = sceNetAdhocctlGetGameModeInfo(&gamemode_info);
@@ -42,6 +44,7 @@ int proNetAdhocGameModeDeleteMaster(void)
 	{
 		RETURN_UNLOCK(ADHOC_NOT_IN_GAMEMODE);
 	}
+	#endif
 
 	// Check if there is a master
 	if (_gamemode.data == NULL)
@@ -66,6 +69,7 @@ int proNetAdhocGameModeDeleteMaster(void)
 	sceNetAdhocPdpDelete(_gamemode.pdp_sock_id, 0);
 
 	// Clean data
+	free(_gamemode.recv_buf);
 	memset(&_gamemode, 0, sizeof(GamemodeInternal));
 
 	RETURN_UNLOCK(0);

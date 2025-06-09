@@ -25,15 +25,39 @@ const SceNetEtherAddr _broadcast_mac = {.data = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0
 static int gamemode_master_thread(SceSize args, void *argp)
 {
 	sceKernelDelayThread(GAMEMODE_INIT_DELAY_USEC);
+
+	SceNetAdhocctlGameModeInfo last_gamemode_info = {0};
+
 	while(!_gamemode.stop_thread)
 	{
 		// yolo braodcast
 		// in the PPSSPP implementation, adhoc ctl should update gamemode peer status, as more peers are inserted
-		// here we instead send on update and keep a background ping, let's see how it goes...
+		// packets should only send to changed peers, but let's see if this works
 
-		sceNetAdhocPdpSend(_gamemode.pdp_sock_id, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.data, _gamemode.data_size, 0, 0);
+		// check for peer change since last time
+		SceNetAdhocctlGameModeInfo gamemode_info = {0};
+		int gamemode_info_get_status = sceNetAdhocctlGetGameModeInfo(&gamemode_info);
+		if (gamemode_info_get_status != 0)
+		{
+			printk("%s: failed grabbing gamemode info for some reason\n", __func__);
+			sceKernelDelayThread(100000);
+			continue;
+		}
 
-		sceKernelDelayThread(1000000);
+		if (!_gamemode.data_updated)
+		{
+			sceKernelDelayThread(100000);
+			continue;
+		}
+
+		if (memcmp(&last_gamemode_info, &gamemode_info, sizeof(SceNetAdhocctlGameModeInfo)) != 0)
+		{
+			// Peer changes, re-broadcast
+			last_gamemode_info = gamemode_info;
+			sceNetAdhocPdpSend(_gamemode.pdp_sock_id, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 0);
+		}
+
+		sceKernelDelayThread(100000);
 	}
 	_gamemode.stop_thread = -1;
 	return 0;
@@ -81,12 +105,20 @@ int proNetAdhocGameModeCreateMaster(const void * ptr, uint32_t size)
 	sceNetGetLocalEtherAddr(&(_gamemode.saddr));
 	_gamemode.data = (void *)ptr;
 	_gamemode.data_size = size;
-	_gamemode.data_updated = 1;
+
+	_gamemode.recv_buf = malloc(_gamemode.data_size);
+	if (_gamemode.recv_buf == NULL)
+	{
+		printk("%s: failed creating data buffer\n", __func__);
+		RETURN_UNLOCK(NET_NO_SPACE);
+	}
+
 	_gamemode.pdp_sock_id = sceNetAdhocPdpCreate(&(_gamemode.saddr), ADHOC_GAMEMODE_PORT, size, 0);
 
 	if (_gamemode.pdp_sock_id < 0)
 	{
 		printk("%s: failed creating pdp send socket, 0x%x\n", __func__, _gamemode.pdp_sock_id);
+		free(_gamemode.recv_buf);
 		memset(&_gamemode, 0, sizeof(GamemodeInternal));
 		RETURN_UNLOCK(NET_NO_SPACE);
 	}
@@ -95,10 +127,17 @@ int proNetAdhocGameModeCreateMaster(const void * ptr, uint32_t size)
 	if (_gamemode.thread_id < 0)
 	{
 		printk("%s: failed creating broadcast thread, 0x%x\n", __func__, _gamemode.thread_id);
+		free(_gamemode.recv_buf);
 		sceNetAdhocPdpDelete(_gamemode.pdp_sock_id, 0);
 		memset(&_gamemode, 0, sizeof(GamemodeInternal));
 		RETURN_UNLOCK(NET_NO_SPACE);
 	}
+
+	// Going by PPSSPP, the initial data has to be broadcasted
+	memcpy(_gamemode.recv_buf, _gamemode.data, _gamemode.data_size);
+	_gamemode.data_updated = 1;
+	// Broadcast once non block
+	sceNetAdhocPdpSend(_gamemode.pdp_sock_id, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 1);
 
 	int thread_start_status = sceKernelStartThread(_gamemode.thread_id, 0, NULL);
 	if (thread_start_status < 0)
@@ -111,11 +150,13 @@ int proNetAdhocGameModeCreateMaster(const void * ptr, uint32_t size)
 			// uhhhh
 			printk("%s: failed removing broadcast thread, 0x%x\n", __func__, thread_delete_status);
 		}
+		free(_gamemode.recv_buf);
 		sceNetAdhocPdpDelete(_gamemode.pdp_sock_id, 0);
 		memset(&_gamemode, 0, sizeof(GamemodeInternal));
 		RETURN_UNLOCK(NET_NO_SPACE);
 	}
 
-	// master created
+	// Master created
 	RETURN_UNLOCK(0);
 }
+

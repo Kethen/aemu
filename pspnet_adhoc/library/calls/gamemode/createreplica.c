@@ -130,7 +130,7 @@ int proNetAdhocGameModeCreateReplica(const SceNetEtherAddr * src, void * ptr, ui
 	if (next_empty_slot == -1)
 	{
 		// No slot, damn
-		printk("%s: we went out of slots, how\n", __func__);
+		printk("%s: we ran out of slots, how\n", __func__);
 		RETURN_UNLOCK(NET_NO_SPACE);
 	}
 
