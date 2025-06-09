@@ -27,7 +27,7 @@ int proNetAdhocGameModeDeleteReplica(int id)
 	sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
 	#define RETURN_UNLOCK(_v) { \
 		sceKernelUnlockLwMutex(&_gamemode_lock, 1); \
-		printk("%s: %d, 0x%x", __func__, id, _v); \
+		printk("%s: %d, 0x%x\n", __func__, id, _v); \
 		return _v; \
 	}
 

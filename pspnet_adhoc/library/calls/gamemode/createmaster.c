@@ -74,7 +74,7 @@ int proNetAdhocGameModeCreateMaster(const void * ptr, uint32_t size)
 	sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
 	#define RETURN_UNLOCK(_v) { \
 		sceKernelUnlockLwMutex(&_gamemode_lock, 1); \
-		printk("%s: 0x%x %u, 0x%x", __func__, ptr, size, _v); \
+		printk("%s: 0x%x %u, 0x%x\n", __func__, ptr, size, _v); \
 		return _v; \
 	}
 

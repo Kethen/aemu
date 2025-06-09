@@ -52,7 +52,7 @@ int proNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 						if(daddr != NULL && !_isZeroMac(daddr)) // matching PPSSPP, which drops zero dst
 						{
 							// Log Destination
-							#ifdef DEBUG
+							#ifdef TRACE
 							printk("Attempting PDP Send to %02X:%02X:%02X:%02X:%02X:%02X on Port %u\n", daddr->data[0], daddr->data[1], daddr->data[2], daddr->data[3], daddr->data[4], daddr->data[5], dport);
 							#endif
 							

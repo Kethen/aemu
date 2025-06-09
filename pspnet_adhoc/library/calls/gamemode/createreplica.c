@@ -86,7 +86,7 @@ int proNetAdhocGameModeCreateReplica(const SceNetEtherAddr * src, void * ptr, ui
 	sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
 	#define RETURN_UNLOCK(_v) { \
 		sceKernelUnlockLwMutex(&_gamemode_lock, 1); \
-		printk("%s: 0x%x 0x%x %u, %d", __func__, src, ptr, size, _v); \
+		printk("%s: 0x%x 0x%x %u, %d\n", __func__, src, ptr, size, _v); \
 		return _v; \
 	}
 
