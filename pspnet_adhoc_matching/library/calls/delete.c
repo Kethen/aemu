@@ -42,6 +42,9 @@ int proNetAdhocMatchingDelete(int id)
 			// Context is not running
 			if(!context->running)
 			{
+				// End the pdp socket
+				sceNetAdhocPdpDelete(context->socket, 0);
+
 				// Previous Matching Context in Internal List
 				SceNetAdhocMatchingContext * previous = NULL;
 				
