@@ -99,6 +99,12 @@ SceNetAdhocMatchingContext * _findMatchingContext(int id)
 	return NULL;
 }
 
+int _isMacMatch(const void *lhs, const void *rhs)
+{
+	// PPSSPP matches the end 5 bytes, because Gran Turismo modifies the first byte somewhere
+	return memcmp(lhs + 1, rhs + 1, 5) == 0;
+}
+
 /**
  * Find Peer in Context by MAC
  * @param context Matching Context Pointer
@@ -111,7 +117,7 @@ SceNetAdhocMatchingMemberInternal * _findPeer(SceNetAdhocMatchingContext * conte
 	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; for(; peer != NULL; peer = peer->next)
 	{
 		// Found Peer in List
-		if(memcmp(&peer->mac, mac, sizeof(SceNetEtherAddr)) == 0)
+		if(_isMacMatch(&peer->mac, mac))
 		{
 			// Return Peer Pointer
 			return peer;

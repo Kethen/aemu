@@ -75,7 +75,7 @@ int _resolveIP(uint32_t ip, SceNetEtherAddr * mac)
 int _isMacMatch(const void *lhs, const void *rhs)
 {
 	// PPSSPP matches the end 5 bytes, because Gran Turismo modifies the first byte somewhere
-	return memcmp(lhs + 1, rhs + 1, 5);
+	return memcmp(lhs + 1, rhs + 1, 5) == 0;
 }
 
 /**
