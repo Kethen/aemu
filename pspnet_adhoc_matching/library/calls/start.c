@@ -1088,11 +1088,13 @@ void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 		(context->mode == ADHOC_MATCHING_MODE_P2P &&
 		(peer->state == ADHOC_MATCHING_PEER_P2P || peer->state == ADHOC_MATCHING_PEER_OFFER || peer->state == ADHOC_MATCHING_PEER_INCOMING_REQUEST || peer->state == ADHOC_MATCHING_PEER_OUTGOING_REQUEST || peer->state == ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS)))
 		{
+			// Until we have very similar logic with PPSSPP, need to eat the byes for now for at least KHBBS
 			// Spawn Leave / Kick Event
-			_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_BYE, sendermac, 0, NULL);
+			//_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_BYE, sendermac, 0, NULL);
 			
 			// Delete Peer
-			_deletePeer(context, peer);
+			//_deletePeer(context, peer);
+			peer->lastping = 0;
 		}
 		
 		// Parent Bye
@@ -1111,11 +1113,21 @@ void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 			}
 			#endif
 
+
+			// Until we have very similar logic with PPSSPP, we just eat this
+
 			// PPSSPP does one event only
-			_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_BYE, sendermac, 0, NULL);
+			//_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_BYE, sendermac, 0, NULL);
 			
 			// Delete Peer from List
-			_clearPeerList(context);
+			//_clearPeerList(context);
+
+			SceNetAdhocMatchingMemberInternal *peer = context->peerlist;
+			while(peer != NULL)
+			{
+				peer->lastping = 0;
+				peer = peer->next;
+			}
 		}
 	}
 }

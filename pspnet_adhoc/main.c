@@ -147,6 +147,7 @@ int sceNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
+	printk("%s: created pdp on port %u, 0x%x/%d\n", __func__, sport, result, result);
 	return result;
 }
 
@@ -159,6 +160,7 @@ int sceNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
+	//printk("%s: sent pdp on socket %d port %u, 0x%x\n", __func__, id, dport, result);
 	return result;
 }
 
@@ -184,6 +186,7 @@ int sceNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
 	*sport = reverse_port(*sport);
+	//printk("%s: received pdp on socket %d port %u, 0x%x\n", __func__, id, *sport, result);
 	return result;
 }
 
