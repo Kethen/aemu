@@ -116,41 +116,109 @@ int proNetAdhocMatchingGetMembers(int id, int * buflen, SceNetAdhocMatchingMembe
 										buf[filledpeers++].addr = parent->mac;
 									}
 
-									// Iterate Peer List
-									SceNetAdhocMatchingMemberInternal * peer = context->peerlist; for(; peer != NULL && filledpeers < requestedpeers; peer = peer->next)
+									// Get number of list nodes
+									int num_nodes = 0;
+									SceNetAdhocMatchingMemberInternal * peer = context->peerlist; for(; peer != NULL ; peer = peer->next)
 									{
-										// PPSSPP bumps lastping here
-										if (peer->lastping != 0)
+										num_nodes++;
+									}
+
+									// Create reversed list like PPSSPP does
+									SceNetAdhocMatchingMemberInternal **reversed_list = NULL;
+									if (num_nodes > 0)
+										reversed_list = (SceNetAdhocMatchingMemberInternal **)_malloc(num_nodes * sizeof(SceNetAdhocMatchingMemberInternal *));
+
+									if (reversed_list == NULL)
+									{
+										printk("%s: failed creating reversed peer list, might have trouble matching with PPSSPP\n", __func__);
+
+										// Iterate Peer List
+										SceNetAdhocMatchingMemberInternal * peer = context->peerlist; for(; peer != NULL && filledpeers < requestedpeers; peer = peer->next)
 										{
-											peer->lastping = sceKernelGetSystemTimeWide();
+											// PPSSPP bumps lastping here
+											if (peer->lastping != 0)
+											{
+												peer->lastping = sceKernelGetSystemTimeWide();
+											}
+
+											// Parent Mode
+											if(context->mode == ADHOC_MATCHING_MODE_PARENT)
+											{
+												// Interested in Children (Michael Jackson Style)
+												if(peer->state == ADHOC_MATCHING_PEER_CHILD)
+												{
+													// Add Child MAC
+													buf[filledpeers++].addr = peer->mac;
+												}
+											}
+
+											// Children Mode
+											else
+											{
+												// Interested in Siblings, parent was inserted earlier
+												if(peer->state == ADHOC_MATCHING_PEER_CHILD)
+												{
+													// Add Peer MAC
+													buf[filledpeers++].addr = peer->mac;
+												}
+												else if (peer->state == 0)
+												{
+													// Insert self like PPSSPP does
+													buf[filledpeers++].addr = peer->mac;
+												}
+											}
+										}
+									}
+									else
+									{
+										int i = num_nodes - 1;
+
+										// Times like this c++ looks shiny, this whole code block is duplicated
+
+										SceNetAdhocMatchingMemberInternal * peer = context->peerlist; for(; peer != NULL && i >= 0; peer = peer->next)
+										{
+											// PPSSPP bumps lastping here
+											if (peer->lastping != 0)
+											{
+												peer->lastping = sceKernelGetSystemTimeWide();
+											}
+											reversed_list[i] = peer;
+											i--;
 										}
 
-										// Parent Mode
-										if(context->mode == ADHOC_MATCHING_MODE_PARENT)
+										for (i = 0;i < num_nodes && filledpeers < requestedpeers;i++)
 										{
-											// Interested in Children (Michael Jackson Style)
-											if(peer->state == ADHOC_MATCHING_PEER_CHILD)
+											peer = reversed_list[i];
+
+											// Parent Mode
+											if(context->mode == ADHOC_MATCHING_MODE_PARENT)
 											{
-												// Add Child MAC
-												buf[filledpeers++].addr = peer->mac;
+												// Interested in Children (Michael Jackson Style)
+												if(peer->state == ADHOC_MATCHING_PEER_CHILD)
+												{
+													// Add Child MAC
+													buf[filledpeers++].addr = peer->mac;
+												}
+											}
+
+											// Children Mode
+											else
+											{
+												// Interested in Siblings, parent was inserted earlier
+												if(peer->state == ADHOC_MATCHING_PEER_CHILD)
+												{
+													// Add Peer MAC
+													buf[filledpeers++].addr = peer->mac;
+												}
+												else if (peer->state == 0)
+												{
+													// Insert self like PPSSPP does
+													buf[filledpeers++].addr = peer->mac;
+												}
 											}
 										}
-										
-										// Children Mode
-										else
-										{
-											// Interested in Siblings, parent was inserted earlier
-											if(peer->state == ADHOC_MATCHING_PEER_CHILD)
-											{
-												// Add Peer MAC
-												buf[filledpeers++].addr = peer->mac;
-											}
-											else if (peer->state == 0)
-											{
-												// Insert self like PPSSPP does
-												buf[filledpeers++].addr = peer->mac;
-											}
-										}
+
+										_free(reversed_list);
 									}
 								}
 								
