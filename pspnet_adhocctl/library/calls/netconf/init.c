@@ -42,16 +42,28 @@ int proUtilityNetconfInitStart(SceUtilityNetconfParam * param)
 					// Disconnect from Network (if any)
 					// On second thought not such a good idea... produces invalid events...
 					// proNetAdhocctlDisconnect();
-					
-					// Create Network
-					if(proNetAdhocctlCreate(&param->adhoc_param->group_name) == 0)
+
+					int join_status = 0;
+					// Join network
+					if (param->type == UTILITY_NETCONF_TYPE_JOIN_ADHOC)
+					{
+						join_status = search_and_join(&param->adhoc_param->group_name, 10000000);
+					}
+					else
+					{
+						join_status = proNetAdhocctlCreate(&param->adhoc_param->group_name);
+					}
+
+					if(join_status == 0)
 					{
 						// Set Library Status
 						// _netconf_status = UTILITY_NETCONF_STATUS_INITIALIZE;
-						
+
+						printk("%s: joined network %s\n", __func__, &param->adhoc_param->group_name);
 						// Return Success
 						return 0;
 					}
+					printk("%s: failed joining network %s\n", __func__, &param->adhoc_param->group_name);
 				}
 			}
 		}

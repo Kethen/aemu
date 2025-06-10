@@ -72,9 +72,9 @@ int sceNetAdhocMatchingCreate(int mode, int maxnum, uint16_t port, int rxbuflen,
 	#endif
 	originalHandler = handler;
 	int result = proNetAdhocMatchingCreate(mode, maxnum, port, rxbuflen, hello_int, keepalive_int, init_count, rexmt_int, handler/*replacementHandler*/);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -84,9 +84,9 @@ int sceNetAdhocMatchingStart(int id, int event_th_prio, int event_th_stack, int 
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocMatchingStart(id, event_th_prio, event_th_stack, input_th_prio, input_th_stack, hello_optlen, hello_opt);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -96,9 +96,9 @@ int sceNetAdhocMatchingStop(int id)
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocMatchingStop(id);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -108,9 +108,9 @@ int sceNetAdhocMatchingDelete(int id)
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocMatchingDelete(id);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -120,9 +120,9 @@ int sceNetAdhocMatchingSelectTarget(int id, const SceNetEtherAddr * target, int 
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocMatchingSelectTarget(id, target, optlen, opt);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -132,9 +132,9 @@ int sceNetAdhocMatchingCancelTarget(int id, const SceNetEtherAddr * target)
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocMatchingCancelTargetWithOpt(id, target, 0, NULL);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -144,9 +144,9 @@ int sceNetAdhocMatchingCancelTargetWithOpt(int id, const SceNetEtherAddr * targe
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocMatchingCancelTargetWithOpt(id, target, optlen, opt);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -180,9 +180,9 @@ int sceNetAdhocMatchingSetHelloOpt(int id, int optlen, const void * opt)
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocMatchingSetHelloOpt(id, optlen, opt);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 

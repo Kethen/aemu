@@ -125,4 +125,9 @@ SceNetAdhocctlPeerInfo * _getInternalPeerList(void);
 
 int _isMacMatch(const void *lhs, const void *rhs);
 
+void _acquireGroupLock(void);
+void _freeGroupLock(void);
+void _freeNetworkRecursive(SceNetAdhocctlScanInfo * node);
+int search_and_join(const SceNetAdhocctlGroupName *group_name, int timeout_usec);
+
 #endif

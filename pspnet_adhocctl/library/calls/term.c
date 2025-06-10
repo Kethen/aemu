@@ -49,13 +49,17 @@ int proNetAdhocctlTerm(void)
 		
 		// Multithreading Unlock
 		_freePeerLock();
-		
+
+		_acquireGroupLock();
+
 		// Free Group Memory
 		_freeNetworkRecursive(_networks);
 		
 		// Delete Group Reference
 		_networks = NULL;
-		
+
+		_freeGroupLock();
+
 		// Delete Socket
 		sceNetInetClose(_metasocket);
 		

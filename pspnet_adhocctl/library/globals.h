@@ -67,7 +67,8 @@ extern int _hotspot;
 // Meta Socket
 extern int _metasocket;
 
-#ifdef ENABLE_PEERLOCK
+//#ifdef ENABLE_PEERLOCK
+#if 0
 // Peer Locker
 extern int _peerlock;
 #endif
@@ -88,5 +89,9 @@ extern int _num_gamemode_peers;
 extern SceNetEtherAddr _gamemode_peers[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
 extern int _in_gamemode;
 extern SceNetEtherAddr _gamemode_host;
+
+extern SceLwMutexWorkarea networking_lock;
+extern SceLwMutexWorkarea peer_lock;
+extern SceLwMutexWorkarea group_list_lock;
 
 #endif

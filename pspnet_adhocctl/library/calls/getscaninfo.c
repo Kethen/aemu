@@ -35,7 +35,8 @@ int proNetAdhocctlGetScanInfo(int * buflen, SceNetAdhocctlScanInfo * buf)
 		if(buflen != NULL)
 		{
 			// Multithreading Lock
-			_acquirePeerLock();
+			//_acquirePeerLock();
+			_acquireGroupLock();
 			
 			// Length Returner Mode
 			if(buf == NULL) *buflen = _countAvailableNetworks() * sizeof(SceNetAdhocctlScanInfo);
@@ -90,7 +91,8 @@ int proNetAdhocctlGetScanInfo(int * buflen, SceNetAdhocctlScanInfo * buf)
 			}
 			
 			// Multithreading Unlock
-			_freePeerLock();
+			//_freePeerLock();
+			_freeGroupLock();
 			
 			// Return Success
 			return 0;

@@ -40,13 +40,15 @@ int proNetAdhocctlJoinEnterGameMode(const SceNetAdhocctlGroupName * group_name, 
 	// PPSSPP seems to not check host mac here
 
 	// join the adhoc network by group name
-	int join_status = proNetAdhocctlCreate(group_name);
+	//int join_status = proNetAdhocctlCreate(group_name);
+	int join_status = search_and_join(group_name, 10000000);
 	if (join_status < 0)
 	{
 		return join_status;
 	}
 
-	// wait for host to show up
+	// Wait for host to show up
+	#if 0
 	int begin = sceKernelGetSystemTimeLow();
 	while (sceKernelGetSystemTimeLow() - begin < timeout)
 	{
@@ -57,6 +59,7 @@ int proNetAdhocctlJoinEnterGameMode(const SceNetAdhocctlGroupName * group_name, 
 			break;
 		}
 	}
+	#endif
 
 	_num_gamemode_peers = 0;
 

@@ -669,22 +669,25 @@ int _friendFinder(SceSize args, void * argp)
 				if(rxpos >= sizeof(SceNetAdhocctlScanPacketS2C))
 				{
 					// Log Incoming Network Information
-					#ifdef DEBUG
-					printk("Incoming Group Information...\n");
-					#endif
 					
 					// Cast Packet
 					SceNetAdhocctlScanPacketS2C * packet = (SceNetAdhocctlScanPacketS2C *)rx;
 					
 					// Allocate Structure Data
 					SceNetAdhocctlScanInfo * group = (SceNetAdhocctlScanInfo *)malloc(sizeof(SceNetAdhocctlScanInfo));
-					
+
+					#ifdef DEBUG
+					printk("%s: incoming Group Information from group %s\n", __func__, packet->group);
+					#endif
+
 					// Allocated Structure Data
 					if(group != NULL)
 					{
 						// Clear Memory
 						memset(group, 0, sizeof(SceNetAdhocctlScanInfo));
-						
+
+						_acquireGroupLock();
+
 						// Link to existing Groups
 						group->next = _networks;
 						
@@ -696,6 +699,8 @@ int _friendFinder(SceSize args, void * argp)
 						
 						// Link into Group List
 						_networks = group;
+
+						_freeGroupLock();
 					}
 					
 					// Move RX Buffer
@@ -772,7 +777,8 @@ int _friendFinder(SceSize args, void * argp)
  */
 void _acquirePeerLock(void)
 {
-	#ifdef ENABLE_PEERLOCK
+	//#ifdef ENABLE_PEERLOCK
+	#if 0
 	// Wait for Unlock
 	while(_peerlock)
 	{
@@ -783,6 +789,8 @@ void _acquirePeerLock(void)
 	// Lock Access
 	_peerlock = 1;
 	#endif
+
+	sceKernelLockLwMutex(&peer_lock, 1, 0);
 }
 
 /**
@@ -790,10 +798,29 @@ void _acquirePeerLock(void)
  */
 void _freePeerLock(void)
 {
-	#ifdef ENABLE_PEERLOCK
+	//#ifdef ENABLE_PEERLOCK
+	#if 0
 	// Unlock Access
 	_peerlock = 0;
 	#endif
+
+	sceKernelUnlockLwMutex(&peer_lock, 1);
+}
+
+/**
+ * Lock Grouplist
+ */
+void _acquireGroupLock(void)
+{
+	sceKernelLockLwMutex(&group_list_lock, 1, 0);
+}
+
+/**
+ * Unlock Grouplist
+ */
+void _freeGroupLock(void)
+{
+	sceKernelUnlockLwMutex(&group_list_lock, 1);
 }
 
 /**

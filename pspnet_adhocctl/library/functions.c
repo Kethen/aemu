@@ -142,3 +142,65 @@ SceNetAdhocctlPeerInfo * _getInternalPeerList(void)
 	// Return First Peer List Element
 	return _friends;
 }
+
+int search_and_join(const SceNetAdhocctlGroupName *group_name, int timeout_usec){
+	// Clear currently known networks
+	_acquireGroupLock();
+	_freeNetworkRecursive(_networks);
+	_networks = NULL;
+	_freeGroupLock();
+
+	int begin = sceKernelGetSystemTimeLow();
+	int found = 0;
+
+	while (sceKernelGetSystemTimeLow() - begin < timeout_usec)
+	{
+		// Trigger scanning
+		if (_thread_status != ADHOCCTL_STATE_SCANNING)
+		{
+			proNetAdhocctlScan();
+		}
+
+		// Wait for scanning to be done
+		while(_thread_status == ADHOCCTL_STATE_SCANNING && sceKernelGetSystemTimeLow() - begin < timeout_usec)
+		{
+			sceKernelDelayThread(10000);
+		}
+
+		_acquireGroupLock();
+		SceNetAdhocctlScanInfo *group = _networks;
+		found = 0;
+		while(group != NULL)
+		{
+			printk("%s: group 0x%x group name %s, looking for %s\n", __func__, group, &group->group_name, group_name);
+			if (memcmp(&group->group_name, group_name, sizeof(SceNetAdhocctlGroupName)) == 0)
+			{
+				found = 1;
+				break;
+			}
+			group = group->next;
+		}
+		_freeGroupLock();
+
+		if (found){
+			break;
+		}
+		sceKernelDelayThread(10000);
+	}
+
+	// Either way we join the group and hope for the best
+	int join_result = proNetAdhocctlCreate(group_name);
+
+	if (found)
+	{
+		printk("%s: network %s found\n", __func__, group_name);
+		// 3 seconds padding
+		//sceKernelDelayThread(3000000);
+	}
+	else
+	{
+		printk("%s: network %s not found\n", __func__, group_name);
+	}
+
+	return join_result;
+}

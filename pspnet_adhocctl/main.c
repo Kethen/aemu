@@ -23,6 +23,12 @@
 PSP_MODULE_INFO(MODULENAME, PSP_MODULE_USER + 6, 1, 6);
 PSP_HEAP_SIZE_KB(100);
 
+#if 0
+SceLwMutexWorkarea networking_lock;
+#endif
+SceLwMutexWorkarea peer_lock;
+SceLwMutexWorkarea group_list_lock;
+
 // Stubs
 int sceNetAdhocctlInit(int stacksize, int prio, const SceNetAdhocctlAdhocId * adhoc_id)
 {
@@ -42,9 +48,9 @@ int sceNetAdhocctlJoin(const SceNetAdhocctlScanInfo * scan_info)
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlJoin(scan_info);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -102,9 +108,9 @@ int sceNetAdhocctlConnect(const SceNetAdhocctlGroupName * group_name)
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlConnect(group_name);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -114,9 +120,9 @@ int sceNetAdhocctlCreate(const SceNetAdhocctlGroupName * group_name)
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlConnect(group_name);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -126,9 +132,9 @@ int sceNetAdhocctlCreateEnterGameMode(const SceNetAdhocctlGroupName * group_name
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlCreateEnterGameMode(group_name, game_type, num, members, timeout, flag);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -138,9 +144,9 @@ int sceNetAdhocctlCreateEnterGameModeMin(const SceNetAdhocctlGroupName * group_n
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlCreateEnterGameModeMin(group_name, game_type, min_members, num_members, members, timeout, flag);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -150,9 +156,9 @@ int sceNetAdhocctlJoinEnterGameMode(const SceNetAdhocctlGroupName * group_name, 
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlJoinEnterGameMode(group_name, gc, timeout, flag);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -162,9 +168,9 @@ int sceNetAdhocctlScan(void)
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlScan();
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -174,9 +180,9 @@ int sceNetAdhocctlDisconnect(void)
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlDisconnect();
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -186,9 +192,9 @@ int sceNetAdhocctlExitGameMode(void)
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlExitGameMode();
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -279,9 +285,9 @@ int sceNetAdhocctlGetScanInfo(int * buflen, SceNetAdhocctlScanInfo * buf)
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlGetScanInfo(buflen, buf);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -304,9 +310,9 @@ int sceUtilityNetconfInitStartKernel(SceUtilityNetconfParam * param)
 	printk("Entering %s\n", "sceUtilityNetconfInitStart");
 	#endif
 	int result = proUtilityNetconfInitStart(param);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", "sceUtilityNetconfInitStart", result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -316,9 +322,9 @@ int sceUtilityNetconfGetStatusKernel(void)
 	printk("Entering %s\n", "sceUtilityNetconfGetStatus");
 	#endif
 	int result = proUtilityNetconfGetStatus();
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", "sceUtilityNetconfGetStatus", result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -328,9 +334,9 @@ int sceUtilityNetconfUpdateKernel(int speed)
 	printk("Entering %s\n", "sceUtilityNetconfUpdate");
 	#endif
 	int result = proUtilityNetconfUpdate(speed);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", "sceUtilityNetconfUpdate", result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -340,9 +346,9 @@ int sceUtilityNetconfShutdownStartKernel(void)
 	printk("Entering %s\n", "sceUtilityNetconfShutdownStart");
 	#endif
 	int result = proUtilityNetconfShutdownStart();
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", "sceUtilityNetconfShutdownStart", result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -353,6 +359,23 @@ void clean_littlec();
 int module_start(SceSize args, void * argp)
 {
 	printk(MODULENAME " start!\n");
+	int create_status = sceKernelCreateLwMutex(&peer_lock, "adhocctl_peer", PSP_LW_MUTEX_ATTR_RECURSIVE, 0, NULL);
+	if (create_status != 0)
+	{
+		printk("%s: failed creating peer lock\n", __func__);
+	}
+	create_status = sceKernelCreateLwMutex(&group_list_lock, "adhocctl_group_list", PSP_LW_MUTEX_ATTR_RECURSIVE, 0, NULL);
+	if (create_status != 0)
+	{
+		printk("%s: failed creating group list lock\n", __func__);
+	}
+	#if 0
+	create_status = sceKernelCreateLwMutex(&networking_lock, "adhocctl_networking", PSP_LW_MUTEX_ATTR_RECURSIVE, 0, NULL);
+	if (create_status != 0)
+	{
+		printk("%s: failed creating networking lock\n", __func__);
+	}
+	#endif
 	patch_netconf_utility(sceUtilityNetconfInitStartKernel, sceUtilityNetconfGetStatusKernel, sceUtilityNetconfUpdateKernel, sceUtilityNetconfShutdownStartKernel);
 	init_littlec();
 	return 0;
@@ -363,5 +386,11 @@ int module_stop(SceSize args, void * argp)
 {
 	printk(MODULENAME " stop!\n");
 	clean_littlec();
+	#if 0
+	sceKernelDeleteLwMutex(&networking_lock);
+	#endif
+	sceKernelDeleteLwMutex(&peer_lock);
+	sceKernelDeleteLwMutex(&group_list_lock);
 	return 0;
 }
+
