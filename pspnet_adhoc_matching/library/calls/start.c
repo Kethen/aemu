@@ -464,49 +464,53 @@ int _matchingInputThread(SceSize args, void * argp)
 			// Free Stack
 			context->input_stack_lock = 0;
 		}
-		
-		// Receive PDP Datagram
-		SceNetEtherAddr sendermac;
-		uint16_t senderport;
-		int rxbuflen = context->rxbuflen;
-		int recvresult = sceNetAdhocPdpRecv(context->socket, &sendermac, &senderport, context->rxbuf, &rxbuflen, 0, ADHOC_F_NONBLOCK);
-		
-		// Received Data from a Sender that interests us
-		if(recvresult == 0 && rxbuflen > 0 && context->port == senderport)
-		{
-			// Log Receive Success
-			printk("%s: Received %d Bytes (Opcode: %d/%s)\n", __func__, rxbuflen, context->rxbuf[0], get_opcode_name(context->rxbuf[0]));
-			
-			// Ping Packet
-			if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_PING) _actOnPingPacket(context, &sendermac);
-			
-			// Hello Packet
-			else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_HELLO) _actOnHelloPacket(context, &sendermac, rxbuflen);
-			
-			// Join Packet
-			else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_JOIN) _actOnJoinPacket(context, &sendermac, rxbuflen);
-			
-			// Accept Packet
-			else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_ACCEPT) _actOnAcceptPacket(context, &sendermac, rxbuflen);
-			
-			// Cancel Packet
-			else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_CANCEL) _actOnCancelPacket(context, &sendermac, rxbuflen);
-			
-			// Bulk Data Packet
-			else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_BULK) _actOnBulkDataPacket(context, &sendermac, rxbuflen);
-			
-			// Birth Packet
-			else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_BIRTH) _actOnBirthPacket(context, &sendermac, rxbuflen);
-			
-			// Death Packet
-			else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_DEATH) _actOnDeathPacket(context, &sendermac, rxbuflen);
-			
-			// Bye Packet
-			else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_BYE) _actOnByePacket(context, &sendermac);
-			
-			// Ignore Incoming Trash Data
-		}
-		
+
+		// Process all available packets like PPSSPP does
+		int recvresult = 0;
+		int rxbuflen = 0;
+		do{
+			SceNetEtherAddr sendermac;
+			uint16_t senderport;
+			rxbuflen = context->rxbuflen;
+			recvresult = sceNetAdhocPdpRecv(context->socket, &sendermac, &senderport, context->rxbuf, &rxbuflen, 0, ADHOC_F_NONBLOCK);
+
+			// Received Data from a Sender that interests us
+			if(recvresult == 0 && rxbuflen > 0 && context->port == senderport)
+			{
+				// Log Receive Success
+				printk("%s: Received %d Bytes (Opcode: %d/%s)\n", __func__, rxbuflen, context->rxbuf[0], get_opcode_name(context->rxbuf[0]));
+
+				// Ping Packet
+				if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_PING) _actOnPingPacket(context, &sendermac);
+
+				// Hello Packet
+				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_HELLO) _actOnHelloPacket(context, &sendermac, rxbuflen);
+
+				// Join Packet
+				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_JOIN) _actOnJoinPacket(context, &sendermac, rxbuflen);
+
+				// Accept Packet
+				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_ACCEPT) _actOnAcceptPacket(context, &sendermac, rxbuflen);
+
+				// Cancel Packet
+				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_CANCEL) _actOnCancelPacket(context, &sendermac, rxbuflen);
+
+				// Bulk Data Packet
+				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_BULK) _actOnBulkDataPacket(context, &sendermac, rxbuflen);
+
+				// Birth Packet
+				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_BIRTH) _actOnBirthPacket(context, &sendermac, rxbuflen);
+
+				// Death Packet
+				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_DEATH) _actOnDeathPacket(context, &sendermac, rxbuflen);
+
+				// Bye Packet
+				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_BYE) _actOnByePacket(context, &sendermac);
+
+				// Ignore Incoming Trash Data
+			}
+		} while(recvresult == 0 && rxbuflen > 0);
+
 		// Handle Peer Timeouts
 		_handleTimeout(context);
 		
