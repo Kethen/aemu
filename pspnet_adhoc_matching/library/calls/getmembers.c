@@ -73,7 +73,11 @@ int proNetAdhocMatchingGetMembers(int id, int * buflen, SceNetAdhocMatchingMembe
 						if(requestedpeers > 0)
 						{
 							// Add Local MAC
-							buf[filledpeers++].addr = context->mac;
+							// P2P mode and Parent mode
+							if (peercount == 1 || context->mode != ADHOC_MATCHING_MODE_CHILD)
+							{
+								buf[filledpeers++].addr = context->mac;
+							}
 							
 							// Room for more than local peer
 							if(requestedpeers > 1)
@@ -87,6 +91,11 @@ int proNetAdhocMatchingGetMembers(int id, int * buflen, SceNetAdhocMatchingMembe
 									// P2P Brother found
 									if(p2p != NULL)
 									{
+										// PPSSPP seems to update the ping here
+										if (p2p->lastping != 0)
+										{
+											p2p->lastping = sceKernelGetSystemTimeWide();
+										}
 										// Add P2P Brother MAC
 										buf[filledpeers++].addr = p2p->mac;
 									}
@@ -95,9 +104,27 @@ int proNetAdhocMatchingGetMembers(int id, int * buflen, SceNetAdhocMatchingMembe
 								// Parent or Child Mode
 								else
 								{
+									// PPSSPP inserts parent here during child mode to force ordering
+									// _findParent should not be able to find a parent in parent mode
+									SceNetAdhocMatchingMemberInternal *parent = _findParent(context);
+									if (parent != NULL)
+									{
+										if (parent->lastping != 0)
+										{
+											parent->lastping = sceKernelGetSystemTimeWide();
+										}
+										buf[filledpeers++].addr = parent->mac;
+									}
+
 									// Iterate Peer List
 									SceNetAdhocMatchingMemberInternal * peer = context->peerlist; for(; peer != NULL && filledpeers < requestedpeers; peer = peer->next)
 									{
+										// PPSSPP bumps lastping here
+										if (peer->lastping != 0)
+										{
+											peer->lastping = sceKernelGetSystemTimeWide();
+										}
+
 										// Parent Mode
 										if(context->mode == ADHOC_MATCHING_MODE_PARENT)
 										{
@@ -112,10 +139,15 @@ int proNetAdhocMatchingGetMembers(int id, int * buflen, SceNetAdhocMatchingMembe
 										// Children Mode
 										else
 										{
-											// Interested in Parent & Siblings
-											if(peer->state == ADHOC_MATCHING_PEER_CHILD || peer->state == ADHOC_MATCHING_PEER_PARENT)
+											// Interested in Siblings, parent was inserted earlier
+											if(peer->state == ADHOC_MATCHING_PEER_CHILD)
 											{
 												// Add Peer MAC
+												buf[filledpeers++].addr = peer->mac;
+											}
+											else if (peer->state == 0)
+											{
+												// Insert self like PPSSPP does
 												buf[filledpeers++].addr = peer->mac;
 											}
 										}
