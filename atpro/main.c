@@ -26,6 +26,7 @@
 #include <pspctrl.h>
 #include <psppower.h>
 #include <pspwlan.h>
+#include <psputility_sysparam.h>
 #include <string.h>
 #include "libs.h"
 #include "hud.h"
@@ -270,6 +271,17 @@ int killzone_createfpl(char * name, int pid, uint32_t attr, uint32_t size, int b
 	return sceKernelCreateFpl(name, pid, attr, size, blocks, param);
 }
 
+int get_system_param_int(int id, int *value)
+{
+	if (id == PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL)
+	{
+		*value = 1;
+		return 0;
+	}
+
+	return sceUtilityGetSystemParamInt(id, value);
+}
+
 // Patcher to allow Utility-Made Connections
 void patch_netconf_utility(void * init, void * getstatus, void * update, void * shutdown)
 {
@@ -301,6 +313,9 @@ void patch_netconf_utility(void * init, void * getstatus, void * update, void * 
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x6332AA39, getstatus);
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x91E70E35, update);
 				hook_import_bynid((SceModule *)module, "sceUtility", 0xF88155F6, shutdown);
+
+				// Lie to the game about adhoc channel for at least Ridge Racer 2
+				hook_import_bynid((SceModule *)module, "sceUtility", 0xA5DA2406, get_system_param_int);
 			}
 		}
 	}

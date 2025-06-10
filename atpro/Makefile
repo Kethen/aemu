@@ -9,7 +9,7 @@ CFLAGS = -Os -G0 -Wall -fno-pic
 INCDIR = ../../procfw/include
 LIBDIR = ../../procfw/libs
 
-LIBS = -lpspsystemctrl_kernel -lpsppower -lpspwlan -lpsprtc_driver
+LIBS = -lpspsystemctrl_kernel -lpsppower -lpspwlan -lpsprtc_driver -lpsputility
 
 ifeq ($(RELEASE), 1)
 CFLAGS += -DRELEASE=1

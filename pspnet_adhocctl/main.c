@@ -109,7 +109,7 @@ int sceNetAdhocctlConnect(const SceNetAdhocctlGroupName * group_name)
 	#endif
 	int result = proNetAdhocctlConnect(group_name);
 	//#ifdef TRACE
-	printk("Leaving %s with %08X\n", __func__, result);
+	printk("Leaving %s with %08X, group name %s\n", __func__, result, group_name);
 	//#endif
 	return result;
 }
@@ -121,7 +121,7 @@ int sceNetAdhocctlCreate(const SceNetAdhocctlGroupName * group_name)
 	#endif
 	int result = proNetAdhocctlConnect(group_name);
 	//#ifdef TRACE
-	printk("Leaving %s with %08X\n", __func__, result);
+	printk("Leaving %s with %08X, group name %s\n", __func__, result, group_name);
 	//#endif
 	return result;
 }
@@ -378,6 +378,7 @@ int module_start(SceSize args, void * argp)
 	#endif
 	patch_netconf_utility(sceUtilityNetconfInitStartKernel, sceUtilityNetconfGetStatusKernel, sceUtilityNetconfUpdateKernel, sceUtilityNetconfShutdownStartKernel);
 	init_littlec();
+
 	return 0;
 }
 
