@@ -28,12 +28,21 @@ typedef struct SceNetAdhocctlNickname {
 } __attribute__((packed)) SceNetAdhocctlNickname;
 
 // Peer Information
-typedef struct SceNetAdhocctlPeerInfo {
-	struct SceNetAdhocctlPeerInfo * next;
+typedef struct SceNetAdhocctlPeerInfoEmu {
+	struct SceNetAdhocctlPeerInfoEmu * next;
 	SceNetAdhocctlNickname nickname;
 	SceNetEtherAddr mac_addr;
 	uint32_t ip_addr;
 	uint8_t padding[2];
+	uint64_t last_recv;
+} __attribute__((packed)) SceNetAdhocctlPeerInfoEmu;
+
+typedef struct SceNetAdhocctlPeerInfo {
+	struct SceNetAdhocctlPeerInfo * next;
+	SceNetAdhocctlNickname nickname;
+	SceNetEtherAddr mac_addr;
+	uint16_t padding; // unknown
+	uint32_t flags;
 	uint64_t last_recv;
 } __attribute__((packed)) SceNetAdhocctlPeerInfo;
 
@@ -94,7 +103,7 @@ int _resolveMAC(SceNetEtherAddr * mac, uint32_t * ip);
  * Get First Peer List Element
  * @return First Internal Peer List Element
  */
-SceNetAdhocctlPeerInfo * _getInternalPeerList(void);
+SceNetAdhocctlPeerInfoEmu * _getInternalPeerList(void);
 
 // some more functions
 int sceNetAdhocctlTerm (void);

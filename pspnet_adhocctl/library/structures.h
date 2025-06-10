@@ -96,12 +96,21 @@ typedef struct SceNetAdhocctlParameter {
 } __attribute__((packed)) SceNetAdhocctlParameter;
 
 // Peer Information
-typedef struct SceNetAdhocctlPeerInfo {
-	struct SceNetAdhocctlPeerInfo * next;
+typedef struct SceNetAdhocctlPeerInfoEmu {
+	struct SceNetAdhocctlPeerInfoEmu * next;
 	SceNetAdhocctlNickname nickname;
 	SceNetEtherAddr mac_addr;
 	uint32_t ip_addr;
 	uint8_t padding[2];
+	uint64_t last_recv;
+} __attribute__((packed)) SceNetAdhocctlPeerInfoEmu;
+
+typedef struct SceNetAdhocctlPeerInfo {
+	struct SceNetAdhocctlPeerInfo * next;
+	SceNetAdhocctlNickname nickname;
+	SceNetEtherAddr mac_addr;
+	uint16_t padding; // unknown
+	uint32_t flags;
 	uint64_t last_recv;
 } __attribute__((packed)) SceNetAdhocctlPeerInfo;
 

@@ -35,7 +35,7 @@ int proNetAdhocctlGetNameByAddr(const SceNetEtherAddr * addr, SceNetAdhocctlNick
 			uint8_t localmac[6]; sceWlanGetEtherAddr((void *)localmac);
 			
 			// Local MAC Matches
-			if(memcmp(localmac, addr, sizeof(SceNetEtherAddr)) == 0)
+			if(_isMacMatch(localmac, addr))
 			{
 				// Write Data
 				*nickname = _parameter.nickname;
@@ -48,13 +48,13 @@ int proNetAdhocctlGetNameByAddr(const SceNetEtherAddr * addr, SceNetAdhocctlNick
 			_acquirePeerLock();
 			
 			// Peer Reference
-			SceNetAdhocctlPeerInfo * peer = _friends;
+			SceNetAdhocctlPeerInfoEmu * peer = _friends;
 			
 			// Iterate Peers
 			for(; peer != NULL; peer = peer->next)
 			{
 				// Match found
-				if(memcmp(&peer->mac_addr, addr, sizeof(SceNetEtherAddr)) == 0)
+				if(_isMacMatch(&peer->mac_addr, addr))
 				{
 					// Write Data
 					*nickname = peer->nickname;

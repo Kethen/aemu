@@ -122,7 +122,7 @@ int proNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 								_acquirePeerLock();
 								
 								// Iterate Peers
-								SceNetAdhocctlPeerInfo * peer = _getInternalPeerList();
+								SceNetAdhocctlPeerInfoEmu * peer = _getInternalPeerList();
 								for(; peer != NULL; peer = peer->next)
 								{
 									// Fill in Target Structure

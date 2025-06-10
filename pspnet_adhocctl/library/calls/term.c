@@ -94,7 +94,7 @@ int proNetAdhocctlTerm(void)
  * Recursive Memory Freeing-Helper for Friend-Structures
  * @param node Current Node in List
  */
-void _freeFriendsRecursive(SceNetAdhocctlPeerInfo * node)
+void _freeFriendsRecursive(SceNetAdhocctlPeerInfoEmu * node)
 {
 	// End of List
 	if(node == NULL) return;

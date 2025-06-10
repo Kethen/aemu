@@ -34,7 +34,7 @@ SceNetAdhocctlAdhocId _product_code;
 SceNetAdhocctlParameter _parameter;
 
 // Peer List
-SceNetAdhocctlPeerInfo * _friends = NULL;
+SceNetAdhocctlPeerInfoEmu * _friends = NULL;
 
 // Scan Network List
 SceNetAdhocctlScanInfo * _networks = NULL;
@@ -859,7 +859,7 @@ void _freeNetworkLock(void)
 void _addFriend(SceNetAdhocctlConnectPacketS2C * packet)
 {
 	// Allocate Structure
-	SceNetAdhocctlPeerInfo * peer = (SceNetAdhocctlPeerInfo *)malloc(sizeof(SceNetAdhocctlPeerInfo));
+	SceNetAdhocctlPeerInfoEmu * peer = (SceNetAdhocctlPeerInfoEmu *)malloc(sizeof(SceNetAdhocctlPeerInfo));
 	
 	// Allocated Structure
 	if(peer != NULL)
@@ -897,10 +897,10 @@ void _addFriend(SceNetAdhocctlConnectPacketS2C * packet)
 void _deleteFriendByIP(uint32_t ip)
 {
 	// Previous Peer Reference
-	SceNetAdhocctlPeerInfo * prev = NULL;
+	SceNetAdhocctlPeerInfoEmu * prev = NULL;
 	
 	// Peer Pointer
-	SceNetAdhocctlPeerInfo * peer = _friends;
+	SceNetAdhocctlPeerInfoEmu * peer = _friends;
 	
 	// Iterate Peers
 	for(; peer != NULL; peer = peer->next)

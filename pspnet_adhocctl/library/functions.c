@@ -46,7 +46,7 @@ int _resolveIP(uint32_t ip, SceNetEtherAddr * mac)
 	_acquirePeerLock();
 	
 	// Peer Reference
-	SceNetAdhocctlPeerInfo * peer = _friends;
+	SceNetAdhocctlPeerInfoEmu * peer = _friends;
 	
 	// Iterate Peers
 	for(; peer != NULL; peer = peer->next)
@@ -107,7 +107,7 @@ int _resolveMAC(const SceNetEtherAddr * mac, uint32_t * ip)
 	_acquirePeerLock();
 	
 	// Peer Reference
-	SceNetAdhocctlPeerInfo * peer = _friends;
+	SceNetAdhocctlPeerInfoEmu * peer = _friends;
 	
 	// Iterate Peers
 	for(; peer != NULL; peer = peer->next)
@@ -137,7 +137,7 @@ int _resolveMAC(const SceNetEtherAddr * mac, uint32_t * ip)
  * Get First Peer List Element
  * @return First Internal Peer List Element
  */
-SceNetAdhocctlPeerInfo * _getInternalPeerList(void)
+SceNetAdhocctlPeerInfoEmu * _getInternalPeerList(void)
 {
 	// Return First Peer List Element
 	return _friends;

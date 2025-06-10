@@ -65,7 +65,7 @@ int proNetAdhocctlGetPeerList(int * buflen, SceNetAdhocctlPeerInfo * buf)
 					#endif
 					
 					// Peer Reference
-					SceNetAdhocctlPeerInfo * peer = _friends;
+					SceNetAdhocctlPeerInfoEmu * peer = _friends;
 					
 					// Iterate Peers
 					for(; peer != NULL && discovered < requestcount; peer = peer->next)
@@ -74,7 +74,15 @@ int proNetAdhocctlGetPeerList(int * buflen, SceNetAdhocctlPeerInfo * buf)
 						peer->last_recv = sceKernelGetSystemTimeWide();
 						
 						// Copy Peer Info
-						buf[discovered++] = *peer;
+						buf[discovered].nickname = peer->nickname;
+						// PPSSPP sets this
+						buf[discovered].nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
+						buf[discovered].mac_addr = peer->mac_addr;
+						buf[discovered].padding = 0;
+						// PPSSPP sets this
+						buf[discovered].flags = 0x0400;
+						buf[discovered].last_recv = peer->last_recv;
+						discovered++;
 					}
 					
 					// Link List
@@ -122,7 +130,7 @@ int _getActivePeerCount(void)
 	#endif
 	
 	// Peer Reference
-	SceNetAdhocctlPeerInfo * peer = _friends;
+	SceNetAdhocctlPeerInfoEmu * peer = _friends;
 	
 	// Iterate Peers
 	for(; peer != NULL; peer = peer->next)

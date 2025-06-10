@@ -39,17 +39,22 @@ int proNetAdhocctlGetPeerInfo(SceNetEtherAddr * addr, int size, SceNetAdhocctlPe
 			uint8_t localmac[6]; sceWlanGetEtherAddr((void *)localmac);
 			
 			// Local MAC Matches
-			if(memcmp(localmac, addr, sizeof(SceNetEtherAddr)) == 0)
+			if(_isMacMatch(localmac, addr))
 			{
 				// Get Local IP Address
 				union SceNetApctlInfo info; if(sceNetApctlGetInfo(PSP_NET_APCTL_INFO_IP, &info) == 0)
 				{
 					// Add Local Address
 					peer_info->nickname = _parameter.nickname;
+					// PPSSPP sets this
+					peer_info->nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 					peer_info->mac_addr = _parameter.bssid.mac_addr;
-					sceNetInetInetAton(info.ip, &peer_info->ip_addr);
+					peer_info->padding = 0;
+					// PPSSPP sets this
+					peer_info->flags = 0x0400;
+					//sceNetInetInetAton(info.ip, &peer_info->ip_addr);
 					peer_info->last_recv = sceKernelGetSystemTimeWide();
-					
+					peer_info->next = NULL;
 					// Return Success
 					return 0;
 				}
@@ -59,21 +64,25 @@ int proNetAdhocctlGetPeerInfo(SceNetEtherAddr * addr, int size, SceNetAdhocctlPe
 			_acquirePeerLock();
 			
 			// Peer Reference
-			SceNetAdhocctlPeerInfo * peer = _friends;
+			SceNetAdhocctlPeerInfoEmu * peer = _friends;
 			
 			// Iterate Peers
 			for(; peer != NULL; peer = peer->next)
 			{
 				// Found Matching Peer
-				if(memcmp(&peer->mac_addr, addr, sizeof(SceNetEtherAddr)) == 0)
+				if(_isMacMatch(&peer->mac_addr, addr))
 				{
 					// Fake Receive Time
 					peer->last_recv = sceKernelGetSystemTimeWide();
-					
-					// Save Peer Info
-					*peer_info = *peer;
-					
-					// Unlink from Internal List
+
+					peer_info->nickname = peer->nickname;
+					// PPSSPP sets this
+					peer_info->nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
+					peer_info->mac_addr = peer->mac_addr;
+					peer_info->padding = 0;
+					// PSSPP sets this
+					peer_info->flags = 0x0400;
+					peer_info->last_recv = peer->last_recv;
 					peer_info->next = NULL;
 					
 					// Multithreading Unlock

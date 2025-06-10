@@ -51,7 +51,7 @@ extern SceNetAdhocctlAdhocId _product_code;
 extern SceNetAdhocctlParameter _parameter;
 
 // Peer List
-extern SceNetAdhocctlPeerInfo * _friends;
+extern SceNetAdhocctlPeerInfoEmu * _friends;
 
 // Scan Network List
 extern SceNetAdhocctlScanInfo * _networks;

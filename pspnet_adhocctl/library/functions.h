@@ -99,7 +99,7 @@ void _freeNetworkLock(void);
  * Recursive Memory Freeing-Helper for Friend-Structures
  * @param node Current Node in List
  */
-void _freeFriendsRecursive(SceNetAdhocctlPeerInfo * node);
+void _freeFriendsRecursive(SceNetAdhocctlPeerInfoEmu * node);
 
 /**
  * Resolve IP to MAC
@@ -121,7 +121,7 @@ int _resolveMAC(const SceNetEtherAddr * mac, uint32_t * ip);
  * Get First Peer List Element
  * @return First Internal Peer List Element
  */
-SceNetAdhocctlPeerInfo * _getInternalPeerList(void);
+SceNetAdhocctlPeerInfoEmu * _getInternalPeerList(void);
 
 int _isMacMatch(const void *lhs, const void *rhs);
 
