@@ -539,4 +539,3 @@ void _spawnLocalEvent(SceNetAdhocMatchingContext * context, int event, SceNetEth
 	// Spawn Local Event
 	_sendGenericMessage(context, ADHOC_MATCHING_EVENT_STACK, mac, event, optlen, opt);
 }
-

@@ -468,6 +468,7 @@ int _matchingInputThread(SceSize args, void * argp)
 		// Process all available packets like PPSSPP does
 		int recvresult = 0;
 		int rxbuflen = 0;
+		int batch_process_packet_limit = 20;
 		do{
 			SceNetEtherAddr sendermac;
 			uint16_t senderport;
@@ -509,11 +510,12 @@ int _matchingInputThread(SceSize args, void * argp)
 
 				// Ignore Incoming Trash Data
 			}
-		} while(recvresult == 0 && rxbuflen > 0);
+			batch_process_packet_limit--;
+		} while(recvresult == 0 && rxbuflen > 0 && batch_process_packet_limit > 0);
 
 		// Handle Peer Timeouts
 		_handleTimeout(context);
-		
+
 		// Share CPU Time
 		sceKernelDelayThread(10000);
 	}
@@ -1080,7 +1082,22 @@ void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 {
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = _findPeer(context, sendermac);
-	
+
+	SceNetEtherAddr local_mac = {0};
+	sceNetGetLocalEtherAddr(&local_mac);
+
+	if (_isMacMatch(sendermac, &local_mac))
+	{
+		printk("%s: we are sending bye to ourself, please debug this\n", __func__);
+		return;
+	}
+	#ifdef DEBUG
+	else
+	{
+		printk("%s: bye from %x:%x:%x:%x:%x:%x\n", __func__, sendermac->data[0], sendermac->data[1], sendermac->data[2], sendermac->data[3], sendermac->data[4], sendermac->data[5]);
+	}
+	#endif
+
 	// We know this guy
 	if(peer != NULL)
 	{
@@ -1127,10 +1144,31 @@ void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 			//_clearPeerList(context);
 
 			SceNetAdhocMatchingMemberInternal *peer = context->peerlist;
+			SceNetAdhocMatchingMemberInternal *last_peer = NULL;
 			while(peer != NULL)
 			{
-				peer->lastping = 0;
-				peer = peer->next;
+				// Remove self
+				if (_isMacMatch(&peer->mac, &local_mac))
+				{
+					SceNetAdhocMatchingMemberInternal *self = peer;
+					if (peer == context->peerlist)
+					{
+						context->peerlist = peer->next;
+					}
+					else
+					{
+						last_peer->next = peer->next;
+					}
+					peer = peer->next;
+					_free(self);
+				}
+				// Timeout others
+				else
+				{
+					peer->lastping = 0;
+					last_peer = peer;
+					peer = peer->next;
+				}
 			}
 		}
 	}
@@ -1269,7 +1307,7 @@ void _handleTimeout(SceNetAdhocMatchingContext * context)
 		SceNetAdhocMatchingMemberInternal * next = peer->next;
 		
 		// Timeout!
-		if((sceKernelGetSystemTimeWide() - peer->lastping) >= (context->keepalive_int * context->keepalivecounter))
+		if((sceKernelGetSystemTimeWide() - peer->lastping) >= (context->keepalive_int * context->keepalivecounter) || peer->lastping == 0)
 		{
 			// Spawn Timeout Event
 			// sync logic with PPSSPP
@@ -1282,14 +1320,20 @@ void _handleTimeout(SceNetAdhocMatchingContext * context)
 			(peer->state == ADHOC_MATCHING_PEER_P2P || peer->state == ADHOC_MATCHING_PEER_OFFER || peer->state == ADHOC_MATCHING_PEER_INCOMING_REQUEST || peer->state == ADHOC_MATCHING_PEER_OUTGOING_REQUEST || peer->state == ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS)))
 			_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_TIMEOUT, &peer->mac, 0, NULL);
 
-			// PPSSPP send messages here
-			if (context->mode != ADHOC_MATCHING_MODE_PARENT)
+			SceNetEtherAddr local_mac = {0};
+			sceNetGetLocalEtherAddr(&local_mac);
+			// Don't timeout self if in list
+			if(!_isMacMatch(&local_mac, &peer->mac))
 			{
-				_sendDeathPacket(context, &peer->mac);
-			}
-			else
-			{
-				_sendCancelPacket(context, &peer->mac, 0, NULL);
+				// PPSSPP send messages here
+				if (context->mode != ADHOC_MATCHING_MODE_PARENT)
+				{
+					_sendDeathPacket(context, &peer->mac);
+				}
+				else
+				{
+					_sendCancelPacket(context, &peer->mac, 0, NULL);
+				}
 			}
 
 			// Need to keep peer to send the final messages

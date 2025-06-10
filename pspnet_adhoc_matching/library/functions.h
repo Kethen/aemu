@@ -205,4 +205,6 @@ uint32_t _countConnectedPeers(SceNetAdhocMatchingContext * context);
  */
 void _spawnLocalEvent(SceNetAdhocMatchingContext * context, int event, SceNetEtherAddr * mac, int optlen, void * opt);
 
+int _isMacMatch(const void *lhs, const void *rhs);
+
 #endif
