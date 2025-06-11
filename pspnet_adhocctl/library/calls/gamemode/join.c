@@ -39,11 +39,16 @@ int proNetAdhocctlJoinEnterGameMode(const SceNetAdhocctlGroupName * group_name, 
 
 	// PPSSPP seems to not check host mac here
 
+	_in_gamemode = -1;
+	_joining_gamemode = 1;
+	_num_gamemode_peers = 0;
+
 	// join the adhoc network by group name
 	//int join_status = proNetAdhocctlCreate(group_name);
 	int join_status = search_and_join(group_name, 10000000);
 	if (join_status < 0)
 	{
+		_in_gamemode = 0;
 		return join_status;
 	}
 
@@ -61,17 +66,21 @@ int proNetAdhocctlJoinEnterGameMode(const SceNetAdhocctlGroupName * group_name, 
 	}
 	#endif
 
-	_num_gamemode_peers = 0;
-
 	// Notify, we go into game mode regardless of if host made it
+	#if 0
 	for (int i = 0; i < ADHOCCTL_MAX_HANDLER; i++)
 	{
 		// Active Handler
 		if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_GAMEMODE, 0, _event_args[i]);
 	}
+	#endif
 
-	_in_gamemode = 1;
-	_gamemode_host = *gc;
+	_maccpy(&_gamemode_host, gc);
+	_maccpy(&_actual_gamemode_peers[0], &_gamemode_host);
+	sceNetGetLocalEtherAddr(&(_actual_gamemode_peers[1]));
+	_num_actual_gamemode_peers = 2;
+	_gamemode_host_arrived = 0;
+	_gamemode_self_arrived = 0;
 
 	return 0;
 }

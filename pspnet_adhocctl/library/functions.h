@@ -124,10 +124,13 @@ int _resolveMAC(const SceNetEtherAddr * mac, uint32_t * ip);
 SceNetAdhocctlPeerInfoEmu * _getInternalPeerList(void);
 
 int _isMacMatch(const void *lhs, const void *rhs);
+int _isMacSelf(SceNetEtherAddr *addr);
+void _maccpy(void *dst, const void *src);
 
 void _acquireGroupLock(void);
 void _freeGroupLock(void);
 void _freeNetworkRecursive(SceNetAdhocctlScanInfo * node);
 int search_and_join(const SceNetAdhocctlGroupName *group_name, int timeout_usec);
+void _insertGamemodePeer(SceNetEtherAddr *peer);
 
 #endif

@@ -558,10 +558,31 @@ int _friendFinder(SceSize args, void * argp)
 					_thread_status = ADHOCCTL_STATE_CONNECTED;
 					
 					// Notify Event Handlers
-					int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
+					if (!_in_gamemode)
 					{
-						// Active Handler
-						if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_CONNECT, 0, _event_args[i]);
+						int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
+						{
+							// Active Handler
+							if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_CONNECT, 0, _event_args[i]);
+						}
+					}
+					else
+					{
+						// PPSSPP inserts self here into gamemode member list
+						_gamemode_self_arrived = 1;
+						// Should we assume host arrived as well, or should we check the mac address here..? In theory the BSSID is owned by the host...
+						_gamemode_host_arrived = 1;
+
+						if (_num_actual_gamemode_peers >= _num_gamemode_peers && _gamemode_self_arrived && _gamemode_host_arrived)
+						{
+							_in_gamemode = 1;
+
+							int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
+							{
+								// Active Handler
+								if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_GAMEMODE, 0, _event_args[i]);
+							}
+						}
 					}
 					
 					// Move RX Buffer
@@ -627,6 +648,36 @@ int _friendFinder(SceSize args, void * argp)
 					
 					// Fix RX Buffer Length
 					rxpos -= sizeof(SceNetAdhocctlConnectPacketS2C);
+
+					if (_in_gamemode)
+					{
+						// Odd cases where we receive self/host here...
+						int is_self = _isMacSelf(&packet->mac);
+						int is_host = _isMacMatch(&packet->mac, &_gamemode_host);
+						if (is_self)
+						{
+							_gamemode_self_arrived = 1;
+						}
+						if (is_host)
+						{
+							_gamemode_host_arrived = 1;
+						}
+						if (!is_self && !is_host)
+						{
+							// Insert
+							_insertGamemodePeer(&packet->mac);
+						}
+
+						if (_num_actual_gamemode_peers >= _num_gamemode_peers && _gamemode_self_arrived && _gamemode_host_arrived)
+						{
+							_in_gamemode = 1;
+							int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
+							{
+								// Active Handler
+								if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_GAMEMODE, 0, _event_args[i]);
+							}
+						}
+					}
 				}
 			}
 			

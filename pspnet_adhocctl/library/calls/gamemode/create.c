@@ -19,8 +19,13 @@
 
 int _num_gamemode_peers = 0;
 SceNetEtherAddr _gamemode_peers[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
+int _num_actual_gamemode_peers = 0;
+SceNetEtherAddr _actual_gamemode_peers[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
+int _joining_gamemode = 0;
 int _in_gamemode = 0;
 SceNetEtherAddr _gamemode_host;
+int _gamemode_host_arrived = 0;
+int _gamemode_self_arrived = 0;
 
 /**
  * Create and Join a GameMode Network as Host
@@ -52,17 +57,22 @@ int proNetAdhocctlCreateEnterGameMode(const SceNetAdhocctlGroupName * group_name
 
 	// XXX this might have to be on another thread? The real impl seems to be non block
 
-	// join the adhoc network by group name
-	int join_status = proNetAdhocctlCreate(group_name);
-	if (join_status < 0)
-	{
-		return join_status;
-	}
+	_in_gamemode = -1;
+	_joining_gamemode = 0;
 
 	// save member list
 	memcpy(_gamemode_peers, members, sizeof(SceNetEtherAddr) * num);
 	_num_gamemode_peers = num;
 
+	// join the adhoc network by group name
+	int join_status = proNetAdhocctlCreate(group_name);
+	if (join_status < 0)
+	{
+		_in_gamemode = 0;
+		return join_status;
+	}
+
+	#if 0
 	// wait for all members to show up
 	int begin = sceKernelGetSystemTimeLow();
 	while (sceKernelGetSystemTimeLow() - begin < timeout)
@@ -84,16 +94,45 @@ int proNetAdhocctlCreateEnterGameMode(const SceNetAdhocctlGroupName * group_name
 			break;
 		}
 	}
+	#endif
 
+	#if 0
 	// Notify, we go into game mode regardless of if everyone made it it seems
 	for (int i = 0; i < ADHOCCTL_MAX_HANDLER; i++)
 	{
 		// Active Handler
 		if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_GAMEMODE, 0, _event_args[i]);
 	}
+	#endif
 
-	_in_gamemode = 1;
 	sceNetGetLocalEtherAddr(&_gamemode_host);
+	_maccpy(&_actual_gamemode_peers[0], &_gamemode_host);
+	_num_actual_gamemode_peers = 1;
+	_gamemode_host_arrived = 0;
+	_gamemode_self_arrived = 0;
 
 	return 0;
+}
+
+void _insertGamemodePeer(SceNetEtherAddr *peer)
+{
+	if (_num_actual_gamemode_peers >= ADHOCCTL_GAMEMODE_MAX_MEMBERS)
+	{
+		return;
+	}
+
+	SceNetEtherAddr *begin = _joining_gamemode ? &(_actual_gamemode_peers[2]) : &(_actual_gamemode_peers[1]);
+	int num_slots = _num_actual_gamemode_peers - (_joining_gamemode ? 2 : 1);
+
+	// Move all items one slot right
+	for (int i = num_slots; i > 0;i--)
+	{
+		_maccpy(&begin[i], &begin[i - 1]);
+	}
+
+	// Place new peer
+	_maccpy(&begin[0], peer);
+
+	// Incrememt peer count
+	_num_actual_gamemode_peers++;
 }

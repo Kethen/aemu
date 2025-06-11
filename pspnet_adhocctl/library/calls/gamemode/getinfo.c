@@ -34,43 +34,19 @@ int proNetAdhocctlGetGameModeInfo(SceNetAdhocctlGameModeInfo * info)
 		return ADHOCCTL_INVALID_ARG;
 	}
 
+	// Does this work before the gamemode event?
+	//if (_in_gamemode != 1)
 	if (!_in_gamemode)
 	{
 		return ADHOCCTL_NOT_ENTER_GAMEMODE;
 	}
 
-	SceNetAdhocctlPeerInfo peer_info[ADHOCCTL_GAMEMODE_MAX_MEMBERS];
-	int buf_len = ADHOCCTL_GAMEMODE_MAX_MEMBERS * sizeof(SceNetAdhocctlPeerInfo);
-	int peer_list_get_status = proNetAdhocctlGetPeerList(&buf_len, peer_info);
+	memset(info, 0, sizeof(SceNetAdhocctlGameModeInfo));
 
-	SceNetEtherAddr local_mac = {0};
-	sceNetGetLocalEtherAddr(&local_mac);
-
-	// Host in front, self next, then the rest
-	int is_host = _isMacMatch(&_gamemode_host, &local_mac);
-	info->num = is_host ? 1 : 2;
-	info->member[0] = _gamemode_host;
-	if (!is_host)
+	info->num = _num_actual_gamemode_peers;
+	for (int i = 0; i < info->num;i++)
 	{
-		info->member[1] = local_mac;
-	}
-
-	if (peer_list_get_status == 0)
-	{
-		int num_entries = buf_len / sizeof(SceNetAdhocctlPeerInfo);
-		for (int i = 0;i < num_entries;i++)
-		{
-			if (!_isMacMatch(&_gamemode_host, &(peer_info[i].mac_addr)) && !_isMacMatch(&local_mac, &(peer_info[i].mac_addr)))
-			{
-				info->member[info->num] = peer_info[i].mac_addr;
-
-				(info->num)++;
-				if (info->num == ADHOCCTL_GAMEMODE_MAX_MEMBERS)
-				{
-					break;
-				}
-			}
-		}
+		_maccpy(&(info->member[i]), &(_actual_gamemode_peers[i]));
 	}
 
 	return 0;

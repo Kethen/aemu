@@ -78,6 +78,19 @@ int _isMacMatch(const void *lhs, const void *rhs)
 	return memcmp(lhs + 1, rhs + 1, 5) == 0;
 }
 
+int _isMacSelf(SceNetEtherAddr *addr)
+{
+	SceNetEtherAddr local_mac;
+	sceNetGetLocalEtherAddr(&local_mac);
+	return _isMacMatch(&local_mac, addr);
+}
+
+void _maccpy(void *dst, const void *src)
+{
+	memcpy(dst, src, 6);
+	return;
+}
+
 /**
  * Resolve MAC to IP
  * @param mac Peer MAC Address
