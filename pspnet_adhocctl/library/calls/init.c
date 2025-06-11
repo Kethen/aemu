@@ -585,6 +585,12 @@ int _friendFinder(SceSize args, void * argp)
 								if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_GAMEMODE, 0, _event_args[i]);
 							}
 							printk("%s: sent gamemode event from OPCODE_CONNECT_BSSID handler with %d member(s)\n", __func__, _num_actual_gamemode_peers);
+							#ifdef DEBUG
+							for (int i = 0;i < _num_actual_gamemode_peers;i++)
+							{
+								printk("%s: member %x:%x:%x:%x:%x:%x\n", __func__, _actual_gamemode_peers[i].data[0], _actual_gamemode_peers[i].data[1], _actual_gamemode_peers[i].data[2], _actual_gamemode_peers[i].data[3], _actual_gamemode_peers[i].data[4], _actual_gamemode_peers[i].data[5]);
+							}
+							#endif
 						}
 					}
 					
@@ -678,6 +684,12 @@ int _friendFinder(SceSize args, void * argp)
 								if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_GAMEMODE, 0, _event_args[i]);
 							}
 							printk("%s: sent gamemode event from OPCODE_CONNECT handler with %d member(s)\n", __func__, _num_actual_gamemode_peers);
+							#ifdef DEBUG
+							for (int i = 0;i < _num_actual_gamemode_peers;i++)
+							{
+								printk("%s: member %x:%x:%x:%x:%x:%x\n", __func__, _actual_gamemode_peers[i].data[0], _actual_gamemode_peers[i].data[1], _actual_gamemode_peers[i].data[2], _actual_gamemode_peers[i].data[3], _actual_gamemode_peers[i].data[4], _actual_gamemode_peers[i].data[5]);
+							}
+							#endif
 						}
 					}
 

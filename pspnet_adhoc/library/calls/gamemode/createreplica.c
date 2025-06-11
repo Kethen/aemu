@@ -177,7 +177,7 @@ int proNetAdhocGameModeCreateReplica(const SceNetEtherAddr * src, void * ptr, ui
 		RETURN_UNLOCK(NET_NO_SPACE);
 	}
 
-	int thread_start_status = sceKernelStartThread(gamemode->thread_id, 0, NULL);
+	int thread_start_status = sceKernelStartThread(gamemode->thread_id, 0, gamemode);
 	if (thread_start_status < 0)
 	{
 		// can it fail?
