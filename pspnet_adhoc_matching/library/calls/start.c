@@ -1023,7 +1023,7 @@ void _actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 				sibling->state = ADHOC_MATCHING_PEER_CHILD;
 				
 				// Initialize Ping Timer
-				peer->lastping = sceKernelGetSystemTimeWide();
+				sibling->lastping = sceKernelGetSystemTimeWide();
 				
 				// Link Peer
 				sibling->next = context->peerlist;
