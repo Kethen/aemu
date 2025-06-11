@@ -1187,7 +1187,12 @@ void _postAcceptCleanPeerList(SceNetAdhocMatchingContext * context)
 		SceNetAdhocMatchingMemberInternal * next = peer->next;
 		
 		// Unneeded Peer
-		if(peer->state != ADHOC_MATCHING_PEER_CHILD && peer->state != ADHOC_MATCHING_PEER_P2P && peer->state != ADHOC_MATCHING_PEER_PARENT) _deletePeer(context, peer);
+		//if(peer->state != ADHOC_MATCHING_PEER_CHILD && peer->state != ADHOC_MATCHING_PEER_P2P && peer->state != ADHOC_MATCHING_PEER_PARENT)
+		// PPSSPP does not remove self here
+		if(peer->state != ADHOC_MATCHING_PEER_CHILD && peer->state != ADHOC_MATCHING_PEER_P2P && peer->state != ADHOC_MATCHING_PEER_PARENT && peer->state != 0)
+		{
+			_deletePeer(context, peer);
+		}
 		
 		// Move to Next Peer
 		peer = next;
