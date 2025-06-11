@@ -32,8 +32,6 @@ library/calls/netconf/getstatus.o \
 library/calls/netconf/update.o \
 library/calls/netconf/shutdown.o
 
-LIBS = -lpspwlan
-
 OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LIBRARYOBJS)
 #OBJS = main.o ../memab/ATPRO.o $(LIBRARYOBJS)
 
@@ -85,7 +83,7 @@ BUILD_PRX = 1
 PRX_EXPORTS = exports.exp
 
 LDFLAGS = -nostartfiles
-LIBS = -nostdlib -lpspuser -lpspwlan -lpspnet_inet -lpspnet_resolver -lpspmodinfo -lpsputility
+LIBS = -nostdlib -lpspuser -lpspwlan -lpspnet_inet -lpspnet_resolver -lpspmodinfo -lpsputility -lpspnet_apctl
 
 PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build.mak

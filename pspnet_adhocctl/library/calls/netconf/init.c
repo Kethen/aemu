@@ -19,6 +19,8 @@
 
 // Netconf Status
 int _netconf_status = UTILITY_NETCONF_STATUS_NONE;
+SceUtilityNetconfParam _netconf_param = {0};
+SceUtilityNetconfAdhocParam _netconf_adhoc_param = {0};
 
 /**
  * Connect to Adhoc Network via Kernel Utility Wrapper
@@ -27,48 +29,29 @@ int _netconf_status = UTILITY_NETCONF_STATUS_NONE;
  */
 int proUtilityNetconfInitStart(SceUtilityNetconfParam * param)
 {
-	// Valid Utility State
-	if(_netconf_status == UTILITY_NETCONF_STATUS_NONE)
+	if (_netconf_status != UTILITY_NETCONF_STATUS_NONE)
 	{
-		// Valid Parameter
-		if(param != NULL)
+		printk("%s: bad state %d\n", __func__, _netconf_status);
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	}
+
+	if (param == NULL)
+	{
+		// Panic
+		printk("%s: param is NULL, this is very bad\n", __func__);
+		return -1;
+	}
+
+	if(param->type == UTILITY_NETCONF_TYPE_CONNECT_ADHOC || param->type == UTILITY_NETCONF_TYPE_CREATE_ADHOC || param->type == UTILITY_NETCONF_TYPE_JOIN_ADHOC)
+	{
+		_netconf_param = *param;
+		if (param->adhoc_param != NULL)
 		{
-			// Valid Adhoc Types
-			if(param->type == UTILITY_NETCONF_TYPE_CONNECT_ADHOC || param->type == UTILITY_NETCONF_TYPE_CREATE_ADHOC || param->type == UTILITY_NETCONF_TYPE_JOIN_ADHOC)
-			{
-				// Valid Adhoc Parameter
-				if(param->adhoc_param != NULL)
-				{
-					// Disconnect from Network (if any)
-					// On second thought not such a good idea... produces invalid events...
-					// proNetAdhocctlDisconnect();
-
-					int join_status = 0;
-					// Join network
-					if (param->type == UTILITY_NETCONF_TYPE_JOIN_ADHOC)
-					{
-						join_status = search_and_join(&param->adhoc_param->group_name, 10000000);
-					}
-					else
-					{
-						join_status = proNetAdhocctlCreate(&param->adhoc_param->group_name);
-					}
-
-					if(join_status == 0)
-					{
-						// Set Library Status
-						// _netconf_status = UTILITY_NETCONF_STATUS_INITIALIZE;
-
-						printk("%s: joined network %s\n", __func__, &param->adhoc_param->group_name);
-						// Return Success
-						return 0;
-					}
-					printk("%s: failed joining network %s\n", __func__, &param->adhoc_param->group_name);
-				}
-			}
+			_netconf_adhoc_param = *(param->adhoc_param);
 		}
 	}
-	
-	// Generic Error
-	return -1;
+
+	_netconf_status = UTILITY_NETCONF_STATUS_INITIALIZE;
+
+	return 0;
 }

@@ -23,6 +23,51 @@
  */
 int proUtilityNetconfUpdate(int speed)
 {
-	// Dummy
+	// We should get called once here
+	if (_netconf_status != UTILITY_NETCONF_STATUS_INITIALIZE && _netconf_status != UTILITY_NETCONF_STATUS_RUNNING)
+	{
+		printk("%s: bad state %d\n", __func__, _netconf_status);
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	}
+
+	// Transition into running state
+	_netconf_status = UTILITY_NETCONF_STATUS_RUNNING;
+
+	if (_netconf_param.type != UTILITY_NETCONF_TYPE_CONNECT_ADHOC && _netconf_param.type != UTILITY_NETCONF_TYPE_CREATE_ADHOC && _netconf_param.type != UTILITY_NETCONF_TYPE_JOIN_ADHOC)
+	{
+		// Nothing to do here, or rather, there's no real netconf passthrough here
+		_netconf_status = UTILITY_NETCONF_STATUS_FINISHED;
+		return 0;
+	}
+
+	if (_netconf_param.adhoc_param == NULL)
+	{
+		// Something is wrong, just bail
+		_netconf_status = UTILITY_NETCONF_STATUS_FINISHED;
+		return 0;
+	}
+
+	// Looks like we can block here
+	int join_status = 0;
+	if (_netconf_param.type == UTILITY_NETCONF_TYPE_JOIN_ADHOC)
+	{
+		join_status = search_and_join(&_netconf_adhoc_param.group_name, 10000000);
+	}
+	else
+	{
+		join_status = proNetAdhocctlCreate(&_netconf_adhoc_param.group_name);
+	}
+
+	if (join_status == 0)
+	{
+		printk("%s: joined network %s\n", __func__, &_netconf_adhoc_param.group_name);
+	}
+	else
+	{
+		printk("%s: failed joining network %s, 0x%x\n", __func__, &_netconf_adhoc_param.group_name, join_status);
+	}
+
+	_netconf_status = UTILITY_NETCONF_STATUS_FINISHED;
+
 	return 0;
 }

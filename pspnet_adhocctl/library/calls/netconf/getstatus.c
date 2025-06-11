@@ -23,12 +23,26 @@
  */
 int proUtilityNetconfGetStatus(void)
 {
+	#if 0
+	if (_netconf_status == UTILITY_NETCONF_STATUS_NONE)
+	{
+		return SCE_ERROR_UTILITY_WRONG_TYPE;
+	}
+	#endif
+
 	// State Transition
-	if(_netconf_status == UTILITY_NETCONF_STATUS_NONE) _netconf_status = UTILITY_NETCONF_STATUS_INITIALIZE;
-	else if(_netconf_status == UTILITY_NETCONF_STATUS_INITIALIZE) _netconf_status = UTILITY_NETCONF_STATUS_RUNNING;
-	else if(_netconf_status == UTILITY_NETCONF_STATUS_RUNNING) _netconf_status = UTILITY_NETCONF_STATUS_FINISHED;
-	else if(_netconf_status == UTILITY_NETCONF_STATUS_SHUTDOWN) _netconf_status = UTILITY_NETCONF_STATUS_NONE;
-	
+	if (_netconf_status == UTILITY_NETCONF_STATUS_INITIALIZE)
+	{
+		_netconf_status = UTILITY_NETCONF_STATUS_RUNNING;
+		return UTILITY_NETCONF_STATUS_INITIALIZE;
+	}
+
+	if (_netconf_status == UTILITY_NETCONF_STATUS_SHUTDOWN)
+	{
+		_netconf_status = UTILITY_NETCONF_STATUS_NONE;
+		return UTILITY_NETCONF_STATUS_SHUTDOWN;
+	}
+
 	// Return State
 	return _netconf_status;
 }

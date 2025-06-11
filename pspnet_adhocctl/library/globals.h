@@ -80,6 +80,8 @@ extern int _networklock;
 
 // Netconf Status
 extern int _netconf_status;
+extern SceUtilityNetconfParam _netconf_param;
+extern SceUtilityNetconfAdhocParam _netconf_adhoc_param;
 
 // Bit-Values
 extern int _one;

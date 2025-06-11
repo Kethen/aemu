@@ -24,15 +24,15 @@
 int proUtilityNetconfShutdownStart(void)
 {
 	// Valid Utility State
-	if(_netconf_status == UTILITY_NETCONF_STATUS_FINISHED)
+	if(_netconf_status != UTILITY_NETCONF_STATUS_FINISHED)
 	{
-		// Set Library Status
-		_netconf_status = UTILITY_NETCONF_STATUS_SHUTDOWN;
-		
-		// Return Success
-		return 0;
+		printk("%s: bad state %d\n", __func__, _netconf_status);
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
+
+	// Set Library Status
+	_netconf_status = UTILITY_NETCONF_STATUS_SHUTDOWN;
 	
-	// Generic Error
-	return -1;
+	// Return Success
+	return 0;
 }

@@ -88,39 +88,44 @@ int proNetAdhocctlInit(int stacksize, int prio, const SceNetAdhocctlAdhocId * ad
 		// Minimum Stacksize (just to fake SCE behaviour)
 		if(stacksize >= 3072)
 		{
-			// Read Hotspot Configuration
-			if(_readHotspotConfig() == 0)
+			if (_readHotspotConfig() != 0)
 			{
-				// Get Server IP (String)
-				const char * ip = _readServerConfig();
-				
-				// Read Server Configuration
-				if(ip != NULL)
-				{
-					// Initialize Networking
-					if(_initNetwork(adhoc_id, ip) == 0)
-					{
-						// Create Main Thread
-						int update = sceKernelCreateThread("friend_finder", _friendFinder, prio, 32768, 0, NULL);
-						
-						// Created Main Thread
-						if(update >= 0)
-						{
-							// Initialization Success
-							_init = 1;
-							
-							// Start Main Thread
-							sceKernelStartThread(update, 0, NULL);
-							
-							// Return Success
-							return 0;
-						}
-					}
-				}
+				printk("%s: failed reading hotspot config\n", __func__);
+				return -1;
 			}
+
+			// Get Server IP (String)
+			const char * ip = _readServerConfig();
+
+			if (ip == NULL)
+			{
+				printk("%s: failed reading ip config\n", __func__);
+				return -1;
+			}
+
+			if (_initNetwork(adhoc_id, ip) != 0)
+			{
+				printk("%s: failed initializing networking\n", __func__);
+				return -1;
+			}
+
+			// Create Main Thread
+			int update = sceKernelCreateThread("friend_finder", _friendFinder, prio, 32768, 0, NULL);
+						
+			if (update < 0)
+			{
+				printk("%s: failed creating friend finder thread\n", __func__, update);
+				return -1;
+			}
+
+			// Initialization Success
+			_init = 1;
 			
-			// Generic Error
-			return -1;
+			// Start Main Thread
+			sceKernelStartThread(update, 0, NULL);
+
+			// Return Success
+			return 0;
 		}
 		
 		// Stack too small
@@ -140,173 +145,215 @@ int proNetAdhocctlInit(int stacksize, int prio, const SceNetAdhocctlAdhocId * ad
 int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 {
 	// WLAN Switch Check
-	if(sceWlanGetSwitchState() == 1)
+	int wlan_switch_state = sceWlanGetSwitchState();
+	if (wlan_switch_state != 1)
 	{
-		// Initialize Access Point Control
-		if(sceNetApctlInit(0x1800, 0x30) == 0)
+		printk("%s: wlan switch is off\n", __func__);
+		return -1;
+	}
+
+	int apctl_init_status = sceNetApctlInit(0x1800, 0x30);
+	if (apctl_init_status != 0)
+	{
+		printk("%s: sceNetApctlInit failed, 0x%x\n", __func__, apctl_init_status);
+		return -1;
+	}
+
+	// Attempt Counter
+	int attemptmax = 10;
+
+	// Attempt Number
+	int attempt = 0;
+
+	// Attempt Connection Setup
+	for(; attempt < attemptmax; attempt++)
+	{
+		int apctl_connect_status = sceNetApctlConnect(_hotspot);
+		if (apctl_connect_status != 0)
 		{
-			// Attempt Counter
-			int attemptmax = 10;
+			printk("%s: sceNetApctlConnect failed on attempt %d, 0x%x\n", __func__, attempt, apctl_connect_status);
+			continue;
+		}
+
+		// Wait for Connection
+		int statebefore = 0;
+		int state = 0; while(state != 4)
+		{
+			// Query State
+			int getstate = sceNetApctlGetState(&state);
 			
-			// Attempt Number
-			int attempt = 0;
+			// Log State Change
+			if(statebefore != state) printk("New Connection State: %d\n", state);
 			
-			// Attempt Connection Setup
-			for(; attempt < attemptmax; attempt++)
+			// Query Success
+			if(getstate == 0 && state != 4)
 			{
-				// Start Connection
-				if(sceNetApctlConnect(_hotspot) == 0)
-				{
-					// Wait for Connection
-					int statebefore = 0;
-					int state = 0; while(state != 4)
-					{
-						// Query State
-						int getstate = sceNetApctlGetState(&state);
-						
-						// Log State Change
-						if(statebefore != state) printk("New Connection State: %d\n", state);					
-						
-						// Query Success
-						if(getstate == 0 && state != 4)
-						{
-							// Wait for Retry
-							sceKernelDelayThread(1000000);
-						}
-						
-						// Query Error
-						else break;
-						
-						// Save Before State
-						statebefore = state;
-					}
-					
-					// Connected
-					if(state == 4)
-					{
-						// Create Friend Finder Socket
-						int socket = sceNetInetSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-						
-						// Created Socket
-						if(socket > 0)
-						{
-							// Enable Port Re-use
-							sceNetInetSetsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &_one, sizeof(_one));
-							sceNetInetSetsockopt(socket, SOL_SOCKET, SO_REUSEPORT, &_one, sizeof(_one));
-							
-							// Apply Receive Timeout Settings to Socket
-							// uint32_t timeout = ADHOCCTL_RECV_TIMEOUT;
-							// sceNetInetSetsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-							
-							// Server IP
-							uint32_t ip = 0;
-							
-							// Initialize DNS Resolver
-							if(sceNetResolverInit() == 0)
-							{
-								// Create DNS Resolver
-								unsigned char rbuf[512]; int rid = 0;
-								if(sceNetResolverCreate(&rid, rbuf, sizeof(rbuf)) == 0)
-								{
-									// Resolve Domain
-									if(sceNetResolverStartNtoA(rid, server_ip, &ip, 500000, 2) != 0)
-									{
-										// Attempt IP Conversion
-										sceNetInetInetAton(server_ip, &ip);
-									}
-									
-									// Delete DNS Resolver
-									sceNetResolverDelete(rid);
-								}
-								
-								// Shutdown DNS Resolver
-								sceNetResolverTerm();
-							}
-							
-							// Prepare Server Address
-							SceNetInetSockaddrIn addr;
-							addr.sin_len = sizeof(addr);
-							addr.sin_family = AF_INET;
-							addr.sin_addr = ip;
-							addr.sin_port = sceNetHtons(ADHOCCTL_METAPORT);
-							
-							// Connect to Server
-							if(sceNetInetConnect(socket, (SceNetInetSockaddr *)&addr, sizeof(addr)) == 0)
-							{
-								// Save Meta Socket
-								_metasocket = socket;
-								
-								// Save Product Code
-								_product_code = *adhoc_id;
-								
-								// Clear Event Handler
-								memset(_event_handler, 0, sizeof(_event_handler[0]) * ADHOCCTL_MAX_HANDLER);
-								memset(_event_args, 0, sizeof(_event_args[0]) * ADHOCCTL_MAX_HANDLER);
-								
-								// Clear Internal Control Status
-								memset(&_parameter, 0, sizeof(_parameter));
-								
-								// Read PSP Player Name
-								sceUtilityGetSystemParamString(PSP_SYSTEMPARAM_ID_STRING_NICKNAME, (char *)_parameter.nickname.data, ADHOCCTL_NICKNAME_LEN);
-								
-								// Read Adhoc Channel
-								sceUtilityGetSystemParamInt(PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL, &_parameter.channel);
-								
-								// Fake Channel Number 1 on Automatic Channel
-								if(_parameter.channel == 0) _parameter.channel = 1;
-								
-								// Read PSP MAC Address
-								sceWlanGetEtherAddr((void *)&_parameter.bssid.mac_addr.data);
-								
-								// Prepare Login Packet
-								SceNetAdhocctlLoginPacketC2S packet;
-								
-								// Set Packet Opcode
-								packet.base.opcode = OPCODE_LOGIN;
-								
-								// Set MAC Address
-								packet.mac = _parameter.bssid.mac_addr;
-								
-								// Set Nickname
-								packet.name = _parameter.nickname;
-								
-								// Set Game Product ID
-								memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
-								
-								// Acquire Network Layer Lock
-								_acquireNetworkLock();
-								
-								// Send Login Packet
-								sceNetInetSend(_metasocket, &packet, sizeof(packet), INET_MSG_DONTWAIT);
-								
-								// Free Network Layer Lock
-								_freeNetworkLock();
-								
-								// Load UPNP Library
-								_upnp_uid = sceKernelLoadModule("ms0:/kd/pspnet_miniupnc.prx", 0, NULL);
-								
-								// Start UPNP Library
-								int status = 0; sceKernelStartModule(_upnp_uid, 0, NULL, &status, NULL);
-								
-								// Return Success
-								return 0;
-							}
-							
-							// Delete Socket
-							sceNetInetClose(socket);
-						}
-						
-						// Close Hotspot Connection
-						sceNetApctlDisconnect();
-					}
-				}
+				// Wait for Retry
+				sceKernelDelayThread(1000000);
 			}
 			
-			// Terminate Access Point Control
-			sceNetApctlTerm();	
+			// Query Error
+			else break;
+			
+			// Save Before State
+			statebefore = state;
 		}
+
+		if (state != 4)
+		{
+			printk("%s: failed connecting to ap on attempt %d\n", __func__, attempt);
+			// Close Hotspot Connection
+			sceNetApctlDisconnect();
+			continue;
+		}
+
+		// Create Friend Finder Socket
+		int socket = sceNetInetSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (socket <= 0)
+		{
+			printk("%s: failed creating internet socket on attempt %d, 0x%x\n", __func__, attempt, socket);
+			// Close Hotspot Connection
+			sceNetApctlDisconnect();
+			continue;
+		}
+
+		// Enable Port Re-use
+		sceNetInetSetsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &_one, sizeof(_one));
+		sceNetInetSetsockopt(socket, SOL_SOCKET, SO_REUSEPORT, &_one, sizeof(_one));
+		
+		// Apply Receive Timeout Settings to Socket
+		// uint32_t timeout = ADHOCCTL_RECV_TIMEOUT;
+		// sceNetInetSetsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+		
+		// Server IP
+		uint32_t ip = 0;
+
+		int dns_init_status = sceNetResolverInit();
+		if (dns_init_status != 0)
+		{
+			printk("%s: failed initializing dns resolver on attempt %d, 0x%x\n", __func__, attempt, dns_init_status);
+			// Delete Socket
+			sceNetInetClose(socket);
+			// Close Hotspot Connection
+			sceNetApctlDisconnect();
+			continue;
+		}
+
+		// Create DNS Resolver
+		unsigned char rbuf[512]; int rid = 0;
+
+		int dns_create_status = sceNetResolverCreate(&rid, rbuf, sizeof(rbuf));
+		if (dns_create_status != 0)
+		{
+			printk("%s: failed creating dns resolver on attempt %d, 0x%x\n", __func__, attempt, dns_create_status);
+			// Delete Socket
+			sceNetInetClose(socket);
+			// Shutdown DNS Resolver
+			sceNetResolverTerm();
+			// Close Hotspot Connection
+			sceNetApctlDisconnect();
+			continue;
+		}
+
+		// Resolve Domain
+		if(sceNetResolverStartNtoA(rid, server_ip, &ip, 500000, 2) != 0)
+		{
+			// Attempt IP Conversion
+			sceNetInetInetAton(server_ip, &ip);
+		}
+			
+		// Delete DNS Resolver
+		sceNetResolverDelete(rid);
+
+		// Shutdown DNS Resolver
+		sceNetResolverTerm();
+
+		// Prepare Server Address
+		SceNetInetSockaddrIn addr;
+		addr.sin_len = sizeof(addr);
+		addr.sin_family = AF_INET;
+		addr.sin_addr = ip;
+		addr.sin_port = sceNetHtons(ADHOCCTL_METAPORT);
+
+		int connect_status = sceNetInetConnect(socket, (SceNetInetSockaddr *)&addr, sizeof(addr));
+		if (connect_status != 0)
+		{
+			printk("%s: failed connecting to server %s(0x%x) on attempt %d, 0x%x\n", __func__, server_ip, ip, attempt, connect_status);
+			// Delete Socket
+			sceNetInetClose(socket);
+			// Close Hotspot Connection
+			sceNetApctlDisconnect();
+			continue;
+		}
+		
+		// Save Meta Socket
+		_metasocket = socket;
+		
+		// Save Product Code
+		_product_code = *adhoc_id;
+		
+		// Clear Event Handler
+		memset(_event_handler, 0, sizeof(_event_handler[0]) * ADHOCCTL_MAX_HANDLER);
+		memset(_event_args, 0, sizeof(_event_args[0]) * ADHOCCTL_MAX_HANDLER);
+		
+		// Clear Internal Control Status
+		memset(&_parameter, 0, sizeof(_parameter));
+		
+		// Read PSP Player Name
+		sceUtilityGetSystemParamString(PSP_SYSTEMPARAM_ID_STRING_NICKNAME, (char *)_parameter.nickname.data, ADHOCCTL_NICKNAME_LEN);
+		
+		#if 0
+		// Read Adhoc Channel
+		sceUtilityGetSystemParamInt(PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL, &_parameter.channel);
+		
+		// Fake Channel Number 1 on Automatic Channel
+		if(_parameter.channel == 0) _parameter.channel = 1;
+		#else
+		// Forcing channel 1 for now
+		printk("%s: forcing channel 1 for now\n", __func__);
+		_parameter.channel = 1;
+		#endif
+
+		// Read PSP MAC Address
+		sceWlanGetEtherAddr((void *)&_parameter.bssid.mac_addr.data);
+		
+		// Prepare Login Packet
+		SceNetAdhocctlLoginPacketC2S packet;
+		
+		// Set Packet Opcode
+		packet.base.opcode = OPCODE_LOGIN;
+		
+		// Set MAC Address
+		packet.mac = _parameter.bssid.mac_addr;
+		
+		// Set Nickname
+		packet.name = _parameter.nickname;
+		
+		// Set Game Product ID
+		memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
+		
+		// Acquire Network Layer Lock
+		_acquireNetworkLock();
+		
+		// Send Login Packet
+		sceNetInetSend(_metasocket, &packet, sizeof(packet), INET_MSG_DONTWAIT);
+		
+		// Free Network Layer Lock
+		_freeNetworkLock();
+		
+		// Load UPNP Library
+		_upnp_uid = sceKernelLoadModule("ms0:/kd/pspnet_miniupnc.prx", 0, NULL);
+		
+		// Start UPNP Library
+		int status = 0; sceKernelStartModule(_upnp_uid, 0, NULL, &status, NULL);
+		
+		// Return Success
+		return 0;
 	}
-	
+
+	// Terminate Access Point Control
+	sceNetApctlTerm();
+
 	// Generic Error
 	return -1;
 }

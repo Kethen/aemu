@@ -36,20 +36,20 @@ int sceNetAdhocctlInit(int stacksize, int prio, const SceNetAdhocctlAdhocId * ad
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlInit(stacksize, prio, adhoc_id);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
 int sceNetAdhocctlJoin(const SceNetAdhocctlScanInfo * scan_info)
 {
 	#ifdef TRACE
-	printk("Entering %s\n", __func__);
+	printk("Entering %s, group name %s\n", __func__, scan_info->group_name);
 	#endif
 	int result = proNetAdhocctlJoin(scan_info);
 	//#ifdef TRACE
-	printk("Leaving %s with %08X\n", __func__, result);
+	printk("Leaving %s with %08X, group name %s\n", __func__, result, scan_info->group_name);
 	//#endif
 	return result;
 }
@@ -96,16 +96,16 @@ int sceNetAdhocctlTerm(void)
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlTerm();
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
 int sceNetAdhocctlConnect(const SceNetAdhocctlGroupName * group_name)
 {
 	#ifdef TRACE
-	printk("Entering %s\n", __func__);
+	printk("Entering %s, group name %s\n", __func__, group_name);
 	#endif
 	int result = proNetAdhocctlConnect(group_name);
 	//#ifdef TRACE
@@ -117,7 +117,7 @@ int sceNetAdhocctlConnect(const SceNetAdhocctlGroupName * group_name)
 int sceNetAdhocctlCreate(const SceNetAdhocctlGroupName * group_name)
 {
 	#ifdef TRACE
-	printk("Entering %s\n", __func__);
+	printk("Entering %s, group name %s\n", __func__, group_name);
 	#endif
 	int result = proNetAdhocctlConnect(group_name);
 	//#ifdef TRACE
@@ -167,9 +167,9 @@ int sceNetAdhocctlJoinEnterGameMode(const SceNetAdhocctlGroupName * group_name, 
 
 int sceNetAdhocctlScan(void)
 {
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Entering %s\n", __func__);
-	#endif
+	//#endif
 	int result = proNetAdhocctlScan();
 	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
