@@ -147,7 +147,7 @@ int sceNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
-	printk("%s: created pdp on port %u, 0x%x/%d\n", __func__, sport, result, result);
+	printk("%s: pdp creation on port %u, 0x%x/%d\n", __func__, sport, result, result);
 	return result;
 }
 
@@ -173,6 +173,7 @@ int sceNetAdhocPdpDelete(int id, int flag)
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
+	printk("%s: pdp deletion %d, 0x%x/%d\n", __func__, id, result, result);
 	return result;
 }
 
@@ -218,6 +219,7 @@ int sceNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
+	printk("%s: ptp open from %u to %u, 0x%x/%d\n", __func__, sport, dport, result, result);
 	return result;
 }
 
@@ -230,6 +232,7 @@ int sceNetAdhocPtpConnect(int id, uint32_t timeout, int flag)
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
+	printk("%s: ptp connect on %d, 0x%x/%d\n", __func__, id, result, result);
 	return result;
 }
 
@@ -242,6 +245,7 @@ int sceNetAdhocPtpListen(const SceNetEtherAddr * saddr, uint16_t sport, uint32_t
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
+	printk("%s: ptp listen port %u, 0x%x/%d\n", __func__, sport, result, result);
 	return result;
 }
 
@@ -250,10 +254,23 @@ int sceNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
-	int result = proNetAdhocPtpAccept(id, addr, port, timeout, flag);
+
+	SceNetEtherAddr addr_capture;
+	uint16_t port_capture;
+	int result = proNetAdhocPtpAccept(id, &addr_capture, &port_capture, timeout, flag);
+	if (addr != NULL)
+	{
+		memcpy(addr, &addr_capture, sizeof(SceNetEtherAddr));
+	}
+	if (port != NULL)
+	{
+		*port = port_capture;
+	}
+
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
+	printk("%s: ptp accept on %d, port %u, 0x%x/%d\n", __func__, id, port_capture, result, result);
 	return result;
 }
 
@@ -302,6 +319,7 @@ int sceNetAdhocPtpClose(int id, int flag)
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
+	printk("%s: ptp close %d, 0x%x/%d\n", __func__, id, result, result);
 	return result;
 }
 
@@ -326,6 +344,7 @@ int sceNetAdhocGameModeCreateMaster(const void * ptr, uint32_t size)
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
+	printk("%s: gamemode master creation on 0x%x with size %u, 0x%x/%d\n", __func__, ptr, size, result, result);
 	return result;
 }
 
@@ -338,6 +357,7 @@ int sceNetAdhocGameModeCreateReplica(const SceNetEtherAddr * src, void * ptr, ui
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
+	printk("%s: gamemode replica creation on 0x%x with size %u, 0x%x/%d\n", __func__, ptr, size, result, result);
 	return result;
 }
 

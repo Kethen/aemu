@@ -132,9 +132,10 @@ int sceNetAdhocctlCreateEnterGameMode(const SceNetAdhocctlGroupName * group_name
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlCreateEnterGameMode(group_name, game_type, num, members, timeout, flag);
-	//#ifdef TRACE
+	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	//#endif
+	#endif
+	printk("%s: creating game mode with %d members, 0x%x/%d\n", __func__, num, result/result);
 	return result;
 }
 
@@ -144,9 +145,10 @@ int sceNetAdhocctlCreateEnterGameModeMin(const SceNetAdhocctlGroupName * group_n
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlCreateEnterGameModeMin(group_name, game_type, min_members, num_members, members, timeout, flag);
-	//#ifdef TRACE
+	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	//#endif
+	#endif
+	printk("%s: creating game mode with %d %d members, 0x%x/%d\n", __func__, min_members, num_members, result/result);
 	return result;
 }
 
@@ -156,9 +158,10 @@ int sceNetAdhocctlJoinEnterGameMode(const SceNetAdhocctlGroupName * group_name, 
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocctlJoinEnterGameMode(group_name, gc, timeout, flag);
-	//#ifdef TRACE
+	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	//#endif
+	#endif
+	printk("%s: joinging game mode, 0x%x/%d\n", __func__, result, result);
 	return result;
 }
 
@@ -300,6 +303,10 @@ int sceNetAdhocctlGetGameModeInfo(SceNetAdhocctlGameModeInfo * info)
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
+	if (info != NULL)
+	{
+		printk("%s: returning %d members, 0x%x/%d\n", __func__, info->num, result, result);
+	}
 	return result;
 }
 

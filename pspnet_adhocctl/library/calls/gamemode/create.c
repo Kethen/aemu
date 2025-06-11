@@ -130,6 +130,12 @@ void _insertGamemodePeer(SceNetEtherAddr *peer)
 		_maccpy(&begin[i], &begin[i - 1]);
 	}
 
+	SceNetEtherAddr self;
+	sceNetGetLocalEtherAddr(&self);
+	printk("%s: self %x:%x:%x:%x:%x:%x\n", __func__, self.data[0], self.data[1], self.data[2], self.data[3], self.data[4], self.data[5]);
+	printk("%s: host %x:%x:%x:%x:%x:%x\n", __func__, _gamemode_host.data[0], _gamemode_host.data[1], _gamemode_host.data[2], _gamemode_host.data[3], _gamemode_host.data[4], _gamemode_host.data[5]);
+	printk("%s: inserting %x:%x:%x:%x:%x:%x\n", __func__, peer->data[0], peer->data[1], peer->data[2], peer->data[3], peer->data[4], peer->data[5]);
+
 	// Place new peer
 	_maccpy(&begin[0], peer);
 

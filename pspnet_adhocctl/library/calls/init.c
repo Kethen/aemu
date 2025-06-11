@@ -556,7 +556,9 @@ int _friendFinder(SceSize args, void * argp)
 					
 					// Change State
 					_thread_status = ADHOCCTL_STATE_CONNECTED;
-					
+
+					printk("%s: OPCODE_CONNECT_BSSID with address %x:%x:%x:%x:%x:%x\n", __func__, packet->mac.data[0], packet->mac.data[1], packet->mac.data[2], packet->mac.data[3], packet->mac.data[4], packet->mac.data[5]);
+
 					// Notify Event Handlers
 					if (!_in_gamemode)
 					{
@@ -582,6 +584,7 @@ int _friendFinder(SceSize args, void * argp)
 								// Active Handler
 								if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_GAMEMODE, 0, _event_args[i]);
 							}
+							printk("%s: sent gamemode event from OPCODE_CONNECT_BSSID handler with %d member(s)\n", __func__, _num_actual_gamemode_peers);
 						}
 					}
 					
@@ -642,18 +645,16 @@ int _friendFinder(SceSize args, void * argp)
 					#else
 					setUserCount(_getActivePeerCount()+1);
 					#endif
-					
-					// Move RX Buffer
-					memmove(rx, rx + sizeof(SceNetAdhocctlConnectPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlConnectPacketS2C));
-					
-					// Fix RX Buffer Length
-					rxpos -= sizeof(SceNetAdhocctlConnectPacketS2C);
 
+					printk("%s: OPCODE_CONNECT with address %x:%x:%x:%x:%x:%x\n", __func__, packet->mac.data[0], packet->mac.data[1], packet->mac.data[2], packet->mac.data[3], packet->mac.data[4], packet->mac.data[5]);
+
+					// Game mode notify
 					if (_in_gamemode)
 					{
 						// Odd cases where we receive self/host here...
 						int is_self = _isMacSelf(&packet->mac);
 						int is_host = _isMacMatch(&packet->mac, &_gamemode_host);
+
 						if (is_self)
 						{
 							_gamemode_self_arrived = 1;
@@ -676,8 +677,15 @@ int _friendFinder(SceSize args, void * argp)
 								// Active Handler
 								if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_GAMEMODE, 0, _event_args[i]);
 							}
+							printk("%s: sent gamemode event from OPCODE_CONNECT handler with %d member(s)\n", __func__, _num_actual_gamemode_peers);
 						}
 					}
+
+					// Move RX Buffer
+					memmove(rx, rx + sizeof(SceNetAdhocctlConnectPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlConnectPacketS2C));
+
+					// Fix RX Buffer Length
+					rxpos -= sizeof(SceNetAdhocctlConnectPacketS2C);
 				}
 			}
 			
