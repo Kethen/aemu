@@ -329,9 +329,9 @@ int sceUtilityNetconfGetStatusKernel(void)
 	printk("Entering %s\n", "sceUtilityNetconfGetStatus");
 	#endif
 	int result = proUtilityNetconfGetStatus();
-	//#ifdef TRACE
+	#ifdef TRACE
 	printk("Leaving %s with %08X\n", "sceUtilityNetconfGetStatus", result);
-	//#endif
+	#endif
 	return result;
 }
 

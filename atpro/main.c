@@ -71,6 +71,11 @@ void * loadmoduleiostub = NULL;
 // sceIoClose Stub for 1.X FW
 void * ioclosestub = NULL;
 
+static const uint64_t LOAD_RETURN_MEMORY_THRES_USEC = 5000000;
+static uint64_t game_begin = 0;
+
+static SceUID stolen_memory = -1;
+
 // Adhoc Module Names
 #define MODULE_LIST_SIZE 5
 char * module_names[MODULE_LIST_SIZE] = {
@@ -94,6 +99,48 @@ SceUID module_io_uids[MODULE_LIST_SIZE] = {
 //	-1
 };
 
+void steal_memory()
+{
+	if (stolen_memory >= 0)
+	{
+		printk("%s: refuse to steal memory again\n", __func__);
+		return;
+	}
+	static const int size = 1024 * 1024 * 5;
+	stolen_memory = sceKernelAllocPartitionMemory(2, "inet apctl load reserve", PSP_SMEM_High, size, NULL);
+	if (stolen_memory >= 0)
+	{
+		void *head_addr = sceKernelGetBlockHeadAddr(stolen_memory);
+		if (head_addr < 0x0B000000)
+		{
+			// Not high memory layout
+			printk("%s: Not in high memory layout, 0x%x, releasing %d\n", __func__, head_addr, stolen_memory);
+			sceKernelFreePartitionMemory(stolen_memory);
+			stolen_memory = -1;
+		}
+		else
+		{
+			printk("%s: stole %d, id %d, head 0x%x\n", __func__, size, stolen_memory, sceKernelGetBlockHeadAddr(stolen_memory));
+		}
+	}
+	else
+	{
+		printk("%s: failed to steal memory, 0x%x\n", __func__, stolen_memory);
+	}
+}
+
+void return_memory()
+{
+	if (stolen_memory < 0)
+	{
+		return;
+	}
+
+	sceKernelFreePartitionMemory(stolen_memory);
+	printk("%s: returned memory\n", __func__);
+	stolen_memory = -1;
+}
+
 // Kernel Module Loader
 SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option)
 {
@@ -108,17 +155,27 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option)
 				strcpy((char*)path, "ms0:/kd/");
 				strcpy((char*)path + strlen(path), module_names[i]);
 				
+				if (sceKernelGetSystemTimeWide() - game_begin > LOAD_RETURN_MEMORY_THRES_USEC)
+				{
+					return_memory();
+				}
+
 				// Fix Permission Error
 				uint32_t k1 = pspSdkSetK1(0);
-				
+
 				// Load Module
 				SceUID result = sceKernelLoadModule(path, flags, option);
-				
+
 				// Restore K1 Register
 				pspSdkSetK1(k1);
+
+				if (result < 0)
+				{
+					steal_memory();
+				}
 				
 				// Log Hotswapping
-				printk("Swapping %s, UID=0x%08X\n", module_names[i], result);
+				printk("%s: Swapping %s, UID=0x%08X\n", __func__, module_names[i], result);
 				
 				// Return Module UID
 				return result;
@@ -152,6 +209,11 @@ SceUID load_plugin_io(SceUID fd, int flags, SceKernelLMOption * option)
 				char path[256];
 				strcpy(path, "ms0:/kd/");
 				strcpy(path + strlen(path), module_names[i]);
+
+				if (sceKernelGetSystemTimeWide() - game_begin > LOAD_RETURN_MEMORY_THRES_USEC)
+				{
+					return_memory();
+				}
 				
 				// Avoid 0x80020149 Illegal Permission Error
 				uint32_t k1 = pspSdkSetK1(0);
@@ -161,9 +223,14 @@ SceUID load_plugin_io(SceUID fd, int flags, SceKernelLMOption * option)
 				
 				// Restore K1 Register
 				pspSdkSetK1(k1);
-				
+
+				if (result < 0)
+				{
+					steal_memory();
+				}
+
 				// Log Hotswapping
-				printk("Swapping %s, UID=0x%08X\n", module_names[i], result);
+				printk("%s: Swapping %s, UID=0x%08X\n", __func__, module_names[i], result);
 				
 				// Return Module UID
 				return result;
@@ -191,9 +258,19 @@ SceUID open_plugin(char * path, int flags, int mode)
 				// Create File Path
 				strcpy(path, "ms0:/kd/");
 				strcpy(path + strlen(path), module_names[i]);
+
+				if (sceKernelGetSystemTimeWide() - game_begin > LOAD_RETURN_MEMORY_THRES_USEC)
+				{
+					return_memory();
+				}
 				
 				// Open File
 				SceUID result = sceIoOpen(path, flags, mode);
+
+				if (result < 0)
+				{
+					steal_memory();
+				}
 				
 				// Valid Result
 				if(result >= 0)
@@ -203,7 +280,7 @@ SceUID open_plugin(char * path, int flags, int mode)
 				}
 				
 				// Log File Open
-				printk("Opening %s File Handle, UID=0x%08X\n", module_names[i], result);
+				printk("%s: Opening %s File Handle, UID=0x%08X\n", __func__, module_names[i], result);
 				
 				// Return File UID
 				return result;
@@ -570,49 +647,6 @@ void * create_ioclose_stub(void)
 	return NULL;
 }
 
-static SceUID stolen_memory = -1;
-void steal_memory()
-{
-	if (stolen_memory >= 0)
-	{
-		printk("%s: refuse to steal memory again\n", __func__);
-		return;
-	}
-	static const int size = 1024 * 1024 * 5;
-	stolen_memory = sceKernelAllocPartitionMemory(2, "inet apctl load reserve", PSP_SMEM_High, size, NULL);
-	if (stolen_memory >= 0)
-	{
-		void *head_addr = sceKernelGetBlockHeadAddr(stolen_memory);
-		if (head_addr < 0x0B000000)
-		{
-			// Not high memory layout
-			printk("%s: Not in high memory layout, 0x%x, releasing %d\n", __func__, head_addr, stolen_memory);
-			sceKernelFreePartitionMemory(stolen_memory);
-			stolen_memory = -1;
-		}
-		else
-		{
-			printk("%s: stole %d, id %d, head 0x%x\n", __func__, size, stolen_memory, sceKernelGetBlockHeadAddr(stolen_memory));
-		}
-	}
-	else
-	{
-		printk("%s: failed to steal memory, 0x%x\n", __func__, stolen_memory);
-	}
-}
-
-void return_memory()
-{
-	if (stolen_memory < 0)
-	{
-		return;
-	}
-
-	sceKernelFreePartitionMemory(stolen_memory);
-	printk("%s: returned memory\n", __func__);
-	stolen_memory = -1;
-}
-
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
@@ -643,6 +677,10 @@ int online_patcher(SceModule2 * module)
 	// Userspace Module
 	if((module->text_addr & 0x80000000) == 0)
 	{
+		if (game_begin == 0)
+		{
+			game_begin = sceKernelGetSystemTimeWide();
+		}
 
 		// Might be Untold Legends - Brotherhood of the Blade...
 		if(strcmp(module->modname, "etest") == 0)
