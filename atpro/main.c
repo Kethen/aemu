@@ -101,27 +101,36 @@ SceUID module_io_uids[MODULE_LIST_SIZE] = {
 
 void steal_memory()
 {
+	static const int size = 1024 * 1024 * 5;
+
 	if (stolen_memory >= 0)
 	{
 		printk("%s: refuse to steal memory again\n", __func__);
 		return;
 	}
-	static const int size = 1024 * 1024 * 5;
+
+	// https://github.com/Freakler/CheatDeviceRemastered/blob/fb0b45a254c724a2cef2397237b2d9ada22b37b4/source/utils.c
+	SceUID test_alloc = sceKernelAllocPartitionMemory(2, "highmem probe", PSP_SMEM_High, 1024, NULL);
+
+	if (test_alloc < 0)
+	{
+		printk("%s: cannot probe for memory layout, giving up\n", __func__);
+		return;
+	}
+
+	void *test_head = sceKernelGetBlockHeadAddr(test_alloc);
+	sceKernelFreePartitionMemory(test_alloc);
+
+	if (test_head < 0x0B000000)
+	{
+		printk("%s: Not in high memory layout, 0x%x, releasing %d\n", __func__, test_head, test_alloc);
+		return;
+	}
+
 	stolen_memory = sceKernelAllocPartitionMemory(2, "inet apctl load reserve", PSP_SMEM_High, size, NULL);
 	if (stolen_memory >= 0)
 	{
-		void *head_addr = sceKernelGetBlockHeadAddr(stolen_memory);
-		if (head_addr < 0x0B000000)
-		{
-			// Not high memory layout
-			printk("%s: Not in high memory layout, 0x%x, releasing %d\n", __func__, head_addr, stolen_memory);
-			sceKernelFreePartitionMemory(stolen_memory);
-			stolen_memory = -1;
-		}
-		else
-		{
-			printk("%s: stole %d, id %d, head 0x%x\n", __func__, size, stolen_memory, sceKernelGetBlockHeadAddr(stolen_memory));
-		}
+		printk("%s: stole %d, id %d, head 0x%x\n", __func__, size, stolen_memory, sceKernelGetBlockHeadAddr(stolen_memory));
 	}
 	else
 	{

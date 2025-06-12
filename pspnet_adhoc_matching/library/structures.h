@@ -149,6 +149,9 @@ typedef struct SceNetAdhocMatchingContext {
 	// IO Handler Thread Message Stack
 	int input_stack_lock;
 	ThreadMessage * input_stack;
+
+	// gp value the event handler expects...
+	int gp_value;
 } SceNetAdhocMatchingContext;
 
 #endif

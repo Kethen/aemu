@@ -54,6 +54,23 @@ void _sendByePacket(SceNetAdhocMatchingContext * context);
 // Broadcast MAC
 uint8_t _broadcast[ETHER_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
+static int get_gp_value()
+{
+	register int gp asm ("gp");
+	int gp_value = gp;
+	return gp_value;
+}
+
+static int set_gp_value(int gp_value)
+{
+	register int gp asm ("gp");
+	gp = gp_value;
+	return 0;
+}
+#pragma GCC pop_options
+
 /**
  * Start Matching Context
  * @param id Matching Context ID
@@ -113,6 +130,10 @@ int proNetAdhocMatchingStart(int id, int event_th_prio, int event_th_stack, int 
 					{
 						// Set Running Bit
 						context->running = 1;
+
+						context->gp_value = get_gp_value();
+
+						printk("%s: gp reg value 0x%x stored\n", __func__, context->gp_value);
 						
 						// Start Success
 						RETURN_UNLOCK(0);
@@ -320,9 +341,48 @@ int _matchingEventThread(SceSize args, void * argp)
 				
 				// Log Matching Events
 				printk("%s: Matching Event [ID=%d] [EVENT=%d/%s]\n", __func__, context->id, msg->opcode, get_event_name(msg->opcode));
-				
-				// Call Event Handler
-				context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
+
+				// align opt for safety
+				void *opt_buffer = _malloc(msg->optlen + 8);
+				if (opt_buffer != NULL)
+				{
+					memcpy(opt_buffer, &msg->mac, sizeof(SceNetEtherAddr));
+					memset(opt_buffer + 6, 0, 2);
+					memcpy(opt_buffer + 8, opt, msg->optlen);
+				}
+				else
+				{
+					printk("%s: failed allocating aligned opt buffer, game might have issue processing opt\n", __func__);
+				}
+
+				printk("%s: handler at 0x%x\n", __func__, context->handler);
+
+				// Apply gp value obtained earlier, this looks a bit cursed but needed for GTA:VCS
+				int old_gp_value = get_gp_value();
+
+				// Use the gp reg pointer from the thread calling start
+				set_gp_value(context->gp_value);
+
+				// XXXXXXX Be very careful here, thread local storage is likely weird with changed gp
+
+				if (opt_buffer != NULL)
+				{
+					// Call Event Handler
+					context->handler(context->id, msg->opcode, opt_buffer, msg->optlen, opt_buffer + 8);
+				}
+				else
+				{
+					// Call Event Handler
+					context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
+				}
+
+				// Restore gp
+				set_gp_value(old_gp_value);
+
+				if (opt_buffer != NULL)
+				{
+					_free(opt_buffer);
+				}
 			}
 			
 			// Clear Event Message Stack
