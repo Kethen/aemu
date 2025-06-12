@@ -180,9 +180,9 @@ int sceNetAdhocMatchingSetHelloOpt(int id, int optlen, const void * opt)
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocMatchingSetHelloOpt(id, optlen, opt);
-	//#ifdef TRACE
+	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	//#endif
+	#endif
 	return result;
 }
 
