@@ -13,3 +13,5 @@
 	IMPORT_FUNC  "ATPRO",0xA6110A55,setConnectionStatus
 	IMPORT_FUNC  "ATPRO",0x52B3E65C,setReceptionPercentage
 	IMPORT_FUNC  "ATPRO",0x5E3714C6,setUserCount
+	IMPORT_FUNC  "ATPRO",0xC447A405,steal_memory
+	IMPORT_FUNC  "ATPRO",0x62F792ED,return_memory

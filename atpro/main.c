@@ -570,12 +570,80 @@ void * create_ioclose_stub(void)
 	return NULL;
 }
 
+static SceUID stolen_memory = -1;
+void steal_memory()
+{
+	if (stolen_memory >= 0)
+	{
+		printk("%s: refuse to steal memory again\n", __func__);
+		return;
+	}
+	static const int size = 1024 * 1024 * 5;
+	stolen_memory = sceKernelAllocPartitionMemory(2, "inet apctl load reserve", PSP_SMEM_High, size, NULL);
+	if (stolen_memory >= 0)
+	{
+		void *head_addr = sceKernelGetBlockHeadAddr(stolen_memory);
+		if (head_addr < 0x0B000000)
+		{
+			// Not high memory layout
+			printk("%s: Not in high memory layout, 0x%x, releasing %d\n", __func__, head_addr, stolen_memory);
+			sceKernelFreePartitionMemory(stolen_memory);
+			stolen_memory = -1;
+		}
+		else
+		{
+			printk("%s: stole %d, id %d, head 0x%x\n", __func__, size, stolen_memory, sceKernelGetBlockHeadAddr(stolen_memory));
+		}
+	}
+	else
+	{
+		printk("%s: failed to steal memory, 0x%x\n", __func__, stolen_memory);
+	}
+}
+
+void return_memory()
+{
+	if (stolen_memory < 0)
+	{
+		return;
+	}
+
+	sceKernelFreePartitionMemory(stolen_memory);
+	printk("%s: returned memory\n", __func__);
+	stolen_memory = -1;
+}
+
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
+	printk("%s: module start %s\n", __func__, module->modname);
+
+	static int stole_memory_here = 0;
+	// Steal some memory from game in case it tries to allocate as much as it can on start
+	if (!stole_memory_here)
+	{
+		steal_memory();
+		if (stolen_memory >= 0)
+		{
+			stole_memory_here = 1;
+		}
+	}
+	else
+	{
+		if (stolen_memory >= 0)
+		{
+			printk("%s: not stealing memory here again, stolen memory head 0x%x id %d\n", __func__, sceKernelGetBlockHeadAddr(stolen_memory), stolen_memory);
+		}
+		else
+		{
+			printk("%s: not stealing memory here again\n", __func__);
+		}
+	}
+
 	// Userspace Module
 	if((module->text_addr & 0x80000000) == 0)
 	{
+
 		// Might be Untold Legends - Brotherhood of the Blade...
 		if(strcmp(module->modname, "etest") == 0)
 		{
@@ -953,7 +1021,7 @@ int module_start(SceSize args, void * argp)
 						// Start Input Thread
 						sceKernelStartThread(ctrl, 0, NULL);
 					}
-					
+
 					// Setup Success
 					return 0;
 				}

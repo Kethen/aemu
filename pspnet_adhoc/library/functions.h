@@ -116,4 +116,8 @@ int sceNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 int sceNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, const void * data, int len, uint32_t timeout, int flag);
 int sceNetAdhocPdpDelete(int id, int flag);
 int sceNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void * buf, int * len, uint32_t timeout, int flag);
+
+// From kernel module
+void return_memory();
+void steal_memory();
 #endif

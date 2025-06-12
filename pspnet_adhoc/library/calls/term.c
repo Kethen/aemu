@@ -68,6 +68,9 @@ int proNetAdhocTerm(void)
 		
 		// Library shutdown
 		_init = 0;
+
+		// Occupy memory again
+		steal_memory();
 	}
 
 	sceKernelUnlockLwMutex(&_gamemode_lock, 1);

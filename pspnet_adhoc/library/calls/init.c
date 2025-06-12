@@ -44,9 +44,11 @@ int _zero = 0;
  */
 int proNetAdhocInit(void)
 {
+
 	// Library uninitialized
 	if(!_init)
 	{
+		return_memory();
 		// Initialize Internet Library
 		int result = sceNetInetInit();
 		
@@ -62,7 +64,13 @@ int proNetAdhocInit(void)
 			// Re-Initialize Internet Library
 			result = sceNetInetInit();
 		}
-		
+
+		if(result != 0)
+		{
+			steal_memory();
+			printk("%s: failed initialize internet library\n", __func__);
+		}
+
 		// Initialized Internet Library
 		if(result == 0)
 		{
