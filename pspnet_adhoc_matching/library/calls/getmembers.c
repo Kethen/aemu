@@ -23,6 +23,14 @@
  */
 int proNetAdhocMatchingGetMembers(int id, int * buflen, SceNetAdhocMatchingMember * buf)
 {
+	sceKernelLockLwMutex(&context_list_lock, 1, 0);
+	sceKernelLockLwMutex(&members_lock, 1, 0);
+	#define UNLOCK_RETURN(_v) { \
+		sceKernelUnlockLwMutex(&context_list_lock, 1); \
+		sceKernelUnlockLwMutex(&members_lock, 1); \
+		return _v; \
+	}
+
 	// Initialized Library
 	if(_init == 1)
 	{
@@ -234,24 +242,24 @@ int proNetAdhocMatchingGetMembers(int id, int * buflen, SceNetAdhocMatchingMembe
 						// Fix Buffer Size
 						*buflen = sizeof(SceNetAdhocMatchingMember) * filledpeers;
 					}
-					
+
 					// Return Success
-					return 0;
+					UNLOCK_RETURN(0);
 				}
 				
 				// Invalid Arguments
-				return ADHOC_MATCHING_INVALID_ARG;
+				UNLOCK_RETURN(ADHOC_MATCHING_INVALID_ARG);
 			}
 			
 			// Context not running
-			return ADHOC_MATCHING_NOT_RUNNING;
+			UNLOCK_RETURN(ADHOC_MATCHING_NOT_RUNNING);
 		}
 		
 		// Invalid Matching ID
-		return ADHOC_MATCHING_INVALID_ID;
+		UNLOCK_RETURN(ADHOC_MATCHING_INVALID_ID);
 	}
 	
 	// Uninitialized Library
-	return ADHOC_MATCHING_NOT_INITIALIZED;
+	UNLOCK_RETURN(ADHOC_MATCHING_NOT_INITIALIZED);
 }
 

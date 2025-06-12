@@ -27,6 +27,14 @@
  */
 int proNetAdhocMatchingSelectTarget(int id, const SceNetEtherAddr * target, int optlen, const void * opt)
 {
+	sceKernelLockLwMutex(&context_list_lock, 1, 0);
+	sceKernelLockLwMutex(&members_lock, 1, 0);
+	#define UNLOCK_RETURN(_v) { \
+		sceKernelUnlockLwMutex(&context_list_lock, 1); \
+		sceKernelUnlockLwMutex(&members_lock, 1); \
+		return _v; \
+	}
+
 	// Initialized Library
 	if(_init == 1)
 	{
@@ -55,10 +63,10 @@ int proNetAdhocMatchingSelectTarget(int id, const SceNetEtherAddr * target, int 
 							if(context->mode == ADHOC_MATCHING_MODE_PARENT)
 							{
 								// Already Connected
-								if(peer->state == ADHOC_MATCHING_PEER_CHILD) return ADHOC_MATCHING_ALREADY_ESTABLISHED;
+								if(peer->state == ADHOC_MATCHING_PEER_CHILD) UNLOCK_RETURN(ADHOC_MATCHING_ALREADY_ESTABLISHED);
 								
 								// Not enough space
-								if(_countChildren(context) == (context->maxpeers - 1)) return ADHOC_MATCHING_EXCEED_MAXNUM;
+								if(_countChildren(context) == (context->maxpeers - 1)) UNLOCK_RETURN(ADHOC_MATCHING_EXCEED_MAXNUM);
 								
 								// Requesting Peer
 								if(peer->state == ADHOC_MATCHING_PEER_INCOMING_REQUEST)
@@ -73,7 +81,7 @@ int proNetAdhocMatchingSelectTarget(int id, const SceNetEtherAddr * target, int 
 									_sendBirthMessage(context, peer);
 									
 									// Return Success
-									return 0;
+									UNLOCK_RETURN(0);
 								}
 							}
 							
@@ -81,10 +89,10 @@ int proNetAdhocMatchingSelectTarget(int id, const SceNetEtherAddr * target, int 
 							else if(context->mode == ADHOC_MATCHING_MODE_CHILD)
 							{
 								// Already connected
-								if(_findParent(context) != NULL) return ADHOC_MATCHING_ALREADY_ESTABLISHED;
+								if(_findParent(context) != NULL) UNLOCK_RETURN(ADHOC_MATCHING_ALREADY_ESTABLISHED);
 								
 								// Outgoing Request in Progress
-								if(_findOutgoingRequest(context) != NULL) return ADHOC_MATCHING_REQUEST_IN_PROGRESS;
+								if(_findOutgoingRequest(context) != NULL) UNLOCK_RETURN(ADHOC_MATCHING_REQUEST_IN_PROGRESS);
 								
 								// Valid Offer
 								if(peer->state == ADHOC_MATCHING_PEER_OFFER)
@@ -96,7 +104,7 @@ int proNetAdhocMatchingSelectTarget(int id, const SceNetEtherAddr * target, int 
 									_sendJoinRequest(context, peer, optlen, opt);
 									
 									// Return Success
-									return 0;
+									UNLOCK_RETURN(0);
 								}
 							}
 							
@@ -104,10 +112,10 @@ int proNetAdhocMatchingSelectTarget(int id, const SceNetEtherAddr * target, int 
 							else
 							{
 								// Already connected
-								if(_findP2P(context) != NULL) return ADHOC_MATCHING_ALREADY_ESTABLISHED;
+								if(_findP2P(context) != NULL) UNLOCK_RETURN(ADHOC_MATCHING_ALREADY_ESTABLISHED);
 								
 								// Outgoing Request in Progress
-								if(_findOutgoingRequest(context) != NULL) return ADHOC_MATCHING_REQUEST_IN_PROGRESS;
+								if(_findOutgoingRequest(context) != NULL) UNLOCK_RETURN(ADHOC_MATCHING_REQUEST_IN_PROGRESS);
 								
 								// Join Request Mode
 								if(peer->state == ADHOC_MATCHING_PEER_OFFER)
@@ -119,7 +127,7 @@ int proNetAdhocMatchingSelectTarget(int id, const SceNetEtherAddr * target, int 
 									_sendJoinRequest(context, peer, optlen, opt);
 									
 									// Return Success
-									return 0;
+									UNLOCK_RETURN(0);
 								}
 								
 								// Requesting Peer
@@ -132,35 +140,35 @@ int proNetAdhocMatchingSelectTarget(int id, const SceNetEtherAddr * target, int 
 									_sendAcceptMessage(context, peer, optlen, opt);
 									
 									// Return Success
-									return 0;
+									UNLOCK_RETURN(0);
 								}
 							}
 							
 							// How did this happen?! It shouldn't!
-							return ADHOC_MATCHING_TARGET_NOT_READY;
+							UNLOCK_RETURN(ADHOC_MATCHING_TARGET_NOT_READY);
 						}
 						
 						// Invalid Optional Data Length
-						return ADHOC_MATCHING_INVALID_OPTLEN;
+						UNLOCK_RETURN(ADHOC_MATCHING_INVALID_OPTLEN);
 					}
 					
 					// Peer not found
-					return ADHOC_MATCHING_UNKNOWN_TARGET;
+					UNLOCK_RETURN(ADHOC_MATCHING_UNKNOWN_TARGET);
 				}
 				
 				// Idle Context
-				return ADHOC_MATCHING_NOT_RUNNING;
+				UNLOCK_RETURN(ADHOC_MATCHING_NOT_RUNNING);
 			}
 			
 			// Invalid Matching ID
-			return ADHOC_MATCHING_INVALID_ID;
+			UNLOCK_RETURN(ADHOC_MATCHING_INVALID_ID);
 		}
 		
 		// Invalid Arguments
-		return ADHOC_MATCHING_INVALID_ARG;
+		UNLOCK_RETURN(ADHOC_MATCHING_INVALID_ARG);
 	}
 	
 	// Uninitialized Library
-	return ADHOC_MATCHING_NOT_INITIALIZED;
+	UNLOCK_RETURN(ADHOC_MATCHING_NOT_INITIALIZED);
 }
 

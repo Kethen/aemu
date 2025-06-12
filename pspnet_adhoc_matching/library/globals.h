@@ -104,5 +104,6 @@ extern SceNetAdhocMatchingContext * _contexts;
 
 // List lock for create/start/stop/delete
 extern SceLwMutexWorkarea context_list_lock;
+extern SceLwMutexWorkarea members_lock;
 
 #endif

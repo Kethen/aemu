@@ -26,6 +26,12 @@
  */
 int proNetAdhocMatchingSetHelloOpt(int id, int optlen, const void * opt)
 {
+	sceKernelLockLwMutex(&context_list_lock, 1, 0);
+	#define UNLOCK_RETURN(_v) { \
+		sceKernelUnlockLwMutex(&context_list_lock, 1); \
+		return _v; \
+	}
+
 	// Library Initialized
 	if(_init == 1)
 	{
@@ -61,7 +67,7 @@ int proNetAdhocMatchingSetHelloOpt(int id, int optlen, const void * opt)
 							hello = _malloc(optlen);
 							
 							// Out of Memory
-							if(hello == NULL) return ADHOC_MATCHING_NO_SPACE;
+							if(hello == NULL) UNLOCK_RETURN(ADHOC_MATCHING_NO_SPACE);
 							
 							// Clone Hello Data
 							memcpy(hello, opt, optlen);
@@ -72,26 +78,26 @@ int proNetAdhocMatchingSetHelloOpt(int id, int optlen, const void * opt)
 						}
 						
 						// Return Success
-						return 0;
+						UNLOCK_RETURN(0);
 					}
 					
 					// Invalid Optional Data Length
-					return ADHOC_MATCHING_INVALID_OPTLEN;
+					UNLOCK_RETURN(ADHOC_MATCHING_INVALID_OPTLEN);
 				}
 				
 				// Context not running
-				return ADHOC_MATCHING_NOT_RUNNING;
+				UNLOCK_RETURN(ADHOC_MATCHING_NOT_RUNNING);
 			}
 			
 			// Invalid Matching Mode (Child)
-			return ADHOC_MATCHING_INVALID_MODE;
+			UNLOCK_RETURN(ADHOC_MATCHING_INVALID_MODE);
 		}
 		
 		// Invalid Matching ID
-		return ADHOC_MATCHING_INVALID_ID;
+		UNLOCK_RETURN(ADHOC_MATCHING_INVALID_ID);
 	}
 	
 	// Uninitialized Library
-	return ADHOC_MATCHING_NOT_INITIALIZED;
+	UNLOCK_RETURN(ADHOC_MATCHING_NOT_INITIALIZED);
 }
 

@@ -27,6 +27,7 @@ PSP_HEAP_SIZE_KB(HEAP_SIZE);
 SceNetAdhocMatchingHandler originalHandler = NULL;
 
 SceLwMutexWorkarea context_list_lock;
+SceLwMutexWorkarea members_lock;
 
 // Replacement Matching Handler
 void replacementHandler(int id, int event, SceNetEtherAddr * peer, int optlen, void * opt)
@@ -247,6 +248,12 @@ int module_start(SceSize args, void * argp)
 	{
 		printk("%s: failed creating matching context list mutex, 0x%x\n", __func__, mutex_create_status);
 	}
+	mutex_create_status = sceKernelCreateLwMutex(&members_lock, "adhoc_matching_members", PSP_LW_MUTEX_ATTR_RECURSIVE, 0, NULL);
+	if (mutex_create_status != 0)
+	{
+		printk("%s: failed creating matching members mutex, 0x%x\n", __func__, mutex_create_status);
+	}
+
 	return 0;
 }
 

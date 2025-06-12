@@ -509,13 +509,17 @@ int _matchingInputThread(SceSize args, void * argp)
 			// Update Ping Timer
 			lastping = sceKernelGetSystemTimeWide();
 		}
-		
+
 		// Messages on Stack ready for processing
 		if(context->input_stack != NULL && context->input_stack_lock == 0)
 		{
 			// Claim Stack
+			// XXX these int locks are scary, probably should convert them to lwmutex, an interrupt here and some bad luck it could go borked
 			context->input_stack_lock = 1;
-			
+
+			// Lock member access since the list will be touched here
+			sceKernelLockLwMutex(&members_lock, 1, 0);
+
 			// Iterate Message List
 			ThreadMessage * msg = context->input_stack; for(; msg != NULL; msg = msg->next)
 			{
@@ -551,7 +555,10 @@ int _matchingInputThread(SceSize args, void * argp)
 			
 			// Clear IO Message Stack
 			_clearStack(context, ADHOC_MATCHING_INPUT_STACK);
-			
+
+			// Allow member access again
+			sceKernelUnlockLwMutex(&members_lock, 1);
+
 			// Free Stack
 			context->input_stack_lock = 0;
 		}
@@ -569,6 +576,9 @@ int _matchingInputThread(SceSize args, void * argp)
 			// Received Data from a Sender that interests us
 			if(recvresult == 0 && rxbuflen > 0 && context->port == senderport)
 			{
+				// Lock member access since the list will be touched here
+				sceKernelLockLwMutex(&members_lock, 1, 0);
+
 				// Log Receive Success
 				printk("%s: Received %d Bytes (Opcode: %d/%s)\n", __func__, rxbuflen, context->rxbuf[0], get_opcode_name(context->rxbuf[0]));
 
@@ -600,6 +610,9 @@ int _matchingInputThread(SceSize args, void * argp)
 				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_BYE) _actOnByePacket(context, &sendermac);
 
 				// Ignore Incoming Trash Data
+
+				// Allow member access again
+				sceKernelUnlockLwMutex(&members_lock, 1);
 			}
 			batch_process_packet_limit--;
 		} while(recvresult == 0 && rxbuflen > 0 && batch_process_packet_limit > 0);
@@ -608,15 +621,15 @@ int _matchingInputThread(SceSize args, void * argp)
 		if (sceKernelGetSystemTimeWide() - last_adhocctl_check > 1000000)
 		{
 			last_adhocctl_check = sceKernelGetSystemTimeWide();
-			// Timeout peers that are missing on adhocctl
+			// Timeout peers that are missing on adhocctl, in case they left without bye somehow
 			timeout_missing_peers_on_adhocctl(context);
 		}
 
+		// Slight delay here, last chance for the game to grab the member list before the bye packets kick in
+		sceKernelDelayThread(100000);
+
 		// Handle Peer Timeouts
 		_handleTimeout(context);
-
-		// Share CPU Time
-		sceKernelDelayThread(10000);
 	}
 	
 	// Send Bye Messages

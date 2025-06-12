@@ -27,6 +27,14 @@
  */
 int proNetAdhocMatchingCancelTargetWithOpt(int id, const SceNetEtherAddr * target, int optlen, const void * opt)
 {
+	sceKernelLockLwMutex(&context_list_lock, 1, 0);
+	sceKernelLockLwMutex(&members_lock, 1, 0);
+	#define UNLOCK_RETURN(_v) { \
+		sceKernelUnlockLwMutex(&context_list_lock, 1); \
+		sceKernelUnlockLwMutex(&members_lock, 1); \
+		return _v; \
+	}
+
 	// Initialized Library
 	if(_init == 1)
 	{
@@ -71,27 +79,27 @@ int proNetAdhocMatchingCancelTargetWithOpt(int id, const SceNetEtherAddr * targe
 							// _deletePeer(context, peer);
 							
 							// Return Success
-							return 0;
+							UNLOCK_RETURN(0);
 						}
 					}
 					
 					// Peer not found
-					return ADHOC_MATCHING_UNKNOWN_TARGET;
+					UNLOCK_RETURN(ADHOC_MATCHING_UNKNOWN_TARGET);
 				}
 				
 				// Context not running
-				return ADHOC_MATCHING_NOT_RUNNING;
+				UNLOCK_RETURN(ADHOC_MATCHING_NOT_RUNNING);
 			}
 			
 			// Invalid Matching ID
-			return ADHOC_MATCHING_INVALID_ID;
+			UNLOCK_RETURN(ADHOC_MATCHING_INVALID_ID);
 		}
 		
 		// Invalid Arguments
-		return ADHOC_MATCHING_INVALID_ARG;
+		UNLOCK_RETURN(ADHOC_MATCHING_INVALID_ARG);
 	}
 	
 	// Uninitialized Library
-	return ADHOC_MATCHING_NOT_INITIALIZED;
+	UNLOCK_RETURN(ADHOC_MATCHING_NOT_INITIALIZED);
 }
 

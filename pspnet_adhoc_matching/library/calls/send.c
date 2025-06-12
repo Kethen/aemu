@@ -27,6 +27,14 @@
  */
 int proNetAdhocMatchingSendData(int id, const SceNetEtherAddr * target, int datalen, const void * data)
 {
+	sceKernelLockLwMutex(&context_list_lock, 1, 0);
+	sceKernelLockLwMutex(&members_lock, 1, 0);
+	#define UNLOCK_RETURN(_v) { \
+		sceKernelUnlockLwMutex(&context_list_lock, 1); \
+		sceKernelUnlockLwMutex(&members_lock, 1); \
+		return _v; \
+	}
+
 	// Initialized Library
 	if(_init == 1)
 	{
@@ -55,7 +63,7 @@ int proNetAdhocMatchingSendData(int id, const SceNetEtherAddr * target, int data
 							if(peer->state == ADHOC_MATCHING_PEER_PARENT || peer->state == ADHOC_MATCHING_PEER_CHILD || peer->state == ADHOC_MATCHING_PEER_P2P)
 							{
 								// Send in Progress
-								if(peer->sending) return ADHOC_MATCHING_DATA_BUSY;
+								if(peer->sending) UNLOCK_RETURN(ADHOC_MATCHING_DATA_BUSY);
 								
 								// Mark Peer as Sending
 								peer->sending = 1;
@@ -64,34 +72,34 @@ int proNetAdhocMatchingSendData(int id, const SceNetEtherAddr * target, int data
 								_sendBulkData(context, peer, datalen, data);
 								
 								// Return Success
-								return 0;
+								UNLOCK_RETURN(0);
 							}
 							
 							// Not connected / accepted
-							return ADHOC_MATCHING_NOT_ESTABLISHED;
+							UNLOCK_RETURN(ADHOC_MATCHING_NOT_ESTABLISHED);
 						}
 						
 						// Invalid Data Length
-						return ADHOC_MATCHING_INVALID_DATALEN;
+						UNLOCK_RETURN(ADHOC_MATCHING_INVALID_DATALEN);
 					}
 					
 					// Peer not found
-					return ADHOC_MATCHING_UNKNOWN_TARGET;
+					UNLOCK_RETURN(ADHOC_MATCHING_UNKNOWN_TARGET);
 				}
 				
 				// Context not running
-				return ADHOC_MATCHING_NOT_RUNNING;
+				UNLOCK_RETURN(ADHOC_MATCHING_NOT_RUNNING);
 			}
 			
 			// Invalid Matching ID
-			return ADHOC_MATCHING_INVALID_ID;
+			UNLOCK_RETURN(ADHOC_MATCHING_INVALID_ID);
 		}
 		
 		// Invalid Arguments
-		return ADHOC_MATCHING_INVALID_ARG;
+		UNLOCK_RETURN(ADHOC_MATCHING_INVALID_ARG);
 	}
 	
 	// Uninitialized Library
-	return ADHOC_MATCHING_NOT_INITIALIZED;
+	UNLOCK_RETURN(ADHOC_MATCHING_NOT_INITIALIZED);
 }
 
