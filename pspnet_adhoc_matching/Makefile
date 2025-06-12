@@ -58,7 +58,7 @@ BUILD_PRX = 1
 PRX_EXPORTS = exports.exp
 
 LDFLAGS = -nostartfiles
-LIBS = -nostdlib -lpspuser -lpspnet -lpspnet_adhoc -lpspmodinfo
+LIBS = -nostdlib -lpspuser -lpspnet -lpspnet_adhoc -lpspmodinfo -lpspnet_adhocctl
 #LIBS = -lpspnet_adhoc
 
 PSPSDK=$(shell psp-config --pspsdk-path)

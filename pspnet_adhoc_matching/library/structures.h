@@ -54,6 +54,10 @@ typedef struct SceNetAdhocMatchingMemberInternal {
 	
 	// Last Heartbeat
 	uint64_t lastping;
+
+	// adhocctl missing cycle count
+	int adhocctl_missing_count;
+
 } SceNetAdhocMatchingMemberInternal;
 
 // Adhoc Matching Handler

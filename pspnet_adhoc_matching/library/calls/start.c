@@ -435,6 +435,35 @@ int _matchingEventThread(SceSize args, void * argp)
 	return 0;
 }
 
+static int timeout_missing_peers_on_adhocctl(SceNetAdhocMatchingContext *context)
+{
+	SceNetAdhocMatchingMemberInternal * item = context->peerlist; for(; item != NULL; item = item->next)
+	{
+		// Self
+		if(item->state == 0)
+		{
+			continue;
+		}
+		// XXX oh no
+		uint8_t peer[sizeof(struct SceNetAdhocctlPeerInfo) + 4];
+		int get_peer_info_status = sceNetAdhocctlGetPeerInfo((void *)&item->mac, sizeof(peer), (void *)peer);
+		if (get_peer_info_status != 0)
+		{
+			//printk("%s: peer missing on adhocctl, 0x%x\n", __func__, get_peer_info_status);
+			item->adhocctl_missing_count++;
+			if (item->adhocctl_missing_count > 10)
+			{
+				// Peer has been missing for more than 10 cycles, adhocctl should have had enough time to sort this out if the peer is still there
+				item->lastping = 0;
+			}
+		}
+		else
+		{
+			item->adhocctl_missing_count = 0;
+		}
+	}
+}
+
 /**
  * Matching IO Handler Thread
  * @param args sizeof(SceNetAdhocMatchingContext *)
@@ -573,6 +602,9 @@ int _matchingInputThread(SceSize args, void * argp)
 			batch_process_packet_limit--;
 		} while(recvresult == 0 && rxbuflen > 0 && batch_process_packet_limit > 0);
 
+		// Timeout peers that are missing on adhocctl
+		timeout_missing_peers_on_adhocctl(context);
+
 		// Handle Peer Timeouts
 		_handleTimeout(context);
 
@@ -611,6 +643,7 @@ void _actOnPingPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 	{
 		// Update Receive Timer
 		peer->lastping = sceKernelGetSystemTimeWide();
+		peer->adhocctl_missing_count = 0;
 	}
 }
 
@@ -663,7 +696,8 @@ void _actOnHelloPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 						
 						// Initialize Ping Timer
 						peer->lastping = sceKernelGetSystemTimeWide();
-						
+						peer->adhocctl_missing_count = 0;
+
 						// Link Peer into List
 						peer->next = context->peerlist;
 						context->peerlist = peer;
@@ -738,6 +772,7 @@ void _actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 							
 							// Initialize Ping Timer
 							peer->lastping = sceKernelGetSystemTimeWide();
+							peer->adhocctl_missing_count = 0;
 							
 							// Link Peer into List
 							peer->next = context->peerlist;
@@ -762,7 +797,8 @@ void _actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 
 						// Update timer
 						peer->lastping = sceKernelGetSystemTimeWide();
-						
+						peer->adhocctl_missing_count = 0;
+
 						// Return Success
 						return;
 					}
@@ -849,6 +885,7 @@ void _actOnAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 										// self->state = 0; // 0 state means self
 										self->mac = local_mac;
 										self->lastping = sceKernelGetSystemTimeWide();
+										self->adhocctl_missing_count = 0;
 										self->next = context->peerlist;
 										context->peerlist = self;
 									}
@@ -1084,6 +1121,7 @@ void _actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 				
 				// Initialize Ping Timer
 				sibling->lastping = sceKernelGetSystemTimeWide();
+				sibling->adhocctl_missing_count = 0;
 				
 				// Link Peer
 				sibling->next = context->peerlist;
@@ -1285,6 +1323,7 @@ void _postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcou
 			sibling->state = ADHOC_MATCHING_PEER_CHILD;
 			sibling->sending = 0;
 			sibling->lastping = sceKernelGetSystemTimeWide();
+			sibling->adhocctl_missing_count = 0;
 			continue;
 		}
 
@@ -1305,7 +1344,8 @@ void _postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcou
 			
 			// Initialize Ping Timer
 			sibling->lastping = sceKernelGetSystemTimeWide();
-			
+			sibling->adhocctl_missing_count = 0;
+
 			// Link Peer
 			sibling->next = context->peerlist;
 			context->peerlist = sibling;

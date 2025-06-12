@@ -65,6 +65,9 @@ typedef uint8_t u8;
 // PSP thread control
 #include <pspthreadman.h>
 
+// Adhocctl library
+#include <pspnet_adhocctl.h>
+
 // --- Improved PSPSDK Header ---
 
 // Basic Network Library
@@ -72,6 +75,7 @@ typedef uint8_t u8;
 
 // Adhoc Socket Library
 #include "pspsdk/pspnet_adhoc.h"
+
 
 // --- Global Library Calls ---
 
