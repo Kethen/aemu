@@ -684,12 +684,12 @@ static void early_memory_stealing()
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
-	printk("%s: module start %s\n", __func__, module->modname);
+	printk("%s: module start %s text_addr 0x%x\n", __func__, module->modname, module->text_addr);
 
-	if (module->text_addr > 0x08800000 && module->text_addr < 0x08900000)
+	if (module->text_addr > 0x08800000 && module->text_addr < 0x08900000 && strcmp("opnssmp", module->modname) != 0)
 	{
 		// Very likely the game itself
-		printk("%s: guessing this is the game, 0x%x, %s, trying to reserve memory now\n", __func__, module->text_addr, module->modname);
+		printk("%s: guessing this is the game, %s text_addr 0x%x, trying to reserve memory now\n", __func__, module->modname, module->text_addr);
 		early_memory_stealing();
 	}
 
