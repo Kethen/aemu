@@ -101,7 +101,7 @@ SceUID module_io_uids[MODULE_LIST_SIZE] = {
 
 void steal_memory()
 {
-	static const int size = 1024 * 1024 * 5;
+	static const int size = 1024 * 1024 * 2;
 
 	if (stolen_memory >= 0)
 	{
@@ -656,11 +656,8 @@ void * create_ioclose_stub(void)
 	return NULL;
 }
 
-// Online Module Start Patcher
-int online_patcher(SceModule2 * module)
+static void early_memory_stealing()
 {
-	printk("%s: module start %s\n", __func__, module->modname);
-
 	static int stole_memory_here = 0;
 	// Steal some memory from game in case it tries to allocate as much as it can on start
 	if (!stole_memory_here)
@@ -681,6 +678,19 @@ int online_patcher(SceModule2 * module)
 		{
 			printk("%s: not stealing memory here again\n", __func__);
 		}
+	}
+}
+
+// Online Module Start Patcher
+int online_patcher(SceModule2 * module)
+{
+	printk("%s: module start %s\n", __func__, module->modname);
+
+	if (module->text_addr > 0x08800000 && module->text_addr < 0x08900000)
+	{
+		// Very likely the game itself
+		printk("%s: guessing this is the game, 0x%x, %s, trying to reserve memory now\n", __func__, module->text_addr, module->modname);
+		early_memory_stealing();
 	}
 
 	// Userspace Module
