@@ -127,7 +127,7 @@ void steal_memory()
 		return;
 	}
 
-	stolen_memory = sceKernelAllocPartitionMemory(2, "inet apctl load reserve", PSP_SMEM_High, size, NULL);
+	stolen_memory = sceKernelAllocPartitionMemory(2, "inet apctl load reserve", PSP_SMEM_Low, size, NULL);
 	if (stolen_memory >= 0)
 	{
 		printk("%s: stole %d, id %d, head 0x%x\n", __func__, size, stolen_memory, sceKernelGetBlockHeadAddr(stolen_memory));
