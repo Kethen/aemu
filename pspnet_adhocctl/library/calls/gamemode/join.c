@@ -52,29 +52,6 @@ int proNetAdhocctlJoinEnterGameMode(const SceNetAdhocctlGroupName * group_name, 
 		return join_status;
 	}
 
-	// Wait for host to show up
-	#if 0
-	int begin = sceKernelGetSystemTimeLow();
-	while (sceKernelGetSystemTimeLow() - begin < timeout)
-	{
-		sceKernelDelayThread(10000);
-		uint32_t ip;
-		if (_resolveMAC(gc, &ip) == 0)
-		{
-			break;
-		}
-	}
-	#endif
-
-	// Notify, we go into game mode regardless of if host made it
-	#if 0
-	for (int i = 0; i < ADHOCCTL_MAX_HANDLER; i++)
-	{
-		// Active Handler
-		if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_GAMEMODE, 0, _event_args[i]);
-	}
-	#endif
-
 	_maccpy(&_gamemode_host, gc);
 	_maccpy(&_actual_gamemode_peers[0], &_gamemode_host);
 	sceNetGetLocalEtherAddr(&(_actual_gamemode_peers[1]));

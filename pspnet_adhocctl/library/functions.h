@@ -132,5 +132,13 @@ void _freeGroupLock(void);
 void _freeNetworkRecursive(SceNetAdhocctlScanInfo * node);
 int search_and_join(const SceNetAdhocctlGroupName *group_name, int timeout_usec);
 void _insertGamemodePeer(SceNetEtherAddr *peer);
+void _appendGamemodePeer(SceNetEtherAddr *peer);
+
+// hold peer lock before using this
+SceNetAdhocctlPeerInfoEmu *_findFriend(void *addr);
+
+int get_gp_value();
+int set_gp_value(int gp_value);
+void _notifyAdhocctlhandlers(int event, int error_code);
 
 #endif

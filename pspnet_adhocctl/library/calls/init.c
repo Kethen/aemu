@@ -41,6 +41,7 @@ SceNetAdhocctlScanInfo * _networks = NULL;
 
 // Event Handler
 SceNetAdhocctlHandler _event_handler[ADHOCCTL_MAX_HANDLER];
+int _event_handler_gp[ADHOCCTL_MAX_HANDLER];
 void * _event_args[ADHOCCTL_MAX_HANDLER];
 
 // Access Point Setting Name
@@ -63,6 +64,7 @@ int _networklock = 0;
 int _one = 1;
 int _zero = 0;
 
+
 // Function Prototypes
 int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip);
 int _readHotspotConfig(void);
@@ -72,6 +74,43 @@ void _readChatKeyphrases(const SceNetAdhocctlAdhocId * adhoc_id);
 int _friendFinder(SceSize args, void * argp);
 void _addFriend(SceNetAdhocctlConnectPacketS2C * packet);
 void _deleteFriendByIP(uint32_t ip);
+
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
+int get_gp_value()
+{
+	register int gp asm ("gp");
+	int gp_value = gp;
+	return gp_value;
+}
+
+int set_gp_value(int gp_value)
+{
+	register int gp asm ("gp");
+	gp = gp_value;
+	return 0;
+}
+#pragma GCC pop_options
+
+void _notifyAdhocctlhandlers(int event, int error_code)
+{
+	int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
+	{
+		// Active Handler
+		if(_event_handler[i] == NULL)
+		{
+			continue;
+		}
+
+		int old_gp_value = get_gp_value();
+
+		printk("%s: handler 0x%x 0x%x local gp 0x%x game gp 0x%x\n", __func__, _event_handler[i], _event_args[i], old_gp_value, _event_handler_gp[i]);
+
+		set_gp_value(_event_handler_gp[i]);
+		_event_handler[i](event, error_code, _event_args[i]);
+		set_gp_value(old_gp_value);
+	}
+}
 
 /**
  * Initialize the Adhoc-Control Emulator
@@ -609,11 +648,7 @@ int _friendFinder(SceSize args, void * argp)
 					// Notify Event Handlers
 					if (!_in_gamemode)
 					{
-						int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
-						{
-							// Active Handler
-							if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_CONNECT, 0, _event_args[i]);
-						}
+						_notifyAdhocctlhandlers(ADHOCCTL_EVENT_CONNECT, 0);
 					}
 					else
 					{
@@ -626,11 +661,8 @@ int _friendFinder(SceSize args, void * argp)
 						{
 							_in_gamemode = 1;
 
-							int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
-							{
-								// Active Handler
-								if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_GAMEMODE, 0, _event_args[i]);
-							}
+							_notifyAdhocctlhandlers(ADHOCCTL_EVENT_GAMEMODE, 0);
+
 							printk("%s: sent gamemode event from OPCODE_CONNECT_BSSID handler with %d member(s)\n", __func__, _num_actual_gamemode_peers);
 							#ifdef DEBUG
 							for (int i = 0;i < _num_actual_gamemode_peers;i++)
@@ -719,17 +751,14 @@ int _friendFinder(SceSize args, void * argp)
 						if (!is_self && !is_host)
 						{
 							// Insert
-							_insertGamemodePeer(&packet->mac);
+							//_insertGamemodePeer(&packet->mac);
+							_appendGamemodePeer(&packet->mac);
 						}
 
 						if (_num_actual_gamemode_peers >= _num_gamemode_peers && _gamemode_self_arrived && _gamemode_host_arrived)
 						{
 							_in_gamemode = 1;
-							int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
-							{
-								// Active Handler
-								if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_GAMEMODE, 0, _event_args[i]);
-							}
+							_notifyAdhocctlhandlers(ADHOCCTL_EVENT_GAMEMODE, 0);
 							printk("%s: sent gamemode event from OPCODE_CONNECT handler with %d member(s)\n", __func__, _num_actual_gamemode_peers);
 							#ifdef DEBUG
 							for (int i = 0;i < _num_actual_gamemode_peers;i++)
@@ -839,13 +868,9 @@ int _friendFinder(SceSize args, void * argp)
 				
 				// Change State
 				_thread_status = ADHOCCTL_STATE_DISCONNECTED;
-				
+
 				// Notify Event Handlers
-				int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
-				{
-					// Active Handler
-					if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_SCAN, 0, _event_args[i]);
-				}
+				_notifyAdhocctlhandlers(ADHOCCTL_EVENT_SCAN, 0);
 				
 				// Move RX Buffer
 				memmove(rx, rx + 1, sizeof(rx) - 1);
@@ -970,14 +995,45 @@ void _freeNetworkLock(void)
 	#endif
 }
 
+// hold peer lock before using this
+SceNetAdhocctlPeerInfoEmu *_findFriend(void *addr)
+{
+	SceNetAdhocctlPeerInfoEmu *peer = _friends;
+	while (peer != NULL)
+	{
+		if (_isMacMatch(addr, &peer->mac_addr))
+		{
+			return peer;
+		}
+		peer = peer->next;
+	}
+	return NULL;
+}
+
 /**
  * Add Friend to Local List
  * @param packet Friend Information
  */
 void _addFriend(SceNetAdhocctlConnectPacketS2C * packet)
 {
+	_acquirePeerLock();
+	SceNetAdhocctlPeerInfoEmu *peer = _findFriend(&packet->mac);
+	if (peer != NULL)
+	{
+		printk("%s: warning, refreshing existing peer %x:%x:%x:%x:%x:%x\n", __func__, packet->mac.data[0], packet->mac.data[1], packet->mac.data[2], packet->mac.data[3], packet->mac.data[4], packet->mac.data[5]);
+		peer->nickname = packet->name;
+		peer->mac_addr = packet->mac;
+		peer->ip_addr = packet->ip;
+		// TODO? we are never really using the last_recv field to timeout.... we just assume that the server on tcp don't miss
+	}
+	_freePeerLock();
+	if (peer != NULL)
+	{
+		return;
+	}
+
 	// Allocate Structure
-	SceNetAdhocctlPeerInfoEmu * peer = (SceNetAdhocctlPeerInfoEmu *)malloc(sizeof(SceNetAdhocctlPeerInfo));
+	peer = (SceNetAdhocctlPeerInfoEmu *)malloc(sizeof(SceNetAdhocctlPeerInfo));
 	
 	// Allocated Structure
 	if(peer != NULL)

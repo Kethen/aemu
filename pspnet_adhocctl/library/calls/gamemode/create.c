@@ -72,39 +72,6 @@ int proNetAdhocctlCreateEnterGameMode(const SceNetAdhocctlGroupName * group_name
 		return join_status;
 	}
 
-	#if 0
-	// wait for all members to show up
-	int begin = sceKernelGetSystemTimeLow();
-	while (sceKernelGetSystemTimeLow() - begin < timeout)
-	{
-		sceKernelDelayThread(10000);
-		int all_found = 1;
-		for (int i = 0;i < _num_gamemode_peers;i++)
-		{
-			uint32_t ip;
-			if (_resolveMAC(&_gamemode_peers[i], &ip) == 0)
-			{
-				// Someone is missing
-				all_found = 0;
-				break;
-			}
-		}
-
-		if (all_found) {
-			break;
-		}
-	}
-	#endif
-
-	#if 0
-	// Notify, we go into game mode regardless of if everyone made it it seems
-	for (int i = 0; i < ADHOCCTL_MAX_HANDLER; i++)
-	{
-		// Active Handler
-		if(_event_handler[i] != NULL) _event_handler[i](ADHOCCTL_EVENT_GAMEMODE, 0, _event_args[i]);
-	}
-	#endif
-
 	sceNetGetLocalEtherAddr(&_gamemode_host);
 	_maccpy(&_actual_gamemode_peers[0], &_gamemode_host);
 	_num_actual_gamemode_peers = 1;
@@ -112,6 +79,16 @@ int proNetAdhocctlCreateEnterGameMode(const SceNetAdhocctlGroupName * group_name
 	_gamemode_self_arrived = 0;
 
 	return 0;
+}
+
+void _appendGamemodePeer(SceNetEtherAddr *peer)
+{
+	if (_num_actual_gamemode_peers >= ADHOCCTL_GAMEMODE_MAX_MEMBERS)
+	{
+		return;
+	}
+	_maccpy(&_actual_gamemode_peers[_num_actual_gamemode_peers], peer);
+	_num_actual_gamemode_peers++;
 }
 
 void _insertGamemodePeer(SceNetEtherAddr *peer)

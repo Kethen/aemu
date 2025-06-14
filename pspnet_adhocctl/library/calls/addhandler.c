@@ -40,7 +40,10 @@ int proNetAdhocctlAddHandler(SceNetAdhocctlHandler handler, void * arg)
 					// Register Handler
 					_event_handler[i] = handler;
 					_event_args[i] = arg;
-					
+					_event_handler_gp[i] = get_gp_value();
+
+					printk("%s: added handler %d 0x%x 0x%x with gp 0x%x\n", __func__, i + 1, handler, arg, _event_handler_gp[i]);
+
 					// Return Handler ID
 					return i + 1;
 				}
