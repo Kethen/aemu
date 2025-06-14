@@ -32,6 +32,12 @@ int proNetAdhocctlGetState(int * state)
 		{
 			// Return Thread Status
 			*state = _thread_status;
+
+			if (*state == ADHOCCTL_STATE_CONNECTED && _in_gamemode)
+			{
+				// If we're in gamemode, connected means gamemode
+				*state = ADHOCCTL_STATE_GAMEMODE;
+			}
 			
 			// Return Success
 			return 0;

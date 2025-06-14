@@ -97,6 +97,7 @@ extern int _in_gamemode;
 extern SceNetEtherAddr _gamemode_host;
 extern int _gamemode_host_arrived;
 extern int _gamemode_self_arrived;
+extern int _gamemode_notified;
 
 extern SceLwMutexWorkarea networking_lock;
 extern SceLwMutexWorkarea peer_lock;

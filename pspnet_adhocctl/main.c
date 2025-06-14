@@ -241,7 +241,7 @@ int sceNetAdhocctlGetState(int * state)
 	#endif
 	int result = proNetAdhocctlGetState(state);
 	#ifdef TRACE
-	printk("Leaving %s with %08X\n", __func__, result);
+	printk("Leaving %s with %08x %d\n", __func__, result, *state);
 	#endif
 	return result;
 }
@@ -303,10 +303,12 @@ int sceNetAdhocctlGetGameModeInfo(SceNetAdhocctlGameModeInfo * info)
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
+	#if 0
 	if (info != NULL)
 	{
 		printk("%s: returning %d members, 0x%x/%d\n", __func__, info->num, result, result);
 	}
+	#endif
 	return result;
 }
 

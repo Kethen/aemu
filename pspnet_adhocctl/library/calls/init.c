@@ -662,8 +662,9 @@ int _friendFinder(SceSize args, void * argp)
 							_in_gamemode = 1;
 
 							_notifyAdhocctlhandlers(ADHOCCTL_EVENT_GAMEMODE, 0);
-
-							printk("%s: sent gamemode event from OPCODE_CONNECT_BSSID handler with %d member(s)\n", __func__, _num_actual_gamemode_peers);
+							asm volatile("": : :"memory");
+							_gamemode_notified = 1;
+							printk("%s: sent gamemode event from OPCODE_CONNECT_BSSID handler with %d member(s), expected member(s) %d\n", __func__, _num_actual_gamemode_peers, _num_gamemode_peers);
 							#ifdef DEBUG
 							for (int i = 0;i < _num_actual_gamemode_peers;i++)
 							{
@@ -759,7 +760,9 @@ int _friendFinder(SceSize args, void * argp)
 						{
 							_in_gamemode = 1;
 							_notifyAdhocctlhandlers(ADHOCCTL_EVENT_GAMEMODE, 0);
-							printk("%s: sent gamemode event from OPCODE_CONNECT handler with %d member(s)\n", __func__, _num_actual_gamemode_peers);
+							asm volatile("": : :"memory");
+							_gamemode_notified = 1;
+							printk("%s: sent gamemode event from OPCODE_CONNECT handler with %d member(s), expected member(s) %d\n", __func__, _num_actual_gamemode_peers, _num_gamemode_peers);
 							#ifdef DEBUG
 							for (int i = 0;i < _num_actual_gamemode_peers;i++)
 							{

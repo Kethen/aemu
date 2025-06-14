@@ -42,6 +42,7 @@ int proNetAdhocctlJoinEnterGameMode(const SceNetAdhocctlGroupName * group_name, 
 	_in_gamemode = -1;
 	_joining_gamemode = 1;
 	_num_gamemode_peers = 0;
+	_gamemode_notified = 0;
 
 	// join the adhoc network by group name
 	//int join_status = proNetAdhocctlCreate(group_name);
@@ -58,6 +59,13 @@ int proNetAdhocctlJoinEnterGameMode(const SceNetAdhocctlGroupName * group_name, 
 	_num_actual_gamemode_peers = 2;
 	_gamemode_host_arrived = 0;
 	_gamemode_self_arrived = 0;
+
+	// Ugh, some games expect the notifier to be done before this returns, like Bomberman, with a datarace
+	uint64_t begin = sceKernelGetSystemTimeWide();
+	while(!_gamemode_notified && sceKernelGetSystemTimeWide() - begin > 10000000)
+	{
+		sceKernelDelayThread(100000);
+	}
 
 	return 0;
 }

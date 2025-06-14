@@ -26,6 +26,7 @@ int _in_gamemode = 0;
 SceNetEtherAddr _gamemode_host;
 int _gamemode_host_arrived = 0;
 int _gamemode_self_arrived = 0;
+int _gamemode_notified = 0;
 
 /**
  * Create and Join a GameMode Network as Host
@@ -59,6 +60,7 @@ int proNetAdhocctlCreateEnterGameMode(const SceNetAdhocctlGroupName * group_name
 
 	_in_gamemode = -1;
 	_joining_gamemode = 0;
+	_gamemode_notified = 0;
 
 	// save member list
 	memcpy(_gamemode_peers, members, sizeof(SceNetEtherAddr) * num);
@@ -77,6 +79,13 @@ int proNetAdhocctlCreateEnterGameMode(const SceNetAdhocctlGroupName * group_name
 	_num_actual_gamemode_peers = 1;
 	_gamemode_host_arrived = 0;
 	_gamemode_self_arrived = 0;
+
+	// Ugh, some games expect the notifier to be done before this returns, like Bomberman, with a datarace
+	uint64_t begin = sceKernelGetSystemTimeWide();
+	while(!_gamemode_notified && sceKernelGetSystemTimeWide() - begin > 10000000)
+	{
+		sceKernelDelayThread(100000);
+	}
 
 	return 0;
 }

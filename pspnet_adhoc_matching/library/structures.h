@@ -124,12 +124,15 @@ typedef struct SceNetAdhocMatchingContext {
 	
 	// Resend Interval (Microseconds)
 	uint32_t resend_int;
-	
+
 	// Resend-Counter
 	int resendcounter;
 	
 	// Keep-Alive Counter
 	int keepalivecounter;
+
+	// Calculated timeout
+	uint64_t timeout;
 	
 	// Event Handler
 	SceNetAdhocMatchingHandler handler;

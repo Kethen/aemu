@@ -236,6 +236,16 @@ int proNetAdhocMatchingGetMembers(int id, int * buflen, SceNetAdhocMatchingMembe
 									// Link Next Element
 									buf[i].next = &buf[i + 1];
 								}
+
+								#if 0
+								printk("%s: return %d peers:\n", __func__, filledpeers);
+								#ifdef DEBUG
+								for (int i = 0;i < filledpeers;i++)
+								{
+									printk("%x:%x:%x:%x:%x:%x\n", buf[i].addr.data[0], buf[i].addr.data[1], buf[i].addr.data[2], buf[i].addr.data[3], buf[i].addr.data[4], buf[i].addr.data[5]);
+								}
+								#endif
+								#endif
 							}
 						}
 						
