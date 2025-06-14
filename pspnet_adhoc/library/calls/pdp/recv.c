@@ -98,7 +98,7 @@ int proNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 				{
 					// Peer MAC
 					SceNetEtherAddr mac;
-					
+
 					// Find Peer MAC
 					if(_resolveIP(sin.sin_addr, &mac) == 0)
 					{
@@ -134,7 +134,16 @@ int proNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 						return ret;
 					}
 				}
-				
+
+				if (received == -1)
+				{
+					int inet_error = sceNetInetGetErrno();
+					if (inet_error != EAGAIN)
+					{
+						printk("%s: returning timeout with inet error 0x%x\n", __func__, inet_error);
+					}
+				}
+
 				// Free Network Lock
 				_freeNetworkLock();
 

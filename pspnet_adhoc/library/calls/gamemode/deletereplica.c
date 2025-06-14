@@ -57,10 +57,8 @@ int proNetAdhocGameModeDeleteReplica(int id)
 		// Remove replica thread if needed
 		if (_gamemode_replica_thread_id >= 0)
 		{
-			sceKernelUnlockLwMutex(&_gamemode_lock, 1);
 			_gamemode_replica_stop_thread = 1;
 			sceKernelWaitThreadEnd(_gamemode_replica_thread_id, NULL);
-			sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
 			int thread_delete_status = sceKernelDeleteThread(_gamemode_replica_thread_id);
 			if (thread_delete_status < 0)
 			{

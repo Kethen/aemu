@@ -375,13 +375,13 @@ int sceNetAdhocGameModeUpdateMaster(void)
 
 int sceNetAdhocGameModeDeleteMaster(void)
 {
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Entering %s\n", __func__);
-	#endif
+	//#endif
 	int result = proNetAdhocGameModeDeleteMaster();
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 
@@ -399,13 +399,13 @@ int sceNetAdhocGameModeUpdateReplica(int id, SceNetAdhocGameModeOptData * opt)
 
 int sceNetAdhocGameModeDeleteReplica(int id)
 {
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Entering %s\n", __func__);
-	#endif
+	//#endif
 	int result = proNetAdhocGameModeDeleteReplica(id);
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 	return result;
 }
 

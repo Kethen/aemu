@@ -35,7 +35,10 @@ static int gamemode_master_thread(SceSize args, void *argp)
 
 	while(!_gamemode_stop_thread)
 	{
-		sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
+		if(sceKernelTryLockLwMutex(&_gamemode_lock, 1) != 0)
+		{
+			continue;
+		}
 
 		// yolo braodcast
 		// in the PPSSPP implementation, adhoc ctl should update gamemode peer status, as more peers are inserted
@@ -53,9 +56,10 @@ static int gamemode_master_thread(SceSize args, void *argp)
 
 		if (_gamemode.data_updated || memcmp(&last_gamemode_info, &gamemode_info, sizeof(SceNetAdhocctlGameModeInfo)) != 0)
 		{
-			// Peer changes or data is updated, re-broadcast
+			// Peer changes or data is updated, broadcast
 			last_gamemode_info = gamemode_info;
-			sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 0);
+			#define NON_BLOCK_SEND 1
+			sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 1000000, NON_BLOCK_SEND);
 			_gamemode.data_updated = 0;
 		}
 
@@ -132,7 +136,7 @@ int proNetAdhocGameModeCreateMaster(const void * ptr, uint32_t size)
 		}
 	}
 
-	_gamemode_thread_id = sceKernelCreateThread("master data send thread", gamemode_master_thread, 111, 1024 * 4, 0, NULL);
+	_gamemode_thread_id = sceKernelCreateThread("master data send thread", gamemode_master_thread, 111, 1024 * 8, 0, NULL);
 	if (_gamemode_thread_id < 0)
 	{
 		printk("%s: failed creating broadcast thread, 0x%x\n", __func__, _gamemode_thread_id);
@@ -149,7 +153,7 @@ int proNetAdhocGameModeCreateMaster(const void * ptr, uint32_t size)
 	// Going by PPSSPP, the initial data has to be broadcasted
 	memcpy(_gamemode.recv_buf, _gamemode.data, _gamemode.data_size);
 	_gamemode.data_updated = 1;
-	// Broadcast once non block
+	// Broadcast once
 	sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 1);
 
 	_gamemode_stop_thread = 0;

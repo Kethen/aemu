@@ -53,13 +53,10 @@ int proNetAdhocGameModeDeleteMaster(void)
 	}
 
 	// Remove the master thread
-	sceKernelUnlockLwMutex(&_gamemode_lock, 1);
-	// XXX Kinda dangerous to unlock here, maybe add a new lock
 	_gamemode_stop_thread = 1;
 
 	// Making sure it has stopped
 	sceKernelWaitThreadEnd(_gamemode_thread_id, NULL);
-	sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
 
 	// Delete Thread
 	int thread_delete_status = sceKernelDeleteThread(_gamemode_thread_id);
@@ -74,11 +71,8 @@ int proNetAdhocGameModeDeleteMaster(void)
 		// Remove replica thread if needed
 		if (_gamemode_replica_thread_id >= 0)
 		{
-			sceKernelUnlockLwMutex(&_gamemode_lock, 1);
-			// XXX Kinda dangerous to unlock here
 			_gamemode_replica_stop_thread = 1;
 			sceKernelWaitThreadEnd(_gamemode_replica_thread_id, NULL);
-			sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
 			int thread_delete_status = sceKernelDeleteThread(_gamemode_replica_thread_id);
 			if (thread_delete_status < 0)
 			{
