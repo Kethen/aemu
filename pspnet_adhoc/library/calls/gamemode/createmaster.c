@@ -21,15 +21,22 @@
 GamemodeInternal _gamemode = {0};
 SceLwMutexWorkarea _gamemode_lock = {0};
 const SceNetEtherAddr _broadcast_mac = {.data = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}};
+SceUID _gamemode_socket = -1;
+int _gamemode_socket_users = 0;
+SceUID _gamemode_thread_id = -1;
+int _gamemode_stop_thread = 0;
 
 static int gamemode_master_thread(SceSize args, void *argp)
 {
+	printk("%s: gamemode master thread started\n", __func__);
 	sceKernelDelayThread(GAMEMODE_INIT_DELAY_USEC);
 
 	SceNetAdhocctlGameModeInfo last_gamemode_info = {0};
 
-	while(!_gamemode.stop_thread)
+	while(!_gamemode_stop_thread)
 	{
+		sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
+
 		// yolo braodcast
 		// in the PPSSPP implementation, adhoc ctl should update gamemode peer status, as more peers are inserted
 		// packets should only send to changed peers, but let's see if this works
@@ -39,27 +46,25 @@ static int gamemode_master_thread(SceSize args, void *argp)
 		int gamemode_info_get_status = sceNetAdhocctlGetGameModeInfo(&gamemode_info);
 		if (gamemode_info_get_status != 0)
 		{
-			printk("%s: failed grabbing gamemode info for some reason\n", __func__);
-			sceKernelDelayThread(100000);
-			continue;
+			printk("%s: failed grabbing gamemode info for some reason, 0x%x\n", __func__, gamemode_info_get_status);
+			//sceKernelDelayThread(100000);
+			//continue;
 		}
 
-		if (!_gamemode.data_updated)
+		if (_gamemode.data_updated || memcmp(&last_gamemode_info, &gamemode_info, sizeof(SceNetAdhocctlGameModeInfo)) != 0)
 		{
-			sceKernelDelayThread(100000);
-			continue;
-		}
-
-		if (memcmp(&last_gamemode_info, &gamemode_info, sizeof(SceNetAdhocctlGameModeInfo)) != 0)
-		{
-			// Peer changes, re-broadcast
+			// Peer changes or data is updated, re-broadcast
 			last_gamemode_info = gamemode_info;
-			sceNetAdhocPdpSend(_gamemode.pdp_sock_id, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 0);
+			sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 0);
+			_gamemode.data_updated = 0;
 		}
 
-		sceKernelDelayThread(100000);
+		sceKernelUnlockLwMutex(&_gamemode_lock, 1);
+		sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC);
 	}
-	_gamemode.stop_thread = -1;
+
+	printk("%s: gamemode master thread stopped\n", __func__);
+	_gamemode_stop_thread = -1;
 	return 0;
 }
 
@@ -113,22 +118,30 @@ int proNetAdhocGameModeCreateMaster(const void * ptr, uint32_t size)
 		RETURN_UNLOCK(NET_NO_SPACE);
 	}
 
-	_gamemode.pdp_sock_id = sceNetAdhocPdpCreate(&(_gamemode.saddr), ADHOC_GAMEMODE_PORT, size, 0);
-
-	if (_gamemode.pdp_sock_id < 0)
+	if (_gamemode_socket_users == 0)
 	{
-		printk("%s: failed creating pdp send socket, 0x%x\n", __func__, _gamemode.pdp_sock_id);
-		free(_gamemode.recv_buf);
-		memset(&_gamemode, 0, sizeof(GamemodeInternal));
-		RETURN_UNLOCK(NET_NO_SPACE);
+		// XXX the size here would be wrong for shared socket, we're just riding the fact that inet sockets don't have a recv buffer size setting
+		_gamemode_socket = sceNetAdhocPdpCreate(&(_gamemode.saddr), ADHOC_GAMEMODE_PORT, size, 0);
+
+		if (_gamemode_socket < 0)
+		{
+			printk("%s: failed creating gamemode socket, 0x%x\n", __func__, _gamemode_socket);
+			free(_gamemode.recv_buf);
+			memset(&_gamemode, 0, sizeof(GamemodeInternal));
+			RETURN_UNLOCK(NET_NO_SPACE);
+		}
 	}
 
-	_gamemode.thread_id = sceKernelCreateThread("master data send thread", gamemode_master_thread, 111, 1024 * 4, 0, NULL);
-	if (_gamemode.thread_id < 0)
+	_gamemode_thread_id = sceKernelCreateThread("master data send thread", gamemode_master_thread, 111, 1024 * 4, 0, NULL);
+	if (_gamemode_thread_id < 0)
 	{
-		printk("%s: failed creating broadcast thread, 0x%x\n", __func__, _gamemode.thread_id);
+		printk("%s: failed creating broadcast thread, 0x%x\n", __func__, _gamemode_thread_id);
+		if (_gamemode_socket_users == 0)
+		{
+			sceNetAdhocPdpDelete(_gamemode_socket, 0);
+			_gamemode_socket = -1;
+		}
 		free(_gamemode.recv_buf);
-		sceNetAdhocPdpDelete(_gamemode.pdp_sock_id, 0);
 		memset(&_gamemode, 0, sizeof(GamemodeInternal));
 		RETURN_UNLOCK(NET_NO_SPACE);
 	}
@@ -137,26 +150,35 @@ int proNetAdhocGameModeCreateMaster(const void * ptr, uint32_t size)
 	memcpy(_gamemode.recv_buf, _gamemode.data, _gamemode.data_size);
 	_gamemode.data_updated = 1;
 	// Broadcast once non block
-	sceNetAdhocPdpSend(_gamemode.pdp_sock_id, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 1);
+	sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 1);
 
-	int thread_start_status = sceKernelStartThread(_gamemode.thread_id, 0, NULL);
+	_gamemode_stop_thread = 0;
+	int thread_start_status = sceKernelStartThread(_gamemode_thread_id, 0, NULL);
 	if (thread_start_status < 0)
 	{
 		// can it fail?
 		printk("%s: failed starting broadcast thread, 0x%x\n", __func__, thread_start_status);
-		int thread_delete_status = sceKernelDeleteThread(_gamemode.thread_id);
+		int thread_delete_status = sceKernelDeleteThread(_gamemode_thread_id);
 		if (thread_delete_status < 0)
 		{
 			// uhhhh
 			printk("%s: failed removing broadcast thread, 0x%x\n", __func__, thread_delete_status);
 		}
+		_gamemode_thread_id = -1;
+
+		if (_gamemode_socket_users == 0)
+		{
+			sceNetAdhocPdpDelete(_gamemode_socket, 0);
+			_gamemode_socket = -1;
+		}
 		free(_gamemode.recv_buf);
-		sceNetAdhocPdpDelete(_gamemode.pdp_sock_id, 0);
 		memset(&_gamemode, 0, sizeof(GamemodeInternal));
 		RETURN_UNLOCK(NET_NO_SPACE);
 	}
 
 	// Master created
+	_gamemode_socket_users++;
+
 	RETURN_UNLOCK(0);
 }
 

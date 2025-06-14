@@ -47,25 +47,32 @@ int proNetAdhocGameModeDeleteReplica(int id)
 		RETURN_UNLOCK(ADHOC_NOT_CREATED);
 	}
 
-	gamemode->stop_thread = 1;
-
-	// Make sure it's stopped
-	sceKernelWaitThreadEnd(gamemode->thread_id, NULL);
-
-	// Delete thread
-	int thread_delete_status = sceKernelDeleteThread(gamemode->thread_id);
-	if (thread_delete_status < 0)
-	{
-		printk("%s: failed removing receive thread, 0x%x\n", __func__, thread_delete_status);
-	}
-
-	// Remove the pdp socket
-	sceNetAdhocPdpDelete(gamemode->pdp_sock_id, 0);
-
 	// Free data
-	free(gamemode->recv_buf);
 	free(gamemode);
 	_gamemode_replicas[id - 1] = NULL;
+
+	_gamemode_socket_users--;
+	if (_gamemode_socket_users == 0)
+	{
+		// Remove replica thread if needed
+		if (_gamemode_replica_thread_id >= 0)
+		{
+			sceKernelUnlockLwMutex(&_gamemode_lock, 1);
+			_gamemode_replica_stop_thread = 1;
+			sceKernelWaitThreadEnd(_gamemode_replica_thread_id, NULL);
+			sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
+			int thread_delete_status = sceKernelDeleteThread(_gamemode_replica_thread_id);
+			if (thread_delete_status < 0)
+			{
+				printk("%s: failed removing replica thread, 0x%x\n", __func__, thread_delete_status);
+			}
+			_gamemode_replica_thread_id = -1;
+		}
+
+		// Remove the pdp socket
+		sceNetAdhocPdpDelete(_gamemode_socket, 0);
+		_gamemode_socket = -1;
+	}
 
 	RETURN_UNLOCK(0);
 }

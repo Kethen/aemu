@@ -62,7 +62,7 @@ int proNetAdhocctlJoinEnterGameMode(const SceNetAdhocctlGroupName * group_name, 
 
 	// Ugh, some games expect the notifier to be done before this returns, like Bomberman, with a datarace
 	uint64_t begin = sceKernelGetSystemTimeWide();
-	while(!_gamemode_notified && sceKernelGetSystemTimeWide() - begin > 10000000)
+	while(!_gamemode_notified && sceKernelGetSystemTimeWide() - begin < 10000000)
 	{
 		sceKernelDelayThread(100000);
 	}

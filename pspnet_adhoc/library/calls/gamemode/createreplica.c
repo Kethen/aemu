@@ -19,58 +19,105 @@
 
 // probably over provisioning
 GamemodeInternal *_gamemode_replicas[256] = {0};
+int largest_gamemode_replica;
+void *replica_receive_buffer = NULL;
+int _gamemode_replica_stop_thread = 0;
+SceUID _gamemode_replica_thread_id = -1;
 
 static int gamemode_replica_thread(SceSize args, void *argp)
 {
-	GamemodeInternal *gamemode = (GamemodeInternal *)argp;
+	printk("%s: gamemode replica thread started\n", __func__);
 	sceKernelDelayThread(GAMEMODE_INIT_DELAY_USEC);
-	while(!gamemode->stop_thread)
+
+	while(!_gamemode_replica_stop_thread)
 	{
-		sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
-		#define UNLOCK_DELAY_CONTINUE(_d) { \
-			sceKernelUnlockLwMutex(&_gamemode_lock, 1); \
-			sceKernelDelayThread(_d); \
-			continue; \
-		}
-
-		SceNetEtherAddr saddr = {0};
-		uint16_t sport = 0;
-		int len = gamemode->data_size;
-		int recv_status = sceNetAdhocPdpRecv(gamemode->pdp_sock_id, &saddr, &sport, gamemode->recv_buf, &len, 0, 1);
-
-		if (recv_status == ADHOC_WOULD_BLOCK)
+		int recv_status = 0;
+		int packet_limit = 20;
+		while(recv_status == 0 && packet_limit > 0)
 		{
-			printk("%s: no packet in buffer\n", __func__);
-			UNLOCK_DELAY_CONTINUE(GAMEMODE_UPDATE_INTERVAL_USEC);
+			sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
+			#define UNLOCK_CONTINUE() { \
+				sceKernelUnlockLwMutex(&_gamemode_lock, 1); \
+				continue; \
+			}
+
+			SceNetEtherAddr saddr = {0};
+			uint16_t sport = 0;
+			int len = largest_gamemode_replica;
+			packet_limit--;
+
+			#define NON_BLOCK_RECV 0
+
+			recv_status = sceNetAdhocPdpRecv(_gamemode_socket, &saddr, &sport, replica_receive_buffer, &len, GAMEMODE_UPDATE_INTERVAL_USEC, NON_BLOCK_RECV);
+
+			#if NON_BLOCK_RECV
+			if (recv_status == ADHOC_WOULD_BLOCK)
+			{
+				printk("%s: no packet in buffer\n", __func__);
+				UNLOCK_CONTINUE();
+			}
+
+			#else
+
+			if (recv_status == ADHOC_TIMEOUT)
+			{
+				printk("%s: packet receive timed out\n", __func__);
+				UNLOCK_CONTINUE();
+			}
+			#endif
+
+			if (recv_status != 0)
+			{
+				printk("%s: failed receiving packet, 0x%x\n", __func__, recv_status);
+				UNLOCK_CONTINUE();
+			}
+
+			#ifdef DEBUG
+			int packet_processed = 0;
+			#endif
+
+			for (int i = 0;i < sizeof(_gamemode_replicas) / sizeof(GamemodeInternal *);i++)
+			{
+				if (_gamemode_replicas[i] == NULL)
+				{
+					continue;
+				}
+				if (!_isMacMatch(&_gamemode_replicas[i]->saddr, &saddr))
+				{
+					continue;
+				}
+
+				#ifdef DEBUG
+				packet_processed = 1;
+				#endif
+
+				if (_gamemode_replicas[i]->data_size != len)
+				{
+					printk("%s: received data has bad length, expected %u, got %d\n", __func__, _gamemode_replicas[i]->data_size, len);
+					continue;
+				}
+
+				// usable data
+				printk("%s: received usable data\n", __func__);
+				_gamemode_replicas[i]->last_recv = sceKernelGetSystemTimeWide();
+				_gamemode_replicas[i]->data_updated = 1;
+				memcpy(_gamemode_replicas[i]->recv_buf, replica_receive_buffer, len);
+			}
+
+			#ifdef DEBUG
+			if (!packet_processed)
+			{
+				printk("%s: received data has no handler\n", __func__);
+			}
+			#endif
+
+			UNLOCK_CONTINUE();
 		}
-
-		if (recv_status != 0)
-		{
-			printk("%s: failed receiving packet, 0x%x\n", __func__, recv_status);
-			UNLOCK_DELAY_CONTINUE(1000);
-		}
-
-		if (gamemode->data_size != len)
-		{
-			printk("%s: received data has bad length, expected %u, got %d\n", __func__, gamemode->data_size, len);
-			UNLOCK_DELAY_CONTINUE(1000);
-		}
-
-		if (!_isMacMatch(&gamemode->saddr, &saddr))
-		{
-			printk("%s: received data from non host\n", __func__);
-			UNLOCK_DELAY_CONTINUE(1000);
-		}
-
-		// XXX should we check sport?
-
-		// We have new data in recv_buf
-		gamemode->last_recv = sceKernelGetSystemTimeWide();
-		gamemode->data_updated = 1;
-		UNLOCK_DELAY_CONTINUE(GAMEMODE_UPDATE_INTERVAL_USEC);
+		sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC);
 	}
 
-	gamemode->stop_thread = -1;
+	printk("%s: gamemode replica thread stopped\n", __func__);
+	_gamemode_replica_stop_thread = -1;
 	return 0;
 }
 
@@ -135,60 +182,108 @@ int proNetAdhocGameModeCreateReplica(const SceNetEtherAddr * src, void * ptr, ui
 	}
 
 	// Allocate memory
-	GamemodeInternal *gamemode = (GamemodeInternal *)malloc(sizeof(GamemodeInternal));
+	GamemodeInternal *gamemode = (GamemodeInternal *)malloc(sizeof(GamemodeInternal) + size);
 	if (gamemode == NULL)
 	{
 		// Out of memory
 		printk("%s: out of heap\n", __func__);
 		RETURN_UNLOCK(NET_NO_SPACE);
 	}
+	gamemode->recv_buf = ((void *)gamemode) + sizeof(GamemodeInternal);
 
-	gamemode->recv_buf = malloc(size);
-	if (gamemode->recv_buf == NULL)
+	memset(gamemode, 0, sizeof(GamemodeInternal));
+
+	if (size > largest_gamemode_replica)
 	{
-		printk("%s: failed allocating receive buffer\n");
-		free(gamemode);
-		RETURN_UNLOCK(NET_NO_SPACE);
+		void *new_buffer = malloc(size);
+		if (new_buffer == NULL)
+		{
+			printk("%s: failed allocating receive buffer\n", __func__);
+			free(gamemode);
+			RETURN_UNLOCK(NET_NO_SPACE);
+		}
+		largest_gamemode_replica = size;
+		if (replica_receive_buffer != NULL)
+		{
+			free(replica_receive_buffer);
+		}
+		replica_receive_buffer = new_buffer;
 	}
 
 	gamemode->saddr = *src;
 	gamemode->data = ptr;
 	gamemode->data_size = size;
 	gamemode->data_updated = 0;
-	gamemode->pdp_sock_id = sceNetAdhocPdpCreate(&(gamemode->saddr), ADHOC_GAMEMODE_PORT, size, 0);
 
-	if (gamemode->pdp_sock_id < 0)
+	if (_gamemode_socket_users == 0)
 	{
-		printk("%s: failed creating pdp recv socket, 0x%x\n", __func__, gamemode->pdp_sock_id);
-		free(gamemode->recv_buf);
-		free(gamemode);
-		RETURN_UNLOCK(NET_NO_SPACE);
+		SceNetEtherAddr local_mac = {0};
+		sceNetGetLocalEtherAddr(&local_mac);
+
+		// XXX the size here would be wrong for shared socket, we're just riding the fact that inet sockets don't have a recv buffer size setting
+		_gamemode_socket = sceNetAdhocPdpCreate(&local_mac, ADHOC_GAMEMODE_PORT, size, 0);
+
+		if (_gamemode_socket < 0)
+		{
+			printk("%s: failed creating gamemode socket, 0x%x\n", __func__, _gamemode_socket);
+			free(gamemode);
+			RETURN_UNLOCK(NET_NO_SPACE);
+		}
 	}
 
-	gamemode->thread_id = sceKernelCreateThread("replica receive thread", gamemode_replica_thread, 111, 1024 * 4, 0, NULL);
-	gamemode->stop_thread = 0;
-
-	if (gamemode->thread_id < 0)
+	if (_gamemode_replica_thread_id < 0)
 	{
-		printk("%s: failed creating receive thread, 0x%x\n", __func__, gamemode->thread_id);
-		sceNetAdhocPdpDelete(gamemode->pdp_sock_id, 0);
-		free(gamemode->recv_buf);
-		free(gamemode);
-		RETURN_UNLOCK(NET_NO_SPACE);
+		_gamemode_replica_thread_id = sceKernelCreateThread("replica receive thread", gamemode_replica_thread, 111, 1024 * 4, 0, NULL);
+
+		if (_gamemode_replica_thread_id < 0)
+		{
+			printk("%s: failed creating receive thread, 0x%x\n", __func__, _gamemode_replica_thread_id);
+			if (_gamemode_socket_users == 0)
+			{
+				sceNetAdhocPdpDelete(_gamemode_socket, 0);
+				_gamemode_socket = -1;
+			}
+			free(gamemode);
+			RETURN_UNLOCK(NET_NO_SPACE);
+		}
+
+		_gamemode_replica_stop_thread = 0;
+		int thread_start_status = sceKernelStartThread(_gamemode_replica_thread_id, 0, NULL);
+		if (thread_start_status < 0)
+		{
+			// can it fail?
+			printk("%s: failed starting receive thread, 0x%x\n", __func__, thread_start_status);
+
+			int thread_delete_status = sceKernelDeleteThread(_gamemode_replica_thread_id);
+			if (thread_delete_status < 0)
+			{
+				// uhhhh
+				printk("%s: failed removing receive thread, 0x%x\n", __func__, thread_delete_status);
+			}
+			_gamemode_replica_thread_id = -1;
+
+			if (_gamemode_socket_users == 0)
+			{
+				sceNetAdhocPdpDelete(_gamemode_socket, 0);
+				_gamemode_socket = -1;
+			}
+			free(gamemode);
+			RETURN_UNLOCK(NET_NO_SPACE);
+		}
 	}
 
-	int thread_start_status = sceKernelStartThread(gamemode->thread_id, 0, gamemode);
-	if (thread_start_status < 0)
-	{
-		// can it fail?
-		printk("%s: failed starting receive thread, 0x%x\n", __func__, thread_start_status);
-		sceNetAdhocPdpDelete(gamemode->pdp_sock_id, 0);
-		free(gamemode->recv_buf);
-		free(gamemode);
-		RETURN_UNLOCK(NET_NO_SPACE);
-	}
-
-	// replica created;
+	// replica created
 	_gamemode_replicas[next_empty_slot] = gamemode;
+	_gamemode_socket_users++;
+
+	#if 0
+	// Wait for the first replication
+	uint64_t begin = sceKernelGetSystemTimeWide();
+	while (!gamemode->data_updated && sceKernelGetSystemTimeWide() - begin < 10000000)
+	{
+		sceKernelDelayThread(100000);
+	}
+	#endif
+
 	RETURN_UNLOCK(next_empty_slot + 1);
 }

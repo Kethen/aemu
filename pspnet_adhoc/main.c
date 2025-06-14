@@ -24,16 +24,16 @@
 PSP_MODULE_INFO(MODULENAME, PSP_MODULE_USER + 6, 1, 4);
 PSP_HEAP_SIZE_KB(100);
 
-int port_offset = 0;
+int _port_offset = 0;
 
 static uint16_t reverse_port(uint16_t port)
 {
-	return port - port_offset;
+	return port - _port_offset;
 }
 
 static uint16_t offset_destination_port(uint16_t port)
 {
-	return port + port_offset;
+	return port + _port_offset;
 }
 
 static uint16_t offset_source_port(uint16_t port)
@@ -43,7 +43,7 @@ static uint16_t offset_source_port(uint16_t port)
 	{
 		return 0;
 	}
-	port += port_offset;
+	port += _port_offset;
 	if (port == 0)
 	{
 		return 65535;
@@ -65,7 +65,7 @@ static void _readPortOffsetConfig(void)
 		char read_buf[1024] = {0};
 		sceIoRead(fd, read_buf, sizeof(read_buf) - 1);
 
-		port_offset = atoi(read_buf);
+		_port_offset = atoi(read_buf);
 
 		// Close Configuration File
 		sceIoClose(fd);

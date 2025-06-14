@@ -26,7 +26,6 @@ int proNetAdhocGameModeUpdateMaster(void)
 	sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
 	#define RETURN_UNLOCK(_v) { \
 		sceKernelUnlockLwMutex(&_gamemode_lock, 1); \
-		printk("%s: 0x%x\n", __func__, _v); \
 		return _v; \
 	}
 
@@ -49,14 +48,13 @@ int proNetAdhocGameModeUpdateMaster(void)
 		RETURN_UNLOCK(ADHOC_NOT_CREATED);
 	}
 
-	// Copy data to data buffer
+	// Copy data to data buffer and send once 
 	memcpy(_gamemode.recv_buf, _gamemode.data, _gamemode.data_size);
+	// Force send once
+	sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 1);
 
-	// Let the data repeat begin
+	// Send data
 	_gamemode.data_updated = 1;
-
-	// Kind of inaccurate, we send now in non block mode
-	sceNetAdhocPdpSend(_gamemode.pdp_sock_id, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 1);
 
 	RETURN_UNLOCK(0);
 }

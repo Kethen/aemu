@@ -76,9 +76,6 @@ typedef struct GamemodeInternal {
 	void *data;
 	uint32_t data_size;
 	int data_updated;
-	int pdp_sock_id;
-	SceUID thread_id;
-	int stop_thread;
 	void *recv_buf;
 	uint64_t last_recv;
 } __attribute__((packed)) GamemodeInternal;

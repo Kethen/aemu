@@ -37,9 +37,11 @@ int proNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 			SceNetEtherAddr local_mac = {0};
 			sceNetGetLocalEtherAddr(&local_mac);
 			#ifdef DEBUG
-			if (memcmp(&local_mac, saddr, ETHER_ADDR_LEN) != 0)
+			if (!_isMacMatch(&local_mac, saddr))
 			{
-				printk("%s: createing pdp with a non local mac..? local %x:%x:%x:%x:%x:%x desired %x:%x:%x:%x:%x:%x\n", __func__, (uint32_t)(local_mac.data[0]), (uint32_t)(local_mac.data[1]), (uint32_t)(local_mac.data[2]), (uint32_t)(local_mac.data[3]), (uint32_t)(local_mac.data[4]), (uint32_t)(local_mac.data[5]), (uint32_t)(saddr->data[0]), (uint32_t)(saddr->data[1]), (uint32_t)(saddr->data[2]), (uint32_t)(saddr->data[3]), (uint32_t)(saddr->data[4]), (uint32_t)(saddr->data[5]));
+				printk("%s: createing pdp with a non local mac..?\n", __func__);
+				printk("local %x:%x:%x:%x:%x:%x\n", local_mac.data[0], local_mac.data[1], local_mac.data[2], local_mac.data[3], local_mac.data[4], local_mac.data[5]);
+				printk("desired %x:%x:%x:%x:%x:%x\n", saddr->data[0], saddr->data[1], saddr->data[2], saddr->data[3], saddr->data[4], saddr->data[5]);
 			}
 			#endif
 			// Valid MAC supplied
@@ -61,7 +63,7 @@ int proNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 						printk("%s: using sport %d, might have issues when playing with PPSSPP, change your port offset here and on PPSSPP\n", __func__, sport);
 				}
 				
-				// Unused Port supplied
+				// Unused port supplied
 				if(!_IsPDPPortInUse(sport))
 				{
 					// Create Internet UDP Socket

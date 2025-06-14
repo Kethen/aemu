@@ -28,7 +28,6 @@ int proNetAdhocGameModeUpdateReplica(int id, SceNetAdhocGameModeOptData * opt)
 	sceKernelLockLwMutex(&_gamemode_lock, 1, 0);
 	#define RETURN_UNLOCK(_v) { \
 		sceKernelUnlockLwMutex(&_gamemode_lock, 1); \
-		printk("%s: 0x%x 0x%x, 0x%x\n", __func__, id, opt, _v); \
 		return _v; \
 	}
 
