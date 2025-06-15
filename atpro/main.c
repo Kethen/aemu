@@ -76,6 +76,10 @@ static uint64_t game_begin = 0;
 
 static SceUID stolen_memory = -1;
 
+// Is the system always holding this lock? So far it would unlock before starting system utilities, then relocks afterwards
+// It is really odd considering system utilites loads into p5
+static int volatile_locked = 0;
+
 // Adhoc Module Names
 #define MODULE_LIST_SIZE 5
 char * module_names[MODULE_LIST_SIZE] = {
@@ -99,23 +103,15 @@ SceUID module_io_uids[MODULE_LIST_SIZE] = {
 //	-1
 };
 
-void steal_memory()
+static int is_high_mem()
 {
-	static const int size = 1024 * 1024 * 2;
-
-	if (stolen_memory >= 0)
-	{
-		printk("%s: refuse to steal memory again\n", __func__);
-		return;
-	}
-
 	// https://github.com/Freakler/CheatDeviceRemastered/blob/fb0b45a254c724a2cef2397237b2d9ada22b37b4/source/utils.c
 	SceUID test_alloc = sceKernelAllocPartitionMemory(2, "highmem probe", PSP_SMEM_High, 1024, NULL);
 
 	if (test_alloc < 0)
 	{
 		printk("%s: cannot probe for memory layout, giving up\n", __func__);
-		return;
+		return 0;
 	}
 
 	void *test_head = sceKernelGetBlockHeadAddr(test_alloc);
@@ -124,6 +120,24 @@ void steal_memory()
 	if (test_head < 0x0B000000)
 	{
 		printk("%s: Not in high memory layout, 0x%x, releasing %d\n", __func__, test_head, test_alloc);
+		return 0;
+	}
+	return 1;
+}
+
+void steal_memory()
+{
+	static const int size = 1024 * 1024 * 6;
+
+	if (stolen_memory >= 0)
+	{
+		printk("%s: refuse to steal memory again\n", __func__);
+		return;
+	}
+
+	if (!is_high_mem())
+	{
+		printk("%s: not in high mem, not stealing memory\n", __func__);
 		return;
 	}
 
@@ -156,6 +170,15 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option)
 	// Online Mode Enabled
 	if(onlinemode)
 	{
+		// When online, we redirect all p5 modules to p2, if highmem is available
+		// Together with the memlock disabled, this will allow dialogs to pop while inet is using p5
+		if (option != NULL && (option->mpidtext == 5 || option->mpiddata == 5) && is_high_mem())
+		{
+			printk("%s: redirecting %s to p2\n", __func__, path);
+			option->mpidtext = 2;
+			option->mpiddata = 2;
+		}
+
 		// Replace Adhoc Modules
 		int i = 0; for(; i < MODULE_LIST_SIZE; i++) {
 			// Matching Modulename
@@ -191,9 +214,21 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option)
 			}
 		}
 	}
-	
+
+	// If we stole memory before, it's time to return it
+	if (sceKernelGetSystemTimeWide() - game_begin > LOAD_RETURN_MEMORY_THRES_USEC)
+	{
+		return_memory();
+	}
+
 	// Default Action - Load Module
-	return sceKernelLoadModule(path, flags, option);
+	SceUID module_id = sceKernelLoadModule(path, flags, option);
+
+	if (module_id < 0){
+		steal_memory();
+	}
+
+	return module_id;
 }
 
 // User Module Loader
@@ -368,6 +403,188 @@ int get_system_param_int(int id, int *value)
 	return sceUtilityGetSystemParamInt(id, value);
 }
 
+
+
+#define MAKE_JUMP(a, f) _sw(0x08000000 | (((u32)(f) & 0x0FFFFFFC) >> 2), a)
+#define GET_JUMP_TARGET(x) (0x80000000 | (((x) & 0x03FFFFFF) << 2))
+#define HIJACK_FUNCTION(a, f, ptr) \
+{ \
+	printk("hijacking function at 0x%lx with 0x%lx\n", (u32)a, (u32)f); \
+	u32 _func_ = (u32)a; \
+	u32 _ff = (u32)f; \
+	int _interrupts = pspSdkDisableInterrupts(); \
+	sceKernelDcacheWritebackInvalidateAll(); \
+	static u32 patch_buffer[3]; \
+	_sw(_lw(_func_), (u32)patch_buffer); \
+	_sw(_lw(_func_ + 4), (u32)patch_buffer + 8);\
+	MAKE_JUMP((u32)patch_buffer + 4, _func_ + 8); \
+	_sw(0x08000000 | (((u32)(_ff) >> 2) & 0x03FFFFFF), _func_); \
+	_sw(0, _func_ + 4); \
+	ptr = (void *)patch_buffer; \
+	sceKernelDcacheWritebackInvalidateAll(); \
+	sceKernelIcacheClearAll(); \
+	pspSdkEnableInterrupts(_interrupts); \
+	printk("original instructions: 0x%lx 0x%lx\n", _lw((u32)patch_buffer), _lw((u32)patch_buffer + 8)); \
+}
+
+#define USE_REAL_VOLATILE_MEMLOCK 0
+s32 sceKernelVolatileMemLock(s32 unk, void **ptr, s32 *size);
+s32 (*sceKernelVolatileMemLockOrig)(s32 unk, void **ptr, s32 *size) = NULL;
+s32 sceKernelVolatileMemLockPatched(s32 unk, void **ptr, s32 *size)
+{
+	#if USE_REAL_VOLATILE_MEMLOCK
+	s32 result = sceKernelVolatileMemLockOrig(unk, ptr, size);
+	printk("%s: 0x%x 0x%x/0x%x 0x%x/%d, 0x%x\n", __func__, unk, ptr, *ptr, size, *size, result);
+	return result;
+	#else
+	printk("%s: 0x%x, 0x%x, 0x%x/%d\n", __func__, unk, ptr, size, *size);
+	*ptr = (void *)0x08400000;
+	volatile_locked = 1;
+	return 0;
+	#endif
+}
+s32 sceKernelVolatileMemTryLock(s32 unk, void **ptr, s32 *size);
+s32 (*sceKernelVolatileMemTryLockOrig)(s32 unk, void **ptr, s32 *size) = NULL;
+s32 sceKernelVolatileMemTryLockPatched(s32 unk, void **ptr, s32 *size)
+{
+	#if USE_REAL_VOLATILE_MEMLOCK
+	s32 result = sceKernelVolatileMemTryLockOrig(unk, ptr, size);
+	printk("%s: 0x%x 0x%x/0x%x 0x%x/%d, 0x%x\n", __func__, unk, ptr, *ptr, size, *size, result);
+	return result;
+	#else
+	printk("%s: 0x%x, 0x%x, 0x%x/%d\n", __func__, unk, ptr, size, *size);
+	*ptr = (void *)0x08400000;
+	volatile_locked = 1;
+	return 0;
+	#endif
+}
+
+s32 sceKernelVolatileMemUnlock(s32 unk);
+s32 (*sceKernelVolatileMemUnlockOrig)(s32 unk) = NULL;
+s32 sceKernelVolatileMemUnlockPatched(s32 unk)
+{
+	#if USE_REAL_VOLATILE_MEMLOCK
+	s32 result = sceKernelVolatileMemUnlockOrig(unk);
+	printk("%s: 0x%x, 0x%x\n", __func__, unk, result);
+	return result;
+	#else
+	printk("%s: 0x%x\n", __func__, unk);
+	volatile_locked = 0;
+	return 0;
+	#endif
+}
+
+#define USE_REAL_POWER_LOCK 0
+
+s32 sceKernelPowerLock(s32 lockType);
+s32 (*sceKernelPowerLockOrig)(s32 lockType);
+s32 sceKernelPowerLockPatched(s32 lockType)
+{
+	#if USE_REAL_POWER_LOCK
+	s32 result = sceKernelPowerLockOrig(lockType);
+	printk("%s: power lock 0x%x, 0x%x\n", __func__, lockType, result);
+	return result;
+	#else
+	printk("%s: power lock 0x%x\n", __func__, lockType);
+	return 0;
+	#endif
+}
+
+s32 sceKernelPowerUnlock(s32 lockType);
+s32 (*sceKernelPowerUnlockOrig)(s32 lockType);
+s32 sceKernelPowerUnlockPatched(s32 lockType)
+{
+	#if USE_REAL_POWER_LOCK
+	s32 result = sceKernelPowerUnlockOrig(lockType);
+	printk("%s: power unlock 0x%x, 0x%x\n", __func__, lockType, result);
+	return result;
+	#else
+	printk("%s: power unlock 0x%x\n", __func__, lockType);
+	return 0;
+	#endif
+}
+
+s32 sceKernelPowerLockForUser(s32 lockType);
+s32 (*sceKernelPowerLockForUserOrig)(s32 lockType);
+s32 sceKernelPowerLockForUserPatched(s32 lockType)
+{
+	#if USE_REAL_POWER_LOCK
+	s32 result = sceKernelPowerLockForUserOrig(lockType);
+	printk("%s: power lock 0x%x, 0x%x\n", __func__, lockType, result);
+	return result;
+	#else
+	printk("%s: power lock 0x%x\n", __func__, lockType);
+	return 0;
+	#endif
+}
+
+s32 sceKernelPowerUnlockForUser(s32 lockType);
+s32 (*sceKernelPowerUnlockForUserOrig)(s32 lockType);
+s32 sceKernelPowerUnlockForUserPatched(s32 lockType)
+{
+	#if USE_REAL_POWER_LOCK
+	s32 result = sceKernelPowerUnlockForUserOrig(lockType);
+	printk("%s: power unlock 0x%x, 0x%x\n", __func__, lockType, result);
+	return result;
+	#else
+	printk("%s: power unlock 0x%x\n", __func__, lockType);
+	return 0;
+	#endif
+}
+
+
+#include <psputility.h>
+#include <psputility_msgdialog.h>
+
+static int dialog_status = PSP_UTILITY_DIALOG_NONE;
+int msg_dialog_init_start(pspUtilityMsgDialogParams *params){
+	printk("%s: 0x%x\n", __func__, params);
+	dialog_status = PSP_UTILITY_DIALOG_INIT;
+	return 0;
+}
+
+int msg_dialog_get_status()
+{
+	int ret_val = dialog_status;
+
+	if (dialog_status == PSP_UTILITY_DIALOG_INIT)
+	{
+		dialog_status = PSP_UTILITY_DIALOG_VISIBLE;
+	}
+	else if (dialog_status == PSP_UTILITY_DIALOG_QUIT)
+	{
+		dialog_status = PSP_UTILITY_DIALOG_FINISHED;
+	}
+	else if (dialog_status == PSP_UTILITY_DIALOG_FINISHED)
+	{
+		dialog_status = PSP_UTILITY_DIALOG_NONE;
+	}
+
+	printk("%s: %d\n", __func__, ret_val);
+
+	return ret_val;
+}
+
+void msg_dialog_update(int n){
+	printk("%s: %d\n", __func__, n);
+	dialog_status = PSP_UTILITY_DIALOG_QUIT;
+	return;
+}
+
+int msg_dialog_shutdown_start()
+{
+	printk("%s:\n, __func__");
+	dialog_status = 3;
+	return 0;
+}
+
+int msg_dialog_abort()
+{
+	printk("%s:\n, __func__");
+	dialog_status = 3;
+	return 0;
+}
+
 // Patcher to allow Utility-Made Connections
 void patch_netconf_utility(void * init, void * getstatus, void * update, void * shutdown)
 {
@@ -399,9 +616,6 @@ void patch_netconf_utility(void * init, void * getstatus, void * update, void * 
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x6332AA39, getstatus);
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x91E70E35, update);
 				hook_import_bynid((SceModule *)module, "sceUtility", 0xF88155F6, shutdown);
-
-				// Lie to the game about adhoc channel for at least Ridge Racer 2
-				hook_import_bynid((SceModule *)module, "sceUtility", 0xA5DA2406, get_system_param_int);
 			}
 		}
 	}
@@ -836,6 +1050,16 @@ int online_patcher(SceModule2 * module)
 		hook_import_bynid((SceModule *)module, "sceCtrl", 0x3A622550, peek_buffer_positive);
 		hook_import_bynid((SceModule *)module, "sceCtrl", 0x60B81F86, read_buffer_negative);
 		hook_import_bynid((SceModule *)module, "sceCtrl", 0xC152080A, peek_buffer_negative);
+
+		// Lie to the game about adhoc channel for at least Ridge Racer 2
+		hook_import_bynid((SceModule *)module, "sceUtility", 0xA5DA2406, get_system_param_int);
+
+		// Monitor dialogs
+		hook_import_bynid((SceModule *)module, "sceUtility", 0x2AD8E239, msg_dialog_init_start);
+		hook_import_bynid((SceModule *)module, "sceUtility", 0x67AF3428, msg_dialog_shutdown_start);
+		hook_import_bynid((SceModule *)module, "sceUtility", 0x95FC253B, msg_dialog_update);
+		hook_import_bynid((SceModule *)module, "sceUtility", 0x9A1C91D7, msg_dialog_get_status);
+		hook_import_bynid((SceModule *)module, "sceUtility", 0x4928BD96, msg_dialog_abort);
 	}
 	
 	// Enable System Control Patching
@@ -1064,6 +1288,17 @@ int module_start(SceSize args, void * argp)
 						// Disable Sleep Mode
 						scePowerLock(0);
 						printk("Disabled Power Button!\n");
+
+						// Monitor/disable volatile lock
+						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemLock), sceKernelVolatileMemLockPatched, sceKernelVolatileMemLockOrig);
+						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemTryLock), sceKernelVolatileMemTryLockPatched, sceKernelVolatileMemTryLockOrig);
+						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemUnlock), sceKernelVolatileMemUnlockPatched, sceKernelVolatileMemUnlockOrig);
+
+						// Monitor power locks
+						//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerLock), sceKernelPowerLockPatched, sceKernelPowerLockOrig);
+						//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerUnlock), sceKernelPowerUnlockPatched, sceKernelPowerUnlockOrig);
+						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerLockForUser), sceKernelPowerLockForUserPatched, sceKernelPowerLockForUserOrig);
+						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerUnlockForUser), sceKernelPowerUnlockForUserPatched, sceKernelPowerUnlockForUserOrig);
 					}
 					
 					// Create Input Thread
@@ -1078,6 +1313,10 @@ int module_start(SceSize args, void * argp)
 						// Start Input Thread
 						sceKernelStartThread(ctrl, 0, NULL);
 					}
+
+					s32 size = 4194304;
+					void *ptr = 0;
+					//sceKernelVolatileMemLockOrig(0, &ptr, &size);
 
 					// Setup Success
 					return 0;

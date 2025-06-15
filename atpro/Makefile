@@ -2,7 +2,7 @@ all:
 	mv atpro.prx ../dist/seplugins
 
 TARGET = atpro
-OBJS = main.o libs.o hud.o draw.o logs.o
+OBJS = main.o libs.o hud.o draw.o logs.o imports/sceSuspendForKernel.o
 
 CFLAGS = -Os -G0 -Wall -fno-pic
 
