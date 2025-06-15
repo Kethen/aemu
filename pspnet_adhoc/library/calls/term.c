@@ -39,11 +39,13 @@ int proNetAdhocTerm(void)
 		sceNetAdhocctlTerm();
 
 		// Stop gamemodes
+		printk("%s: deleting gamemode master\n", __func__);
 		proNetAdhocGameModeDeleteMaster();
 		for (int i = 0;i < sizeof(_gamemode_replicas) / sizeof(GamemodeInternal *);i++)
 		{
 			if (_gamemode_replicas[i] != NULL)
 			{
+				printk("%s: deleting gamemode replica %d\n", __func__, i + 1);
 				proNetAdhocGameModeDeleteReplica(i + 1);
 			}
 		}

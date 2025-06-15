@@ -37,6 +37,7 @@ static int gamemode_master_thread(SceSize args, void *argp)
 	{
 		if(sceKernelTryLockLwMutex(&_gamemode_lock, 1) != 0)
 		{
+			sceKernelDelayThread(GAMEMODE_INIT_DELAY_USEC);
 			continue;
 		}
 
@@ -49,7 +50,7 @@ static int gamemode_master_thread(SceSize args, void *argp)
 		int gamemode_info_get_status = sceNetAdhocctlGetGameModeInfo(&gamemode_info);
 		if (gamemode_info_get_status != 0)
 		{
-			printk("%s: failed grabbing gamemode info for some reason, 0x%x\n", __func__, gamemode_info_get_status);
+			//printk("%s: failed grabbing gamemode info for some reason, 0x%x\n", __func__, gamemode_info_get_status);
 			//sceKernelDelayThread(100000);
 			//continue;
 		}
