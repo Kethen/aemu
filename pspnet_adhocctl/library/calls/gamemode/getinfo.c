@@ -41,8 +41,6 @@ int proNetAdhocctlGetGameModeInfo(SceNetAdhocctlGameModeInfo * info)
 		return ADHOCCTL_NOT_ENTER_GAMEMODE;
 	}
 
-	memset(info, 0, sizeof(SceNetAdhocctlGameModeInfo));
-
 	info->num = _num_actual_gamemode_peers;
 	for (int i = 0; i < info->num;i++)
 	{

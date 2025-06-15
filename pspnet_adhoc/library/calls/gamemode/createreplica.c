@@ -37,7 +37,7 @@ static int gamemode_replica_thread(SceSize args, void *argp)
 		{
 			if (sceKernelTryLockLwMutex(&_gamemode_lock, 1) != 0)
 			{
-				sceKernelDelayThread(GAMEMODE_INIT_DELAY_USEC);
+				sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC);
 				continue;
 			}
 

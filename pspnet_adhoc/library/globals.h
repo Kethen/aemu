@@ -94,7 +94,7 @@ extern SceUID _gamemode_socket;
 extern int _gamemode_socket_users;
 
 #define ADHOC_GAMEMODE_PORT 31000
-#define GAMEMODE_UPDATE_INTERVAL_USEC 500
+#define GAMEMODE_UPDATE_INTERVAL_USEC 12000
 #define GAMEMODE_INIT_DELAY_USEC 100000
 #define GAMEMODE_SYNC_TIMEOUT_USEC 250000
 

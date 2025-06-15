@@ -17,6 +17,23 @@
 
 #include "../../common.h"
 
+static int gamemode_info_same(SceNetAdhocctlGameModeInfo *lhs, SceNetAdhocctlGameModeInfo *rhs)
+{
+	if (lhs->num != rhs->num)
+	{
+		return 0;
+	}
+
+	for(int i = 0;i < lhs->num;i++)
+	{
+		if (!_isMacMatch(&lhs->member[i], &rhs->member[i]))
+		{
+			return 0;
+		}
+	}
+
+	return 1;
+}
 
 GamemodeInternal _gamemode = {0};
 SceLwMutexWorkarea _gamemode_lock = {0};
@@ -37,7 +54,7 @@ static int gamemode_master_thread(SceSize args, void *argp)
 	{
 		if(sceKernelTryLockLwMutex(&_gamemode_lock, 1) != 0)
 		{
-			sceKernelDelayThread(GAMEMODE_INIT_DELAY_USEC);
+			sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC);
 			continue;
 		}
 
@@ -55,7 +72,7 @@ static int gamemode_master_thread(SceSize args, void *argp)
 			//continue;
 		}
 
-		if (_gamemode.data_updated || memcmp(&last_gamemode_info, &gamemode_info, sizeof(SceNetAdhocctlGameModeInfo)) != 0)
+		if (_gamemode.data_updated || !gamemode_info_same(&last_gamemode_info, &gamemode_info))
 		{
 			// Peer changes or data is updated, broadcast
 			last_gamemode_info = gamemode_info;
