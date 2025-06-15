@@ -71,6 +71,9 @@ int proNetAdhocTerm(void)
 		// Library shutdown
 		_init = 0;
 
+		// unload modules
+		unload_inet_modules();
+
 		// Occupy memory again
 		steal_memory();
 	}

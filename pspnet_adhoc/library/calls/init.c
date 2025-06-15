@@ -49,21 +49,11 @@ int proNetAdhocInit(void)
 	if(!_init)
 	{
 		return_memory();
+
+		load_inet_modules();
+
 		// Initialize Internet Library
 		int result = sceNetInetInit();
-		
-		// Missing Internet Modules
-		if(result != 0)
-		{
-			// Load Internet Modules
-			sceUtilityLoadModule(PSP_MODULE_NET_INET);
-			
-			// Enable Manual Infrastructure Module Control
-			_manage_modules = 1;
-			
-			// Re-Initialize Internet Library
-			result = sceNetInetInit();
-		}
 
 		if(result != 0)
 		{
@@ -91,4 +81,93 @@ int proNetAdhocInit(void)
 	
 	// Already initialized
 	return ADHOC_ALREADY_INITIALIZED;
+}
+
+static const char *inet_modules[] = {
+	"flash0:/kd/pspnet_inet.prx",
+	"flash0:/kd/pspnet_apctl.prx",
+	"flash0:/kd/pspnet_resolver.prx"
+};
+
+static const int num_inet_modules = sizeof(inet_modules) / sizeof(char *);
+
+static SceUID inet_modids[] = {-1, -1, -1};
+
+SceUID kuKernelLoadModule(const char *path, int flags, SceKernelLMOption *option);
+
+void load_inet_modules()
+{
+	for (int i = 0;i < num_inet_modules;i++)
+	{
+		if (inet_modids[i] >= 0)
+		{
+			printk("%s: %s is already loaded\n", __func__, inet_modules[i]);
+			continue;
+		}
+
+		// Loading into p5 here would usually just crash, current theory is that inet uses p5 without partition allocation
+		SceKernelLMOption load_options = {0};
+		load_options.size = sizeof(SceKernelLMOption);
+		load_options.mpidtext = 2;
+		load_options.mpiddata = 2;
+		load_options.position = PSP_SMEM_Low;
+		load_options.access = 1;
+
+		inet_modids[i] = kuKernelLoadModule(inet_modules[i], 0, &load_options);
+		if (inet_modids[i] < 0)
+		{
+			printk("%s: failed loading %s, 0x%x\n", __func__, inet_modules[i], inet_modids[i]);
+			continue;
+		}
+		int result = 0;
+		int start_status = sceKernelStartModule(inet_modids[i], 0, NULL, &result, NULL);
+		if (start_status < 0)
+		{
+			printk("%s: failed starting %s, 0x%x\n", __func__, inet_modules[i], start_status);
+			int unload_status = sceKernelUnloadModule(inet_modids[i]);
+			if (unload_status < 0)
+			{
+				printk("%s: failed unloading module after failed starting module\n", __func__);
+			}
+			else
+			{
+				inet_modids[i] = -1;
+			}
+			continue;
+		}
+		printk("%s: loaded and started %s\n", __func__, inet_modules[i]);
+	}
+}
+
+void unload_inet_modules()
+{
+	for (int i = num_inet_modules - 1;i >= 0;i--)
+	{
+		if (i == 0)
+		{
+			// Cannot unload pspnet_inet.prx currently;
+			printk("%s: cannot unload pspnet_inet.prx currnetly\n", __func__);
+			continue;
+		}
+
+		if (inet_modids[i] < 0)
+		{
+			printk("%s: %s was not loaded\n", __func__, inet_modules[i]);
+			continue;
+		}
+		int result = 0;
+		int stop_status = sceKernelStopModule(inet_modids[i], 0, NULL, &result, NULL);
+		if (stop_status < 0)
+		{
+			printk("%s: failed stopping %s, 0x%x\n", __func__, stop_status);
+		}
+		int unload_status = sceKernelUnloadModule(inet_modids[i]);
+		if (unload_status < 0)
+		{
+			printk("%s: failed unloading %s, 0x%x\n", __func__, inet_modules[i], unload_status);
+			continue;
+		}
+		printk("%s: stopped and unloaded %s\n", __func__, inet_modules[i]);
+		inet_modids[i] = -1;
+	}
 }

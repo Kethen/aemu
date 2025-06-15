@@ -78,7 +78,7 @@ PRX_EXPORTS = exports.exp
 USE_PSPSDK_LIBC = 1
 
 LDFLAGS = -nostartfiles
-LIBS = -nostdlib -lpspuser -lpspnet_inet -lpspmodinfo -lpsputility -lpspnet_adhocctl -lpspnet_adhocmatching
+LIBS = -nostdlib -lpspuser -lpspnet_inet -lpspmodinfo -lpsputility -lpspnet_adhocctl -lpspnet_adhocmatching -lpspkubridge
 
 PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build.mak

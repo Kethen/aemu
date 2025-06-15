@@ -120,4 +120,8 @@ int sceNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 // From kernel module
 void return_memory();
 void steal_memory();
+
+void load_inet_modules();
+void unload_inet_modules();
+
 #endif

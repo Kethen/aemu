@@ -38,11 +38,17 @@
 // PSP Module Loader
 #include <psputility_modules.h>
 
+// PSP mem
+#include <pspsysmem.h>
+
 // PSP Access Point Control (for IP)
 #include <pspnet_apctl.h>
 
 // PSP thread control
 #include <pspthreadman.h>
+
+// PSP modules
+#include <pspmodulemgr.h>
 
 // --- Kernel Debugger ---
 
