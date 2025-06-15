@@ -33,7 +33,7 @@ static int gamemode_replica_thread(SceSize args, void *argp)
 	{
 		int recv_status = 0;
 		int packet_limit = 20;
-		while(recv_status == 0 && packet_limit > 0)
+		while(recv_status == 0 && packet_limit > 0 && !_gamemode_replica_stop_thread)
 		{
 			if (sceKernelTryLockLwMutex(&_gamemode_lock, 1) != 0)
 			{

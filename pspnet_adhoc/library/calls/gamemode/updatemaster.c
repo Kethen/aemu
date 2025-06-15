@@ -48,10 +48,11 @@ int proNetAdhocGameModeUpdateMaster(void)
 		RETURN_UNLOCK(ADHOC_NOT_CREATED);
 	}
 
-	// Copy data to data buffer and send once 
+	// Copy data to data buffer
 	memcpy(_gamemode.recv_buf, _gamemode.data, _gamemode.data_size);
+
 	// Force send once
-	sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 1);
+	//sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 1);
 
 	// Send data
 	_gamemode.data_updated = 1;

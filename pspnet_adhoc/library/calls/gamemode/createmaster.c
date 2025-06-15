@@ -61,7 +61,10 @@ static int gamemode_master_thread(SceSize args, void *argp)
 			last_gamemode_info = gamemode_info;
 			#define NON_BLOCK_SEND 1
 			sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 1000000, NON_BLOCK_SEND);
-			_gamemode.data_updated = 0;
+			if (_gamemode.data_updated)
+			{
+				_gamemode.data_updated = 0;
+			}
 		}
 
 		sceKernelUnlockLwMutex(&_gamemode_lock, 1);
@@ -151,11 +154,12 @@ int proNetAdhocGameModeCreateMaster(const void * ptr, uint32_t size)
 		RETURN_UNLOCK(NET_NO_SPACE);
 	}
 
-	// Going by PPSSPP, the initial data has to be broadcasted
+	// Going by PPSSPP, the initial data has to be sent
 	memcpy(_gamemode.recv_buf, _gamemode.data, _gamemode.data_size);
 	_gamemode.data_updated = 1;
-	// Broadcast once
-	sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 1);
+
+	// Send once
+	//sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 1);
 
 	_gamemode_stop_thread = 0;
 	int thread_start_status = sceKernelStartThread(_gamemode_thread_id, 0, NULL);

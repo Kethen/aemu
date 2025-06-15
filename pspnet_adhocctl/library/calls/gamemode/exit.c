@@ -23,5 +23,8 @@
  */
 int proNetAdhocctlExitGameMode(void)
 {
+	// Clear peer list
+	_num_actual_gamemode_peers = 0;	
+
 	return proNetAdhocctlDisconnect();
 }
