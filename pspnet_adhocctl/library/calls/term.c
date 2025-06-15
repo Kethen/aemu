@@ -81,6 +81,7 @@ int proNetAdhocctlTerm(void)
 		// clear state
 		_in_gamemode = 0;
 		_num_gamemode_peers = 0;
+		_disconnect_timestamp = 0;
 
 		// Issue Library cooldown
 		_init = 0;

@@ -17,6 +17,8 @@
 
 #include "../../common.h"
 
+uint64_t _disconnect_timestamp = 0;
+
 /**
  * Leave current Network
  * @return 0 on success or... ADHOCCTL_NOT_INITIALIZED, ADHOCCTL_BUSY
@@ -68,7 +70,8 @@ int proNetAdhocctlDisconnect(void)
 		_in_gamemode = 0;
 
 		// Notify Event Handlers (even if we weren't connected, not doing this will freeze games like God Eater, which expect this behaviour)
-		_notifyAdhocctlhandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
+		//_notifyAdhocctlhandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
+		_disconnect_timestamp = sceKernelGetSystemTimeWide();
 
 		// Return Success
 		return 0;

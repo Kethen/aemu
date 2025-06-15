@@ -606,7 +606,14 @@ int _friendFinder(SceSize args, void * argp)
 			// Send Chat to Server
 			sceNetInetSend(_metasocket, &chat, sizeof(chat), INET_MSG_DONTWAIT);
 		}
-		
+
+		// Some games cannot handle the disconnect signal emitted in the disconnect call
+		if (_disconnect_timestamp != 0 && sceKernelGetSystemTimeWide() - _disconnect_timestamp > 500000)
+		{
+			_disconnect_timestamp = 0;
+			_notifyAdhocctlhandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
+		}
+
 		// Wait for Incoming Data
 		int received = sceNetInetRecv(_metasocket, rx + rxpos, sizeof(rx) - rxpos, INET_MSG_DONTWAIT);
 		

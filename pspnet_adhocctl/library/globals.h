@@ -103,4 +103,6 @@ extern SceLwMutexWorkarea networking_lock;
 extern SceLwMutexWorkarea peer_lock;
 extern SceLwMutexWorkarea group_list_lock;
 
+extern uint64_t _disconnect_timestamp;
+
 #endif
