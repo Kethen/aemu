@@ -180,6 +180,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option)
 
 				if (result < 0)
 				{
+					printk("%s: failed loading %s, 0x%x\n", __func__, module_names[i], result);
 					steal_memory();
 				}
 				
@@ -191,9 +192,24 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option)
 			}
 		}
 	}
-	
+
+
 	// Default Action - Load Module
-	return sceKernelLoadModule(path, flags, option);
+
+	// Fix Permission Error on PSVita
+	uint32_t k1 = pspSdkSetK1(0);
+
+	int result = sceKernelLoadModule(path, flags, option);
+
+	// Restore K1 Register
+	pspSdkSetK1(k1);
+
+	if (result < 0)
+	{
+		printk("%s: failed loading %s, 0x%x\n", __func__, path, result);
+	}
+
+	return result;
 }
 
 // User Module Loader
@@ -235,6 +251,7 @@ SceUID load_plugin_io(SceUID fd, int flags, SceKernelLMOption * option)
 
 				if (result < 0)
 				{
+					printk("%s: failed loading %s, 0x%x\n", __func__, module_names[i], result);
 					steal_memory();
 				}
 
@@ -251,7 +268,21 @@ SceUID load_plugin_io(SceUID fd, int flags, SceKernelLMOption * option)
 	int (* originalcall)(SceUID, int, SceKernelLMOption *) = (void *)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForUser", 0xB7F46618);
 	
 	// Default Action - Load Module
-	return originalcall(fd, flags, option);
+
+	// Fix Permission Error on PSVita
+	uint32_t k1 = pspSdkSetK1(0);
+
+	int result = originalcall(fd, flags, option);
+
+	// Restore K1 Register
+	pspSdkSetK1(k1);
+
+	if (result < 0)
+	{
+		printk("%s: failed loading from id %d, 0x%x\n", __func__, fd, result);
+	}
+
+	return result;
 }
 
 // Plugin File Loader
@@ -264,7 +295,7 @@ SceUID open_plugin(char * path, int flags, int mode)
 		int i = 0; for(; i < MODULE_LIST_SIZE; i++) {
 			// Matching Modulename
 			if(strstr(path, module_names[i]) != NULL) {
-				// Create File Path
+				// Override File Path
 				strcpy(path, "ms0:/kd/");
 				strcpy(path + strlen(path), module_names[i]);
 
@@ -272,12 +303,13 @@ SceUID open_plugin(char * path, int flags, int mode)
 				{
 					return_memory();
 				}
-				
+
 				// Open File
 				SceUID result = sceIoOpen(path, flags, mode);
 
 				if (result < 0)
 				{
+					printk("%s: failed opening %s, 0x%x\n", __func__, path, result);
 					steal_memory();
 				}
 				
@@ -298,7 +330,9 @@ SceUID open_plugin(char * path, int flags, int mode)
 	}
 	
 	// Default Action - Open File
-	return sceIoOpen(path, flags, mode);
+	int result = sceIoOpen(path, flags, mode);
+	printk("%s: opened %s as %d\n", __func__, path, result);
+	return result;
 }
 
 // Plugin File Closer
