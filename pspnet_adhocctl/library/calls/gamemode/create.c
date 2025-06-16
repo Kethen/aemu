@@ -82,7 +82,7 @@ int proNetAdhocctlCreateEnterGameMode(const SceNetAdhocctlGroupName * group_name
 	_gamemode_host_arrived = 0;
 	_gamemode_self_arrived = 0;
 
-	#if 0
+	#if 1
 	uint64_t begin = sceKernelGetSystemTimeWide();
 	while(!_gamemode_notified && sceKernelGetSystemTimeWide() - begin < 10000000)
 	{
