@@ -196,19 +196,16 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option)
 
 	// Default Action - Load Module
 
-	// Fix Permission Error on PSVita
-	uint32_t k1 = pspSdkSetK1(0);
-
 	int result = sceKernelLoadModule(path, flags, option);
 
-	// Restore K1 Register
-	pspSdkSetK1(k1);
-
+	// might be PSVita
 	if (result < 0)
 	{
-		printk("%s: module load failed with kernel k1, 0x%x, trying again\n", __func__, result);
-		// try again with original k1
+		printk("%s: module load failed with current k1, 0x%x, trying again with kernel k1\n", __func__, result);
+
+		uint32_t k1 = pspSdkSetK1(0);
 		result = sceKernelLoadModule(path, flags, option);
+		pspSdkSetK1(k1);
 	}
 
 	if (result < 0)
@@ -276,19 +273,16 @@ SceUID load_plugin_io(SceUID fd, int flags, SceKernelLMOption * option)
 	
 	// Default Action - Load Module
 
-	// Fix Permission Error on PSVita
-	uint32_t k1 = pspSdkSetK1(0);
-
 	int result = originalcall(fd, flags, option);
 
-	// Restore K1 Register
-	pspSdkSetK1(k1);
-
+	// might be PSVita
 	if (result < 0)
 	{
-		printk("%s: module load failed with kernel k1, 0x%x, trying again\n", __func__, result);
-		// try again with original k1
+		printk("%s: module load failed with current k1, 0x%x, trying again with kernel k1\n", __func__, result);
+
+		uint32_t k1 = pspSdkSetK1(0);
 		result = originalcall(fd, flags, option);
+		pspSdkSetK1(k1);
 	}
 
 	if (result < 0)
