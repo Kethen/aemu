@@ -206,6 +206,13 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option)
 
 	if (result < 0)
 	{
+		printk("%s: module load failed with kernel k1, 0x%x, trying again\n", __func__, result);
+		// try again with original k1
+		result = sceKernelLoadModule(path, flags, option);
+	}
+
+	if (result < 0)
+	{
 		printk("%s: failed loading %s, 0x%x\n", __func__, path, result);
 	}
 
@@ -276,6 +283,13 @@ SceUID load_plugin_io(SceUID fd, int flags, SceKernelLMOption * option)
 
 	// Restore K1 Register
 	pspSdkSetK1(k1);
+
+	if (result < 0)
+	{
+		printk("%s: module load failed with kernel k1, 0x%x, trying again\n", __func__, result);
+		// try again with original k1
+		result = originalcall(fd, flags, option);
+	}
 
 	if (result < 0)
 	{
