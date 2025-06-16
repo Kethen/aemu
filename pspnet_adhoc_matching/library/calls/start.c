@@ -437,6 +437,7 @@ int _matchingEventThread(SceSize args, void * argp)
 
 static int timeout_missing_peers_on_adhocctl(SceNetAdhocMatchingContext *context)
 {
+	sceKernelLockLwMutex(&members_lock, 1, 0);
 	SceNetAdhocMatchingMemberInternal * item = context->peerlist; for(; item != NULL; item = item->next)
 	{
 		// Self
@@ -461,6 +462,7 @@ static int timeout_missing_peers_on_adhocctl(SceNetAdhocMatchingContext *context
 			item->last_seen_on_adhocctl = sceKernelGetSystemTimeWide();
 		}
 	}
+	sceKernelUnlockLwMutex(&members_lock, 1);
 }
 
 /**
@@ -995,7 +997,37 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 						}
 						
 						// Delete Peer from List
-						_clearPeerList(context);
+						//_clearPeerList(context);
+
+						SceNetAdhocMatchingMemberInternal *peer = context->peerlist;
+						SceNetAdhocMatchingMemberInternal *last_peer = NULL;
+						SceNetEtherAddr local_mac = {0};
+						sceNetGetLocalEtherAddr(&local_mac);
+						while(peer != NULL)
+						{
+							// Remove self
+							if (_isMacMatch(&peer->mac, &local_mac))
+							{
+								SceNetAdhocMatchingMemberInternal *self = peer;
+								if (peer == context->peerlist)
+								{
+									context->peerlist = peer->next;
+								}
+								else
+								{
+									last_peer->next = peer->next;
+								}
+								peer = peer->next;
+								_free(self);
+							}
+							// Timeout others
+							else
+							{
+								peer->lastping = 0;
+								last_peer = peer;
+								peer = peer->next;
+							}
+						}
 					}
 				}
 				
