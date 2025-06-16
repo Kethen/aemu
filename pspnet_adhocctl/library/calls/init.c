@@ -607,19 +607,32 @@ int _friendFinder(SceSize args, void * argp)
 			sceNetInetSend(_metasocket, &chat, sizeof(chat), INET_MSG_DONTWAIT);
 		}
 
+		// Wait for Incoming Data
+		int received = sceNetInetRecv(_metasocket, rx + rxpos, sizeof(rx) - rxpos, INET_MSG_DONTWAIT);
+
+		// Free Network Lock
+		_freeNetworkLock();
+
 		// Some games cannot handle the disconnect signal emitted in the disconnect call
+		// half a second
 		if (_disconnect_timestamp != 0 && sceKernelGetSystemTimeWide() - _disconnect_timestamp > 500000)
 		{
 			_disconnect_timestamp = 0;
 			_notifyAdhocctlhandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
 		}
 
-		// Wait for Incoming Data
-		int received = sceNetInetRecv(_metasocket, rx + rxpos, sizeof(rx) - rxpos, INET_MSG_DONTWAIT);
-		
-		// Free Network Lock
-		_freeNetworkLock();
-		
+		// 10 seconds timeout for joining gamemode
+		if (_thread_status == ADHOCCTL_STATE_CONNECTED &&
+			_in_gamemode == -1 &&
+			sceKernelGetSystemTimeWide() - _gamemode_join_timestamp > 10000000
+		)
+		{
+			// Trigger disconnect
+			printk("%s: gamemode joining timed out\n", __func__);
+			_notifyAdhocctlhandlers(ADHOCCTL_EVENT_ERROR, ERROR_NET_ADHOC_TIMEOUT);
+			//proNetAdhocctlExitGameMode();
+		}
+
 		// Received Data
 		if(received > 0)
 		{
@@ -667,7 +680,6 @@ int _friendFinder(SceSize args, void * argp)
 						if (_num_actual_gamemode_peers >= _num_gamemode_peers && _gamemode_self_arrived && _gamemode_host_arrived)
 						{
 							_in_gamemode = 1;
-
 							_notifyAdhocctlhandlers(ADHOCCTL_EVENT_GAMEMODE, 0);
 							asm volatile("": : :"memory");
 							_gamemode_notified = 1;

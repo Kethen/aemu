@@ -135,7 +135,7 @@ int sceNetAdhocctlCreateEnterGameMode(const SceNetAdhocctlGroupName * group_name
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
-	printk("%s: creating game mode with %d members, 0x%x/%d\n", __func__, num, result/result);
+	printk("%s: creating gamemode %s with %d members, 0x%x/%d\n", __func__, group_name, num, result, result);
 	return result;
 }
 

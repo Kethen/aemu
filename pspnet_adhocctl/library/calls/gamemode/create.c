@@ -28,6 +28,8 @@ int _gamemode_host_arrived = 0;
 int _gamemode_self_arrived = 0;
 int _gamemode_notified = 0;
 
+uint64_t _gamemode_join_timestamp = 0;
+
 /**
  * Create and Join a GameMode Network as Host
  * @param group_name Virtual Network Name
@@ -80,12 +82,15 @@ int proNetAdhocctlCreateEnterGameMode(const SceNetAdhocctlGroupName * group_name
 	_gamemode_host_arrived = 0;
 	_gamemode_self_arrived = 0;
 
-	// Ugh, some games expect the notifier to be done before this returns, like Bomberman, with a datarace
+	#if 0
 	uint64_t begin = sceKernelGetSystemTimeWide();
 	while(!_gamemode_notified && sceKernelGetSystemTimeWide() - begin < 10000000)
 	{
 		sceKernelDelayThread(100000);
 	}
+	#endif
+
+	_gamemode_join_timestamp = sceKernelGetSystemTimeWide();
 
 	return 0;
 }

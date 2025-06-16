@@ -39,6 +39,7 @@ int proNetAdhocctlGetNameByAddr(const SceNetEtherAddr * addr, SceNetAdhocctlNick
 			{
 				// Write Data
 				*nickname = _parameter.nickname;
+				nickname->data[ADHOCCTL_NICKNAME_LEN - 1] = '\0';
 				
 				// Return Success
 				return 0;
@@ -58,6 +59,7 @@ int proNetAdhocctlGetNameByAddr(const SceNetEtherAddr * addr, SceNetAdhocctlNick
 				{
 					// Write Data
 					*nickname = peer->nickname;
+					nickname->data[ADHOCCTL_NICKNAME_LEN - 1] = '\0';
 					
 					// Multithreading Unlock
 					_freePeerLock();
