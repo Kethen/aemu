@@ -220,6 +220,27 @@ SceUID load_plugin_alt(const char * path, int unk1, int unk2, int flags, SceKern
 	return load_plugin(path, flags, option);
 }
 
+typedef struct
+{
+    int size; // 0
+    char name[32]; // 4
+    int attribute; // 36
+    int flags; // 40
+    const char *drvName; // 44
+    int fsNum; // 48
+    char *newPath; // 52
+    int retAddr; // 56
+    int curThread; // 60
+    int asyncThread; // 64
+    int isAsync; // 68
+    int asyncCmd; // 72
+    //SceIoIob *iob; // 76
+    void *iob; // 76
+    int fpos; // 80
+    int thread; // 84
+} SceIoFdDebugInfo;
+int sceIoGetFdDebugInfo(int fd, SceIoFdDebugInfo *outInfo);
+
 // IO Plugin File Loader
 SceUID load_plugin_io(SceUID fd, int flags, SceKernelLMOption * option)
 {
@@ -269,17 +290,44 @@ SceUID load_plugin_io(SceUID fd, int flags, SceKernelLMOption * option)
 	
 	// Default Action - Load Module
 
-	// Fix Permission Error on PSVita
+	SceIoFdDebugInfo file_info = {0};
+	file_info.size = sizeof(SceIoFdDebugInfo);
 	uint32_t k1 = pspSdkSetK1(0);
-
-	int result = originalcall(fd, flags, option);
-
-	// Restore K1 Register
+	int get_debug_info_status = sceIoGetFdDebugInfo(fd, &file_info);
 	pspSdkSetK1(k1);
-
-	if (result < 0)
+	if (get_debug_info_status != 0)
 	{
-		printk("%s: failed loading from id %d, 0x%x\n", __func__, fd, result);
+		printk("%s: failed getting file info, 0x%x\n", __func__, get_debug_info_status);
+	}
+
+	int result = 0;
+
+	if (get_debug_info_status == 0)
+	{
+		// Flash0 module names should be short enough to fit into the debug field
+		printk("%s: directly loading %s\n", __func__, file_info.name);
+
+		// Fix Permission Error on PSVita
+		uint32_t k1 = pspSdkSetK1(0);
+
+		result = sceKernelLoadModule(file_info.name, flags, option);
+
+		// Restore K1 Register
+		pspSdkSetK1(k1);
+
+		if (result < 0)
+		{
+			printk("%s: failed loading %s, 0x%x\n", __func__, file_info.name, result);
+		}
+	}
+	else
+	{
+		result = originalcall(fd, flags, option);
+
+		if (result < 0)
+		{
+			printk("%s: failed loading from id %d, 0x%x\n", __func__, fd, result);
+		}
 	}
 
 	return result;
