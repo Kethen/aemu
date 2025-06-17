@@ -27,11 +27,11 @@ void _actOnPingPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 void _actOnHelloPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac, uint32_t length);
 void _actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac, uint32_t length);
 void _actOnAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac, uint32_t length);
-void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac, uint32_t length);
+void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac, uint32_t length, uint64_t delayed_removal);
 void _actOnBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac, uint32_t length);
 void _actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac, uint32_t length);
 void _actOnDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac, uint32_t length);
-void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac);
+void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac, uint64_t delayed_removal);
 void _postAcceptCleanPeerList(SceNetAdhocMatchingContext * context);
 void _postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcount, SceNetEtherAddr * siblings);
 
@@ -435,6 +435,11 @@ int _matchingEventThread(SceSize args, void * argp)
 	return 0;
 }
 
+static uint64_t get_time_with_delay(uint64_t delay)
+{
+	return sceKernelGetSystemTimeWide() + delay;
+}
+
 static int timeout_missing_peers_on_adhocctl(SceNetAdhocMatchingContext *context)
 {
 	sceKernelLockLwMutex(&members_lock, 1, 0);
@@ -454,7 +459,9 @@ static int timeout_missing_peers_on_adhocctl(SceNetAdhocMatchingContext *context
 			// 5 seconds
 			if (sceKernelGetSystemTimeWide() - item->last_seen_on_adhocctl > 5000000)
 			{
-				item->lastping = 0;
+				//item->lastping = 0;
+				// simulate a bye packet
+				_actOnByePacket(context, &item->mac, 0);
 			}
 		}
 		else
@@ -581,6 +588,9 @@ int _matchingInputThread(SceSize args, void * argp)
 				// Lock member access since the list will be touched here
 				sceKernelLockLwMutex(&members_lock, 1, 0);
 
+				// Small delay before eviting peers on cancel/bye
+				uint64_t delayed_removal = get_time_with_delay(120000);
+
 				// Log Receive Success
 				printk("%s: Received %d Bytes (Opcode: %d/%s)\n", __func__, rxbuflen, context->rxbuf[0], get_opcode_name(context->rxbuf[0]));
 
@@ -597,7 +607,7 @@ int _matchingInputThread(SceSize args, void * argp)
 				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_ACCEPT) _actOnAcceptPacket(context, &sendermac, rxbuflen);
 
 				// Cancel Packet
-				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_CANCEL) _actOnCancelPacket(context, &sendermac, rxbuflen);
+				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_CANCEL) _actOnCancelPacket(context, &sendermac, rxbuflen, delayed_removal);
 
 				// Bulk Data Packet
 				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_BULK) _actOnBulkDataPacket(context, &sendermac, rxbuflen);
@@ -609,7 +619,7 @@ int _matchingInputThread(SceSize args, void * argp)
 				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_DEATH) _actOnDeathPacket(context, &sendermac, rxbuflen);
 
 				// Bye Packet
-				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_BYE) _actOnByePacket(context, &sendermac);
+				else if(context->rxbuf[0] == ADHOC_MATCHING_PACKET_BYE) _actOnByePacket(context, &sendermac, delayed_removal);
 
 				// Ignore Incoming Trash Data
 
@@ -627,11 +637,11 @@ int _matchingInputThread(SceSize args, void * argp)
 			timeout_missing_peers_on_adhocctl(context);
 		}
 
-		// Slight delay here, last chance for the game to grab the member list before the bye packets kick in
-		sceKernelDelayThread(100000);
-
 		// Handle Peer Timeouts
 		_handleTimeout(context);
+
+		// We don't want incoming match making packets to pile up... do not delay too long here
+		sceKernelDelayThread(9000);
 	}
 	
 	// Send Bye Messages
@@ -936,7 +946,7 @@ void _actOnAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
  * @param sendermac Packet Sender MAC
  * @param length Packet Length
  */
-void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac, uint32_t length)
+void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac, uint32_t length, uint64_t delayed_removal)
 {
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = _findPeer(context, sendermac);
@@ -949,7 +959,7 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 	
 	// Get P2P Partner
 	SceNetAdhocMatchingMemberInternal * p2p = _findP2P(context);
-	
+
 	// Interest Condition fulfilled
 	if(peer != NULL)
 	{
@@ -979,7 +989,7 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 						
 						// Delete Peer from List
 						//_deletePeer(context, peer);
-						peer->lastping = 0;
+						peer->lastping = delayed_removal;
 					}
 					
 					// Kicked from Room
@@ -1023,7 +1033,7 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 							// Timeout others
 							else
 							{
-								peer->lastping = 0;
+								peer->lastping = delayed_removal;
 								last_peer = peer;
 								peer = peer->next;
 							}
@@ -1042,7 +1052,7 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 						
 						// Delete Peer from List
 						//_deletePeer(context, peer);
-						peer->lastping = 0;
+						peer->lastping = delayed_removal;
 					}
 					
 					// Leave Room
@@ -1053,7 +1063,7 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 						
 						// Delete Peer from List
 						//_deletePeer(context, peer);
-						peer->lastping = 0;
+						peer->lastping = delayed_removal;
 					}
 				}
 				
@@ -1069,7 +1079,7 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 						// Delete Peer from List
 						//_deletePeer(context, peer);
 						// PPSSPP timesout the peer here
-						peer->lastping = 0;
+						peer->lastping = delayed_removal;
 					}
 					
 					// Kicked from Room
@@ -1080,7 +1090,7 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 						
 						// Delete Peer from List
 						//_deletePeer(context, peer);
-						peer->lastping = 0;
+						peer->lastping = delayed_removal;
 					}
 					
 					// Cancel Join Request
@@ -1091,7 +1101,7 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 						
 						// Delete Peer from List
 						//_deletePeer(context, peer);
-						peer->lastping = 0;
+						peer->lastping = delayed_removal;
 					}
 				}
 			}
@@ -1228,7 +1238,7 @@ void _actOnDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
  * @param context Matching Context Pointer
  * @param sendermac Packet Sender MAC
  */
-void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac)
+void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac, uint64_t delayed_removal)
 {
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = _findPeer(context, sendermac);
@@ -1264,7 +1274,7 @@ void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 			
 			// Delete Peer
 			//_deletePeer(context, peer);
-			peer->lastping = 0;
+			peer->lastping = delayed_removal;
 		}
 		
 		// Parent Bye
@@ -1314,7 +1324,7 @@ void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 				// Timeout others
 				else
 				{
-					peer->lastping = 0;
+					peer->lastping = delayed_removal;
 					last_peer = peer;
 					peer = peer->next;
 				}
