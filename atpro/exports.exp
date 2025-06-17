@@ -29,10 +29,8 @@ PSP_EXPORT_END
 
 PSP_EXPORT_START(GameFixes, 0, 0x4001)
 PSP_EXPORT_FUNC_HASH(killzone_createfpl)
-PSP_EXPORT_FUNC_HASH(load_plugin)
-PSP_EXPORT_FUNC_HASH(open_plugin)
-PSP_EXPORT_FUNC_HASH(load_plugin_io)
-PSP_EXPORT_FUNC_HASH(close_plugin)
+PSP_EXPORT_FUNC_HASH(load_plugin_kernel)
+PSP_EXPORT_FUNC_HASH(load_plugin_user)
 PSP_EXPORT_END
 
 PSP_END_EXPORTS

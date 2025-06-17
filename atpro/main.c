@@ -150,8 +150,71 @@ void return_memory()
 	stolen_memory = -1;
 }
 
+char tolower(char value)
+{
+	if (value < 'A' || value > 'Z')
+	{
+		return value;
+	}
+
+	static const char distance = 'a' - 'A';
+	return value + distance;
+}
+
+int strncasecmp(const char *lhs, const char *rhs, unsigned int max_len)
+{
+	int lhs_len = strnlen(lhs, max_len);
+	int rhs_len = strnlen(rhs, max_len);
+
+	if (lhs_len > 128 || rhs_len > 128)
+	{
+		printk("%s: simple strncasecmp implementation, giving up on strings that are too long\n", __func__);
+		return 0;
+	}
+	if (lhs_len > rhs_len)
+	{
+		return 1;
+	}
+	if (rhs_len > lhs_len)
+	{
+		return -1;
+	}
+
+	char lhs_buf[128];
+	char rhs_buf[128];
+	for (int i = 0;i < lhs_len;i++)
+	{
+		lhs_buf[i] = tolower(lhs[i]);
+	}
+	for (int i = 0;i < rhs_len;i++)
+	{
+		rhs_buf[i] = tolower(rhs[i]);
+	}
+	return strncmp(lhs_buf, rhs_buf, max_len);
+}
+
 // Kernel Module Loader
-SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option)
+typedef SceUID (*module_loader_func)(const char * path, int flags, SceKernelLMOption * option);
+module_loader_func load_plugin_user_orig = NULL;
+void load_module_loader_functions()
+{
+	if (load_plugin_user_orig == NULL)
+	{
+		load_plugin_user_orig = (module_loader_func)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForUser", 0x977DE386);
+	}
+}
+SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, module_loader_func orig);
+SceUID load_plugin_kernel(const char * path, int flags, SceKernelLMOption * option)
+{
+	load_module_loader_functions();
+	return load_plugin(path, flags, option, sceKernelLoadModule);
+}
+SceUID load_plugin_user(const char * path, int flags, SceKernelLMOption * option)
+{
+	load_module_loader_functions();
+	return load_plugin(path, flags, option, load_plugin_user_orig);
+}
+SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, module_loader_func orig)
 {
 	// Online Mode Enabled
 	if(onlinemode)
@@ -186,18 +249,18 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option)
 				
 				// Log Hotswapping
 				printk("%s: Swapping %s, UID=0x%08X\n", __func__, module_names[i], result);
-				
+
 				// Return Module UID
 				return result;
 			}
 		}
 	}
 
-
 	// Default Action - Load Module
 
-	int result = sceKernelLoadModule(path, flags, option);
+	int result = orig(path, flags, option);
 
+	#if 0
 	// might be PSVita
 	if (result < 0)
 	{
@@ -207,10 +270,22 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option)
 		result = sceKernelLoadModule(path, flags, option);
 		pspSdkSetK1(k1);
 	}
+	#endif
 
 	if (result < 0)
 	{
 		printk("%s: failed loading %s, 0x%x\n", __func__, path, result);
+	}
+
+	// Since we replaced stargate's module load hook (I hope), do this here
+	// https://github.com/MrColdbird/procfw/blob/master/Stargate/loadmodule_patch.c
+	// https://github.com/PSP-Archive/ARK-4/blob/main/core/stargate/loadmodule_patch.c
+	// XXX do we still need this in 660+ ?
+	if (result == 0x80020148 || result == 0x80020130) {
+		if (!strncasecmp(path, "ms0:", sizeof("ms0:")-1)) {
+			result = 0x80020146;
+			printk("%s: [FAKE] -> 0x%08X\n", __func__, result);
+		}
 	}
 
 	return result;
@@ -221,9 +296,10 @@ SceUID load_plugin_alt(const char * path, int unk1, int unk2, int flags, SceKern
 {
 	// Thanks to CFW we can load whatever we want...
 	// No need to have different loader for user & kernel modules.
-	return load_plugin(path, flags, option);
+	return load_plugin_kernel(path, flags, option);
 }
 
+#if 0
 // IO Plugin File Loader
 SceUID load_plugin_io(SceUID fd, int flags, SceKernelLMOption * option)
 {
@@ -368,6 +444,7 @@ int close_plugin(SceUID fd)
 	// Default Action - Close File
 	return sceIoClose(fd);
 }
+#endif
 
 // Game Code Getter
 const char * getGameCode(void)
@@ -570,6 +647,7 @@ int peek_buffer_negative(SceCtrlData * pad_data, int count)
 	return result;
 }
 
+#if 0
 // Create 1.X FW sceKernelLoadModule Stub
 void * create_loadmodule_stub(void)
 {
@@ -697,6 +775,7 @@ void * create_ioclose_stub(void)
 	// Allocation Error
 	return NULL;
 }
+#endif
 
 static void early_memory_stealing()
 {
@@ -726,6 +805,9 @@ static void early_memory_stealing()
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
+	// Try to do this before stargate
+	int sysctrl_patcher_result = sysctrl_patcher(module);
+
 	printk("%s: module start %s text_addr 0x%x\n", __func__, module->modname, module->text_addr);
 
 	if (module->text_addr > 0x08800000 && module->text_addr < 0x08900000 && strcmp("opnssmp", module->modname) != 0)
@@ -851,8 +933,10 @@ int online_patcher(SceModule2 * module)
 				
 				// Hook sceKernelLoadModule
 				// hook_weak_user_bynid(module, "ModuleMgrForUser", 0x977DE386, loadmodulestub);
-				hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x977DE386, load_plugin);
+				hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x977DE386, load_plugin_user);
 				
+				// Let stargate hide cfw files keep the rest
+				#if 0
 				// Hook sceIoOpen
 				// hook_weak_user_bynid(module, "IoFileMgrForUser", 0x109F50BC, ioopenstub);
 				hook_import_bynid((SceModule *)module, "IoFileMgrForUser", 0x109F50BC, open_plugin);
@@ -864,7 +948,8 @@ int online_patcher(SceModule2 * module)
 				// Hook sceIoClose
 				// hook_weak_user_bynid(module, "IoFileMgrForUser", 0x810C4BC3, ioclosestub);
 				hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x810C4BC3, close_plugin);
-				
+				#endif
+
 				// Log Patch
 				printk("Patched %s with sceKernelLoadModule Hook\n", module->modname);
 			}
@@ -881,7 +966,7 @@ int online_patcher(SceModule2 * module)
 	}
 	
 	// Enable System Control Patching
-	return sysctrl_patcher(module);
+	return sysctrl_patcher_result;
 }
 
 // Input Thread
@@ -1086,7 +1171,7 @@ int module_start(SceSize args, void * argp)
 			#endif
 
 			// Patch Utility Manager Imports
-			result = hook_import_bynid(utility, "ModuleMgrForKernel", nid[0], load_plugin);
+			result = hook_import_bynid(utility, "ModuleMgrForKernel", nid[0], load_plugin_kernel);
 			printk("Kernel Loader Hook: %d\n", result);
 			if(result == 0) {
 				result = hook_import_bynid(utility, "ModuleMgrForKernel", nid[1], load_plugin_alt);
