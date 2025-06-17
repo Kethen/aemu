@@ -111,7 +111,7 @@ static int gamemode_replica_thread(SceSize args, void *argp)
 			#ifdef DEBUG
 			if (!packet_processed)
 			{
-				printk("%s: received data has no handler\n", __func__);
+				//printk("%s: received data has no handler\n", __func__);
 			}
 			#endif
 
