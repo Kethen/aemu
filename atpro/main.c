@@ -28,6 +28,7 @@
 #include <pspwlan.h>
 #include <psputility_sysparam.h>
 #include <string.h>
+#include <stdio.h>
 #include "libs.h"
 #include "hud.h"
 #include "logs.h"
@@ -206,11 +207,46 @@ void load_module_loader_functions()
 SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, module_loader_func orig);
 SceUID load_plugin_kernel(const char * path, int flags, SceKernelLMOption * option)
 {
+	if (option == NULL)
+	{
+		printk("%s: loading %s without options\n", __func__, path);
+	}
+	else
+	{
+		printk("%s: loading %s into partition %d/%d with position %d\n", __func__, path, option->mpidtext, option->mpiddata, option->position);
+	}
 	load_module_loader_functions();
 	return load_plugin(path, flags, option, sceKernelLoadModule);
 }
 SceUID load_plugin_user(const char * path, int flags, SceKernelLMOption * option)
 {
+	if (option == NULL)
+	{
+		printk("%s: loading %s without options\n", __func__, path);
+	}
+	else
+	{
+		printk("%s: loading %s into partition %d/%d with position %d\n", __func__, path, option->mpidtext, option->mpiddata, option->position);
+	}
+
+	static const char *force_fw_modules[] = {
+		"ifhandle.prx",
+		"pspnet.prx",
+		"pspnet_inet.prx",
+		"pspnet_apctl.prx",
+		"pspnet_resolver.prx"
+	};
+
+	for (int i = 0;i < sizeof(force_fw_modules) / sizeof(char *);i++)
+	{
+		if (strstr(path, force_fw_modules[i]) != NULL && strstr(path, "disc0:/") != NULL)
+		{
+			printk("%s: forcing firmware %s\n", __func__, force_fw_modules[i]);
+			sprintf(path, "flash0:/kd/%s", force_fw_modules[i]);
+			break;
+		}
+	}
+
 	load_module_loader_functions();
 	return load_plugin(path, flags, option, load_plugin_user_orig);
 }
@@ -260,8 +296,8 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 
 	int result = orig(path, flags, option);
 
-	#if 0
-	// might be PSVita
+	#if 1
+	// might be PSVita, or forcing firmware version of modules
 	if (result < 0)
 	{
 		printk("%s: module load failed with current k1, 0x%x, trying again with kernel k1\n", __func__, result);
