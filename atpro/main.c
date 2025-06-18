@@ -237,7 +237,7 @@ SceUID load_plugin_user(const char * path, int flags, SceKernelLMOption * option
 		"pspnet_resolver.prx"
 	};
 
-	for (int i = 0;i < sizeof(force_fw_modules) / sizeof(char *);i++)
+	for (int i = 0;i < sizeof(force_fw_modules) / sizeof(char *) && onlinemode;i++)
 	{
 		if (strstr(path, force_fw_modules[i]) != NULL && strstr(path, "disc0:/") != NULL)
 		{
