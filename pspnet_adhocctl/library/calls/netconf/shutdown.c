@@ -23,6 +23,11 @@
  */
 int proUtilityNetconfShutdownStart(void)
 {
+	if (_netconf_param.type != UTILITY_NETCONF_TYPE_CONNECT_ADHOC && _netconf_param.type != UTILITY_NETCONF_TYPE_CREATE_ADHOC && _netconf_param.type != UTILITY_NETCONF_TYPE_JOIN_ADHOC){
+		// passthrough
+		return sceUtilityNetconfShutdownStart();
+	}
+
 	// Valid Utility State
 	if(_netconf_status != UTILITY_NETCONF_STATUS_FINISHED)
 	{

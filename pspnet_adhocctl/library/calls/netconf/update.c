@@ -23,6 +23,12 @@
  */
 int proUtilityNetconfUpdate(int speed)
 {
+	if (_netconf_param.type != UTILITY_NETCONF_TYPE_CONNECT_ADHOC && _netconf_param.type != UTILITY_NETCONF_TYPE_CREATE_ADHOC && _netconf_param.type != UTILITY_NETCONF_TYPE_JOIN_ADHOC)
+	{
+		// Passthrough
+		sceUtilityNetconfUpdate(speed);
+	}
+
 	// We should get called once here
 	if (_netconf_status != UTILITY_NETCONF_STATUS_INITIALIZE && _netconf_status != UTILITY_NETCONF_STATUS_RUNNING)
 	{

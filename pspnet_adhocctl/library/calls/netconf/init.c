@@ -29,12 +29,6 @@ SceUtilityNetconfAdhocParam _netconf_adhoc_param = {0};
  */
 int proUtilityNetconfInitStart(SceUtilityNetconfParam * param)
 {
-	if (_netconf_status != UTILITY_NETCONF_STATUS_NONE)
-	{
-		printk("%s: bad state %d\n", __func__, _netconf_status);
-		return SCE_ERROR_UTILITY_INVALID_STATUS;
-	}
-
 	if (param == NULL)
 	{
 		// Panic
@@ -42,13 +36,22 @@ int proUtilityNetconfInitStart(SceUtilityNetconfParam * param)
 		return -1;
 	}
 
+	_netconf_param = *param;
 	if(param->type == UTILITY_NETCONF_TYPE_CONNECT_ADHOC || param->type == UTILITY_NETCONF_TYPE_CREATE_ADHOC || param->type == UTILITY_NETCONF_TYPE_JOIN_ADHOC)
 	{
-		_netconf_param = *param;
 		if (param->adhoc_param != NULL)
 		{
 			_netconf_adhoc_param = *(param->adhoc_param);
 		}
+	}else{
+		// Passthrough
+		return sceUtilityNetconfInitStart((pspUtilityNetconfData *)param);
+	}
+
+	if (_netconf_status != UTILITY_NETCONF_STATUS_NONE)
+	{
+		printk("%s: bad state %d\n", __func__, _netconf_status);
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
 	_netconf_status = UTILITY_NETCONF_STATUS_INITIALIZE;

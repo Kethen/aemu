@@ -30,6 +30,12 @@ int proUtilityNetconfGetStatus(void)
 	}
 	#endif
 
+	if (_netconf_param.type != UTILITY_NETCONF_TYPE_CONNECT_ADHOC && _netconf_param.type != UTILITY_NETCONF_TYPE_CREATE_ADHOC && _netconf_param.type != UTILITY_NETCONF_TYPE_JOIN_ADHOC)
+	{
+		// passthrough
+		return sceUtilityNetconfGetStatus();
+	}
+
 	// State Transition
 	if (_netconf_status == UTILITY_NETCONF_STATUS_INITIALIZE)
 	{
