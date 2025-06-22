@@ -199,7 +199,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 	}
 
 	// Attempt Counter
-	int attemptmax = 10;
+	int attemptmax = 20;
 
 	// Attempt Number
 	int attempt = 0;
@@ -232,7 +232,16 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 			}
 			
 			// Query Error
-			else break;
+			else
+			{
+				printk("%s: sceNetApctlGetState returned 0x%x\n", __func__, getstate);
+				break;
+			}
+
+			if (state == 0 && statebefore != 0){
+				printk("%s: sceNetApctlGetState got disconnect state\n", __func__);
+				break;
+			}
 			
 			// Save Before State
 			statebefore = state;
@@ -240,7 +249,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 
 		if (state != 4)
 		{
-			printk("%s: failed connecting to ap on attempt %d\n", __func__, attempt);
+			printk("%s: failed connecting to ap on attempt %d, state %d\n", __func__, attempt, state);
 			// Close Hotspot Connection
 			sceNetApctlDisconnect();
 			continue;
