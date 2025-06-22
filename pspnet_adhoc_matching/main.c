@@ -263,5 +263,6 @@ int module_stop(SceSize args, void * argp)
 	printk(MODULENAME " stop!\n");
 	clean_littlec();
 	sceKernelDeleteLwMutex(&context_list_lock);
+	sceKernelDeleteLwMutex(&members_lock);
 	return 0;
 }
