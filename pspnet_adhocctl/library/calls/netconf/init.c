@@ -45,6 +45,7 @@ int proUtilityNetconfInitStart(SceUtilityNetconfParam * param)
 		}
 	}else{
 		// Passthrough
+		printk("%s: passthrough\n", __func__);
 		return sceUtilityNetconfInitStart((pspUtilityNetconfData *)param);
 	}
 

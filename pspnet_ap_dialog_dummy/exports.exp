@@ -1,0 +1,17 @@
+PSP_BEGIN_EXPORTS
+
+PSP_EXPORT_START(syslib, 0, 0x8000)
+PSP_EXPORT_FUNC_HASH(module_start)
+PSP_EXPORT_FUNC_HASH(module_stop)
+PSP_EXPORT_VAR_HASH(module_info)
+PSP_EXPORT_END
+
+// https://github.com/jpcsp/jpcsp/blob/cd20cf312b358b4260f26f6754f9c62926c70ba6/psplibdoc/modules150/sceNetApDialogDummy.java#L36
+PSP_EXPORT_START(sceNetApDialogDummy, 0x0011, 0x0001)
+PSP_EXPORT_FUNC_NID(sceNetApDialogDummyInitFunction, 0xBB73FF67)
+PSP_EXPORT_FUNC_NID(sceNetApDialogDummyTermFunction, 0xF213BE65)
+PSP_EXPORT_FUNC_NID(sceNetApDialogDummyConnectFunction, 0x3811281E)
+PSP_EXPORT_FUNC_NID(sceNetApDialogDummyGetStateFunction, 0xCA9BE5BF)
+PSP_EXPORT_END
+
+PSP_END_EXPORTS

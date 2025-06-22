@@ -32,7 +32,8 @@ int proUtilityNetconfGetStatus(void)
 
 	if (_netconf_param.type != UTILITY_NETCONF_TYPE_CONNECT_ADHOC && _netconf_param.type != UTILITY_NETCONF_TYPE_CREATE_ADHOC && _netconf_param.type != UTILITY_NETCONF_TYPE_JOIN_ADHOC)
 	{
-		// passthrough
+		// Passthrough
+		printk("%s: passthrough\n", __func__);
 		return sceUtilityNetconfGetStatus();
 	}
 

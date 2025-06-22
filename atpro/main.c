@@ -85,12 +85,14 @@ char * module_names[MODULE_LIST_SIZE] = {
 	"pspnet_adhoc.prx",
 	"pspnet_adhocctl.prx",
 	"pspnet_adhoc_matching.prx",
+	"pspnet_ap_dialog_dummy.prx",
 //	"pspnet_adhoc_download.prx",
 //	"pspnet_adhoc_discover.prx"
 };
 
 // Adhoc Module Dummy IO SceUIDs
 SceUID module_io_uids[MODULE_LIST_SIZE] = {
+	-1,
 	-1,
 	-1,
 	-1,
@@ -545,7 +547,12 @@ void patch_netconf_utility(void * init, void * getstatus, void * update, void * 
 		{
 			// Find Module
 			SceModule2 * module = (SceModule2 *)sceKernelFindModuleByUID(id[i]);
-			
+
+			if (strcmp(module->modname, "sceNetAdhocctl_Library") == 0){
+				printk("%s: avoid patching netconf of sceNetAdhocctl_Library\n", __func__);
+				continue;
+			}
+
 			// Found Userspace Module
 			if(module != NULL && (module->text_addr & 0x80000000) == 0)
 			{
@@ -1163,6 +1170,137 @@ int input_thread(SceSize args, void * argp)
 	return 0;
 }
 
+#define MAKE_JUMP(a, f) _sw(0x08000000 | (((u32)(f) & 0x0FFFFFFC) >> 2), a)
+#define GET_JUMP_TARGET(x) (0x80000000 | (((x) & 0x03FFFFFF) << 2))
+#define HIJACK_FUNCTION(a, f, ptr) \
+{ \
+	printk("hijacking function at 0x%lx with 0x%lx\n", (u32)a, (u32)f); \
+	u32 _func_ = (u32)a; \
+	u32 _ff = (u32)f; \
+	int _interrupts = pspSdkDisableInterrupts(); \
+	sceKernelDcacheWritebackInvalidateAll(); \
+	static u32 patch_buffer[3]; \
+	_sw(_lw(_func_), (u32)patch_buffer); \
+	_sw(_lw(_func_ + 4), (u32)patch_buffer + 8);\
+	MAKE_JUMP((u32)patch_buffer + 4, _func_ + 8); \
+	_sw(0x08000000 | (((u32)(_ff) >> 2) & 0x03FFFFFF), _func_); \
+	_sw(0, _func_ + 4); \
+	ptr = (void *)patch_buffer; \
+	sceKernelDcacheWritebackInvalidateAll(); \
+	sceKernelIcacheClearAll(); \
+	pspSdkEnableInterrupts(_interrupts); \
+	printk("original instructions: 0x%lx 0x%lx\n", _lw((u32)patch_buffer), _lw((u32)patch_buffer + 8)); \
+}
+
+int volatile_locked = 0;
+
+#define USE_REAL_VOLATILE_MEMLOCK 0
+s32 sceKernelVolatileMemLock(s32 unk, void **ptr, s32 *size);
+s32 (*sceKernelVolatileMemLockOrig)(s32 unk, void **ptr, s32 *size) = NULL;
+s32 sceKernelVolatileMemLockPatched(s32 unk, void **ptr, s32 *size)
+{
+	#if USE_REAL_VOLATILE_MEMLOCK
+	s32 result = sceKernelVolatileMemLockOrig(unk, ptr, size);
+	printk("%s: 0x%x 0x%x/0x%x 0x%x/%d, 0x%x\n", __func__, unk, ptr, *ptr, size, *size, result);
+	return result;
+	#else
+	//printk("%s: 0x%x, 0x%x, 0x%x/%d\n", __func__, unk, ptr, size, *size);
+	*ptr = (void *)0x08400000;
+	*size = 4194304;
+	volatile_locked = 1;
+	return 0;
+	#endif
+}
+s32 sceKernelVolatileMemTryLock(s32 unk, void **ptr, s32 *size);
+s32 (*sceKernelVolatileMemTryLockOrig)(s32 unk, void **ptr, s32 *size) = NULL;
+s32 sceKernelVolatileMemTryLockPatched(s32 unk, void **ptr, s32 *size)
+{
+	#if USE_REAL_VOLATILE_MEMLOCK
+	s32 result = sceKernelVolatileMemTryLockOrig(unk, ptr, size);
+	printk("%s: 0x%x 0x%x/0x%x 0x%x/%d, 0x%x\n", __func__, unk, ptr, *ptr, size, *size, result);
+	return result;
+	#else
+	//printk("%s: 0x%x, 0x%x, 0x%x/%d\n", __func__, unk, ptr, size, *size);
+	*ptr = (void *)0x08400000;
+	*size = 4194304;
+	volatile_locked = 1;
+	return 0;
+	#endif
+}
+
+s32 sceKernelVolatileMemUnlock(s32 unk);
+s32 (*sceKernelVolatileMemUnlockOrig)(s32 unk) = NULL;
+s32 sceKernelVolatileMemUnlockPatched(s32 unk)
+{
+	#if USE_REAL_VOLATILE_MEMLOCK
+	s32 result = sceKernelVolatileMemUnlockOrig(unk);
+	printk("%s: 0x%x, 0x%x\n", __func__, unk, result);
+	return result;
+	#else
+	//printk("%s: 0x%x\n", __func__, unk);
+	volatile_locked = 0;
+	return 0;
+	#endif
+}
+
+#define USE_REAL_POWER_LOCK 0
+
+s32 sceKernelPowerLock(s32 lockType);
+s32 (*sceKernelPowerLockOrig)(s32 lockType);
+s32 sceKernelPowerLockPatched(s32 lockType)
+{
+	#if USE_REAL_POWER_LOCK
+	s32 result = sceKernelPowerLockOrig(lockType);
+	printk("%s: power lock 0x%x, 0x%x\n", __func__, lockType, result);
+	return result;
+	#else
+	printk("%s: power lock 0x%x\n", __func__, lockType);
+	return 0;
+	#endif
+}
+
+s32 sceKernelPowerUnlock(s32 lockType);
+s32 (*sceKernelPowerUnlockOrig)(s32 lockType);
+s32 sceKernelPowerUnlockPatched(s32 lockType)
+{
+	#if USE_REAL_POWER_LOCK
+	s32 result = sceKernelPowerUnlockOrig(lockType);
+	printk("%s: power unlock 0x%x, 0x%x\n", __func__, lockType, result);
+	return result;
+	#else
+	printk("%s: power unlock 0x%x\n", __func__, lockType);
+	return 0;
+	#endif
+}
+
+s32 sceKernelPowerLockForUser(s32 lockType);
+s32 (*sceKernelPowerLockForUserOrig)(s32 lockType);
+s32 sceKernelPowerLockForUserPatched(s32 lockType)
+{
+	#if USE_REAL_POWER_LOCK
+	s32 result = sceKernelPowerLockForUserOrig(lockType);
+	printk("%s: power lock 0x%x, 0x%x\n", __func__, lockType, result);
+	return result;
+	#else
+	//printk("%s: power lock 0x%x\n", __func__, lockType);
+	return 0;
+	#endif
+}
+
+s32 sceKernelPowerUnlockForUser(s32 lockType);
+s32 (*sceKernelPowerUnlockForUserOrig)(s32 lockType);
+s32 sceKernelPowerUnlockForUserPatched(s32 lockType)
+{
+	#if USE_REAL_POWER_LOCK
+	s32 result = sceKernelPowerUnlockForUserOrig(lockType);
+	printk("%s: power unlock 0x%x, 0x%x\n", __func__, lockType, result);
+	return result;
+	#else
+	//printk("%s: power unlock 0x%x\n", __func__, lockType);
+	return 0;
+	#endif
+}
+
 // Module Start Event
 int module_start(SceSize args, void * argp)
 {
@@ -1227,6 +1365,17 @@ int module_start(SceSize args, void * argp)
 						// Disable Sleep Mode
 						scePowerLock(0);
 						printk("Disabled Power Button!\n");
+
+						// Monitor/disable volatile lock
+						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemLock), sceKernelVolatileMemLockPatched, sceKernelVolatileMemLockOrig);
+						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemTryLock), sceKernelVolatileMemTryLockPatched, sceKernelVolatileMemTryLockOrig);
+						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemUnlock), sceKernelVolatileMemUnlockPatched, sceKernelVolatileMemUnlockOrig);
+
+						// Monitor power locks
+						//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerLock), sceKernelPowerLockPatched, sceKernelPowerLockOrig);
+						//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerUnlock), sceKernelPowerUnlockPatched, sceKernelPowerUnlockOrig);
+						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerLockForUser), sceKernelPowerLockForUserPatched, sceKernelPowerLockForUserOrig);
+						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerUnlockForUser), sceKernelPowerUnlockForUserPatched, sceKernelPowerUnlockForUserOrig);
 					}
 					
 					// Create Input Thread

@@ -21,14 +21,14 @@
 
 #if TINYALLOC_USE_PARTITION_MEM
 static SceUID memblockid = -1;
-#else
+#elif HEAP_SIZE
 static uint8_t heap[HEAP_SIZE * 1024];
 #endif
 
 static void tinyalloc_allocate_partition_memory()
 {
 	int interrupts = sceKernelCpuSuspendIntr();
-	#if TINYALLOC_USE_PARTITION_MEM
+	#if TINYALLOC_USE_PARTITION_MEM && HEAP_SIZE
 	static const SceSize size = HEAP_SIZE * 1024;
 	memblockid = sceKernelAllocPartitionMemory(2, "tinyalloc heap", PSP_SMEM_Low, size, NULL);
 
@@ -42,12 +42,12 @@ static void tinyalloc_allocate_partition_memory()
 	void *block = sceKernelGetBlockHeadAddr(memblockid);
 
 	ta_init(block, block + size, 256, 16, 8);
-	#else
+	#elif HEAP_SIZE
 	ta_init(heap, heap + sizeof(heap), 256, 16, 8);
 	#endif
 	sceKernelCpuResumeIntrWithSync(interrupts);
 
-	#if TINYALLOC_USE_PARTITION_MEM
+	#if TINYALLOC_USE_PARTITION_MEM && HEAP_SIZE
 	printk("%s: allocated %d, id 0x%x, 0x%x\n", __func__, size, memblockid, block);
 	#else
 	printk("%s: done\n", __func__);
