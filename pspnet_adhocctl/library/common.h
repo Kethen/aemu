@@ -52,6 +52,10 @@ typedef uint8_t u8;
 // PSP file IO
 #include <pspiofilemgr.h>
 
+// Drawing new dialog
+#include <pspdisplay.h>
+#include <pspge.h>
+
 // --- Kernel Debugger ---
 
 // Kernel Debug Printer

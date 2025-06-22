@@ -127,11 +127,13 @@ int proNetAdhocctlInit(int stacksize, int prio, const SceNetAdhocctlAdhocId * ad
 		// Minimum Stacksize (just to fake SCE behaviour)
 		if(stacksize >= 3072)
 		{
+			#if 0
 			if (_readHotspotConfig() != 0)
 			{
 				printk("%s: failed reading hotspot config\n", __func__);
 				return -1;
 			}
+			#endif
 
 			// Get Server IP (String)
 			const char * ip = _readServerConfig();
@@ -175,6 +177,84 @@ int proNetAdhocctlInit(int stacksize, int prio, const SceNetAdhocctlAdhocId * ad
 	return ADHOCCTL_ALREADY_INITIALIZED;
 }
 
+// https://github.com/pspdev/pspsdk/blob/9f6f4c0c10921e15339b0960b5069ff8a8f9fcd8/src/samples/utility/netdialog/main.c#L191
+// Returns true on connected, false on not connected
+static int net_dialog(){
+	pspUtilityNetconfData data;
+
+	int lang = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+	sceUtilityGetSystemParamInt(PSP_SYSTEMPARAM_ID_INT_LANGUAGE, &lang);
+
+	int ctrl = PSP_UTILITY_ACCEPT_CROSS;
+	sceUtilityGetSystemParamInt(9, &ctrl);
+
+	memset(&data, 0, sizeof(data));
+	data.base.size = sizeof(data);
+	data.base.language = lang;
+	data.base.buttonSwap = ctrl;
+	data.base.graphicsThread = 17;
+	data.base.accessThread = 19;
+	data.base.fontThread = 18;
+	data.base.soundThread = 16;
+	data.action = PSP_NETCONF_ACTION_CONNECTAP;
+	data.hotspot = 1;
+
+	struct pspUtilityNetconfAdhoc adhocparam;
+	memset(&adhocparam, 0, sizeof(adhocparam));
+	data.adhocparam = &adhocparam;
+
+	// grab current frame buffer
+	void *topaddr;
+	int bufferwidth;
+	int pixelformat;
+	int sync;
+	int get_frame_buffer_status = sceDisplayGetFrameBuf(&topaddr, &bufferwidth, &pixelformat, PSP_DISPLAY_SETBUF_NEXTVSYNC);
+	if (get_frame_buffer_status != 0)
+	{
+		printk("%s: failed fetching current frame buffer, 0x%x\n", __func__, get_frame_buffer_status);
+		return 0;
+	}
+	
+
+	sceUtilityNetconfInitStart(&data);
+
+	printk("%s: net dialog started\n", __func__);
+
+	int done = 0;
+	while(!done){
+		int dialog_status = sceUtilityNetconfGetStatus();
+		printk("%s: dialog status %d\n", __func__, dialog_status);
+		switch(dialog_status)
+		{
+			case PSP_UTILITY_DIALOG_NONE:
+				done = 1;
+				break;
+
+			case PSP_UTILITY_DIALOG_VISIBLE:
+				printk("%s: dialog drawing\n", __func__);
+				sceUtilityNetconfUpdate(1);
+				break;
+
+			case PSP_UTILITY_DIALOG_QUIT:
+				sceUtilityNetconfShutdownStart();
+				break;
+				
+			case PSP_UTILITY_DIALOG_FINISHED:
+				done = 1;
+				break;
+
+			default:
+				break;
+		}
+
+		sceDisplayWaitVblankStart();
+	}
+
+	int state = 0;
+	int get_state_status = sceNetApctlGetState(&state);
+	return get_state_status == 0 && state == 4;
+}
+
 /**
  * Initialize Networking Components for Adhocctl Emulator
  * @param adhoc_id Game Product Code
@@ -198,8 +278,15 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 		return -1;
 	}
 
+	int connected = net_dialog();
+	if (!connected){
+		printk("%s: did not manage to connect from network dialog\n", __func__);
+		sceNetApctlTerm();
+		return -1;
+	}
+
 	// Attempt Counter
-	int attemptmax = 10;
+	int attemptmax = 20;
 
 	// Attempt Number
 	int attempt = 0;
@@ -214,6 +301,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 			continue;
 		}
 
+		#if 0
 		// Wait for Connection
 		int statebefore = 0;
 		int state = 0; while(state != 4)
@@ -245,6 +333,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 			sceNetApctlDisconnect();
 			continue;
 		}
+		#endif
 
 		// Create Friend Finder Socket
 		int socket = sceNetInetSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -252,7 +341,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 		{
 			printk("%s: failed creating internet socket on attempt %d, 0x%x\n", __func__, attempt, socket);
 			// Close Hotspot Connection
-			sceNetApctlDisconnect();
+			//sceNetApctlDisconnect();
 			continue;
 		}
 
@@ -274,7 +363,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 			// Delete Socket
 			sceNetInetClose(socket);
 			// Close Hotspot Connection
-			sceNetApctlDisconnect();
+			//sceNetApctlDisconnect();
 			continue;
 		}
 
@@ -290,7 +379,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 			// Shutdown DNS Resolver
 			sceNetResolverTerm();
 			// Close Hotspot Connection
-			sceNetApctlDisconnect();
+			//sceNetApctlDisconnect();
 			continue;
 		}
 
@@ -321,7 +410,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 			// Delete Socket
 			sceNetInetClose(socket);
 			// Close Hotspot Connection
-			sceNetApctlDisconnect();
+			//sceNetApctlDisconnect();
 			continue;
 		}
 		
@@ -389,6 +478,9 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 		// Return Success
 		return 0;
 	}
+
+	// Disconnect from hotspot if we were connected
+	sceNetApctlDisconnect();
 
 	// Terminate Access Point Control
 	sceNetApctlTerm();
