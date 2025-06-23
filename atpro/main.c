@@ -107,7 +107,7 @@ static const char *shim_path = "ms0:/kd/pspnet_shims.prx";
 
 void steal_memory()
 {
-	static const int size = 1024 * 1024 * 2;
+	static const int size = 1024 * 1024 * 4;
 
 	if (stolen_memory >= 0)
 	{
@@ -208,9 +208,11 @@ static int load_start_module(const char *path){
 		return uid;
 	}
 	#ifdef DEBUG
-	SceKernelModuleInfo info;
+	SceKernelModuleInfo info = {0};
 	info.size = sizeof(info);
+	k1 = pspSdkSetK1(0);
 	int query_status = sceKernelQueryModuleInfo(uid, &info);
+	pspSdkSetK1(k1);
 	if (query_status == 0)
 	{
 		printk("%s: %s loaded, text addr 0x%x\n", __func__, path, info.text_addr);
@@ -231,6 +233,58 @@ static int load_start_module(const char *path){
 	}
 	return uid;
 }
+
+static const char *no_unload_modules[] = {
+	"sceNet_Service",
+	"sceNet_Library",
+	"sceNetInet_Library",
+	"sceNetApctl_Library",
+	//"sceNetResolver_Library"
+	"sceNetAdhoc_Library",
+	"sceNetAdhocctl_Library",
+	"sceNetAdhocMatching_Library",
+	"sceNetAdhocAuth_Service",
+	"sceMemab"
+};
+
+static const char *no_unload_module_file_names[] = {
+	"ifhandle.prx",
+	"pspnet.prx",
+	"pspnet_inet.prx",
+	"pspnet_apctl.prx",
+	//"pspnet_resolver.prx",
+	"pspnet_adhoc.prx",
+	"pspnet_adhocctl.prx",
+	"pspnet_adhoc_matching.prx",
+	"pspnet_adhoc_auth.prx",
+	"memab.prx"
+};
+
+static SceUID no_unload_module_uids[] = {
+	-1,
+	-1,
+	-1,
+	-1,
+	-1,
+	-1,
+	-1,
+	-1,
+	-1,
+	-1
+};
+
+static int no_unload_module_started[] = {
+	-1,
+	-1,
+	-1,
+	-1,
+	-1,
+	-1,
+	-1,
+	-1,
+	-1,
+	-1
+};
 
 // Kernel Module Loader
 typedef SceUID (*module_loader_func)(const char * path, int flags, SceKernelLMOption * option);
@@ -293,6 +347,38 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 	// Online Mode Enabled
 	if(onlinemode)
 	{
+		// If these were already loaded prior
+		for(int i = 0;i < sizeof(no_unload_module_file_names) / sizeof(char *);i++){
+			if (strstr(path, no_unload_module_file_names[i]))
+			{
+				if (no_unload_module_uids[i] >= 0)
+				{
+					printk("%s: returning previous uid 0x%x for %s\n", __func__, no_unload_module_uids[i], path);
+					return no_unload_module_uids[i];
+				}
+			}
+		}
+
+		// Games might also load inet itself for infra mode
+		static const char *late_load_modules[] = {
+			"ifhandle.prx",
+			"pspnet.prx",
+			"pspnet_inet.prx",
+			"pspnet_apctl.prx",
+			"pspnet_resolver.prx"
+		};
+
+		if (sceKernelGetSystemTimeWide() - game_begin > LOAD_RETURN_MEMORY_THRES_USEC){
+			for (int i = 0;i < sizeof(late_load_modules) / sizeof(char *);i++)
+			{
+				if (strstr(path, late_load_modules[i]) != NULL)
+				{
+					return_memory();
+					break;
+				}
+			}
+		}
+
 		// Replace Adhoc Modules
 		int i = 0; for(; i < MODULE_LIST_SIZE; i++) {
 			// Matching Modulename
@@ -323,6 +409,13 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 				
 				// Log Hotswapping
 				printk("%s: Swapping %s, UID=0x%08X\n", __func__, module_names[i], result);
+
+				for(int i = 0;i < sizeof(no_unload_module_file_names) / sizeof(char *);i++){
+					if (strstr(path, no_unload_module_file_names[i]))
+					{
+						no_unload_module_uids[i] = result;
+					}
+				}
 
 				// Return Module UID
 				return result;
@@ -378,7 +471,142 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 		}
 	}
 
+	for(int i = 0;i < sizeof(no_unload_module_file_names) / sizeof(char *);i++){
+		if (strstr(path, no_unload_module_file_names[i]))
+		{
+			no_unload_module_uids[i] = result;
+		}
+	}
+
 	return result;
+}
+
+typedef int (*module_unload_func)(SceUID uid);
+int unload_plugin(SceUID uid, module_unload_func);
+int unload_plugin_kernel(SceUID uid){
+	return unload_plugin(uid, sceKernelUnloadModule);
+}
+module_unload_func unload_plugin_user_orig = NULL;
+int unload_plugin_user(SceUID uid)
+{
+	if (unload_plugin_user_orig == NULL){
+		unload_plugin_user_orig = (module_unload_func)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForUser", 0x2E0911AA);
+	}
+	return unload_plugin(uid, unload_plugin_user_orig);
+}
+int unload_plugin(SceUID uid, module_unload_func orig)
+{
+	// Fetch module info
+	SceKernelModuleInfo info = {0};
+	info.size = sizeof(info);
+
+	uint32_t k1 = pspSdkSetK1(0);
+	int query_status = sceKernelQueryModuleInfo(uid, &info);
+	pspSdkSetK1(k1);
+	if (query_status != 0){
+		printk("%s: failed fetching module name\n", __func__);
+		return orig(uid);
+	}
+
+	printk("%s: unloading %s\n", __func__, info.name);
+
+	for(int i = 0;i < sizeof(no_unload_modules) / sizeof(char *) && onlinemode;i++){
+		// Stop these modules from being unloaded
+		if (strstr(info.name, no_unload_modules[i]) != NULL){
+			printk("%s: blocked %s unloading\n", __func__, no_unload_modules[i]);
+			return 0;
+		}
+	}
+
+	return orig(uid);
+}
+
+typedef int (*module_start_func)(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option);
+int start_plugin(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option, module_start_func);
+int start_plugin_kernel(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option){
+	return start_plugin(uid, argsize, argp, status, option, sceKernelStartModule);
+}
+module_start_func start_plugin_user_orig = NULL;
+int start_plugin_user(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option)
+{
+	if (start_plugin_user_orig == NULL){
+		start_plugin_user_orig = (module_start_func)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForUser", 0x50F0C1EC);
+	}
+	return start_plugin(uid, argsize, argp, status, option, start_plugin_user_orig);
+}
+int start_plugin(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option, module_start_func orig)
+{
+	// Fetch module info
+	SceKernelModuleInfo info = {0};
+	info.size = sizeof(info);
+
+	uint32_t k1 = pspSdkSetK1(0);
+	int query_status = sceKernelQueryModuleInfo(uid, &info);
+	pspSdkSetK1(k1);
+	if (query_status != 0){
+		printk("%s: failed fetching module name\n", __func__);
+		return orig(uid, argsize, argp, status, option);
+	}
+
+	printk("%s: starting %s\n", __func__, info.name);
+
+	for(int i = 0;i < sizeof(no_unload_modules) / sizeof(char *) && onlinemode;i++){
+		// Start these modules once
+		if (strstr(info.name, no_unload_modules[i]) != NULL){
+			if (no_unload_module_started[i] < 0)
+			{
+				no_unload_module_started[i] = orig(uid, argsize, argp, status, option);
+				printk("%s: %s marked as 0x%x\n", __func__, no_unload_modules[i], no_unload_module_started[i]);
+			}
+			else
+			{
+				printk("%s: not starting %s again\n", __func__, no_unload_modules[i]);
+			}
+			return no_unload_module_started[i];
+		}
+	}
+
+	return orig(uid, argsize, argp, status, option);
+}
+
+typedef int (*module_stop_func)(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option);
+int stop_plugin(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option, module_stop_func);
+int stop_plugin_kernel(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option){
+	return stop_plugin(uid, argsize, argp, status, option, sceKernelStopModule);
+}
+module_stop_func stop_plugin_user_orig = NULL;
+int stop_plugin_user(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option)
+{
+	if (stop_plugin_user_orig == NULL){
+		stop_plugin_user_orig = (module_stop_func)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForUser", 0xD1FF982A);
+	}
+	return stop_plugin(uid, argsize, argp, status, option, stop_plugin_user_orig);
+}
+int stop_plugin(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option, module_stop_func orig)
+{
+	// Fetch module info
+	SceKernelModuleInfo info = {0};
+	info.size = sizeof(info);
+
+	uint32_t k1 = pspSdkSetK1(0);
+	int query_status = sceKernelQueryModuleInfo(uid, &info);
+	pspSdkSetK1(k1);
+	if (query_status != 0){
+		printk("%s: failed fetching module name\n", __func__);
+		return orig(uid, argsize, argp, status, option);
+	}
+
+	printk("%s: stopping %s\n", __func__, info.name);
+
+	for(int i = 0;i < sizeof(no_unload_modules) / sizeof(char *) && onlinemode;i++){
+		// Do not stop these modules
+		if (strstr(info.name, no_unload_modules[i]) != NULL){
+			printk("%s: blocked stopping of %s\n", __func__, no_unload_modules[i]);
+			return 0;
+		}
+	}
+
+	return orig(uid, argsize, argp, status, option);
 }
 
 // User Module Loader
@@ -902,11 +1130,15 @@ int online_patcher(SceModule2 * module)
 
 	printk("%s: module start %s text_addr 0x%x\n", __func__, module->modname, module->text_addr);
 
-	if (module->text_addr > 0x08800000 && module->text_addr < 0x08900000 && strcmp("opnssmp", module->modname) != 0)
+	if (module->text_addr > 0x08800000 && module->text_addr < 0x08900000 && strcmp("opnssmp", module->modname) != 0 && onlinemode)
 	{
 		// Very likely the game itself
-		printk("%s: guessing this is the game, %s text_addr 0x%x, trying to reserve memory now\n", __func__, module->modname, module->text_addr);
+		printk("%s: guessing this is the game, %s text_addr 0x%x, trying to reserve memory now and hook mdoule loading/unloading\n", __func__, module->modname, module->text_addr);
 		early_memory_stealing();
+		hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x977DE386, load_plugin_user);
+		hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x2E0911AA, unload_plugin_user);
+		hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x50F0C1EC, start_plugin_user);
+		hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0xD1FF982A, stop_plugin_user);
 	}
 
 	// Userspace Module
@@ -1025,7 +1257,6 @@ int online_patcher(SceModule2 * module)
 				
 				// Hook sceKernelLoadModule
 				// hook_weak_user_bynid(module, "ModuleMgrForUser", 0x977DE386, loadmodulestub);
-				hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x977DE386, load_plugin_user);
 				
 				// Let stargate hide cfw files keep the rest
 				#if 0
@@ -1040,10 +1271,10 @@ int online_patcher(SceModule2 * module)
 				// Hook sceIoClose
 				// hook_weak_user_bynid(module, "IoFileMgrForUser", 0x810C4BC3, ioclosestub);
 				hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x810C4BC3, close_plugin);
-				#endif
 
 				// Log Patch
 				printk("Patched %s with sceKernelLoadModule Hook\n", module->modname);
+				#endif
 			}
 		}
 
@@ -1398,20 +1629,23 @@ int module_start(SceSize args, void * argp)
 		if(utility != NULL) {
 			// 6.20 NIDs
 			#ifdef CONFIG_620
-			u32 nid[2] = { 0xE3CCC6EA, 0x07290699 };
+			u32 nid[] = { 0xE3CCC6EA, 0x07290699, 0x9CEB18C4, 0xDF8FFFAB };
 			#endif
 
 			// 6.35 NIDs
 			#ifdef CONFIG_63X
-			u32 nid[2] = { 0xFFB9B760, 0xAFBC3911 };
+			u32 nid[] = { 0xFFB9B760, 0xAFBC3911, 0x0D053026, 0xE6BF3960 };
 			#endif
 
 			// 6.60 NIDs
 			#ifdef CONFIG_660
-			u32 nid[2] = { 0x939E4270, 0xD4EE2D26 };
+			u32 nid[] = { 0x939E4270, 0xD4EE2D26, 0x387E3CA9, 0x3FF74DF1, 0xE5D6087B};
 			#endif
 
 			// Patch Utility Manager Imports
+			hook_import_bynid(utility, "ModuleMgrForKernel", nid[4], stop_plugin_kernel);
+			hook_import_bynid(utility, "ModuleMgrForKernel", nid[3], start_plugin_kernel);
+			hook_import_bynid(utility, "ModuleMgrForKernel", nid[2], unload_plugin_kernel);
 			result = hook_import_bynid(utility, "ModuleMgrForKernel", nid[0], load_plugin_kernel);
 			printk("Kernel Loader Hook: %d\n", result);
 			if(result == 0) {

@@ -37,6 +37,7 @@ int proUtilityNetconfInitStart(SceUtilityNetconfParam * param)
 	}
 
 	_netconf_param = *param;
+
 	if(param->type == UTILITY_NETCONF_TYPE_CONNECT_ADHOC || param->type == UTILITY_NETCONF_TYPE_CREATE_ADHOC || param->type == UTILITY_NETCONF_TYPE_JOIN_ADHOC)
 	{
 		if (param->adhoc_param != NULL)

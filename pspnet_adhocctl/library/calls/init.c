@@ -279,12 +279,16 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 		int dns_init_status = sceNetResolverInit();
 		if (dns_init_status != 0)
 		{
+			#if 0
 			printk("%s: failed initializing dns resolver on attempt %d, 0x%x\n", __func__, attempt, dns_init_status);
 			// Delete Socket
 			sceNetInetClose(socket);
 			// Close Hotspot Connection
 			sceNetApctlDisconnect();
 			continue;
+			#else
+			printk("%s: failed initializing dns resolver on attempt %d, ignoring for now, probably used infra mode before, 0x%x\n", __func__, attempt, dns_init_status);
+			#endif
 		}
 
 		// Create DNS Resolver
@@ -293,6 +297,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 		int dns_create_status = sceNetResolverCreate(&rid, rbuf, sizeof(rbuf));
 		if (dns_create_status != 0)
 		{
+			#if 0
 			printk("%s: failed creating dns resolver on attempt %d, 0x%x\n", __func__, attempt, dns_create_status);
 			// Delete Socket
 			sceNetInetClose(socket);
@@ -301,10 +306,13 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 			// Close Hotspot Connection
 			sceNetApctlDisconnect();
 			continue;
+			#else
+			printk("%s: failed creating dns resolver on attempt %d, ignoring for now, probably used infra mode before, 0x%x\n", __func__, attempt, dns_init_status);
+			#endif
 		}
 
 		// Resolve Domain
-		if(sceNetResolverStartNtoA(rid, server_ip, &ip, 500000, 2) != 0)
+		if(dns_create_status == 0 && sceNetResolverStartNtoA(rid, server_ip, &ip, 500000, 2) != 0)
 		{
 			// Attempt IP Conversion
 			sceNetInetInetAton(server_ip, &ip);
