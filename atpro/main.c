@@ -26,6 +26,8 @@
 #include <pspctrl.h>
 #include <psppower.h>
 #include <pspwlan.h>
+#include <psputility.h>
+#include <psputility_netconf.h>
 #include <psputility_sysparam.h>
 #include <string.h>
 #include <stdio.h>
@@ -104,6 +106,18 @@ SceUID module_io_uids[MODULE_LIST_SIZE] = {
 
 SceUID shim_uid = -1;
 static const char *shim_path = "ms0:/kd/pspnet_shims.prx";
+
+static void *allocate_partition_memory(int size){
+	SceUID uid = sceKernelAllocPartitionMemory(2, "inet apctl load reserve", 3 /* low aligned */, size, (void *)4);
+
+	if (uid < 0)
+	{
+		printk("%s: failed allocating %d low aligned, 0x%x\n", __func__, size, uid);
+		return NULL;
+	}
+
+	return sceKernelGetBlockHeadAddr(uid);
+}
 
 void steal_memory()
 {
@@ -321,24 +335,6 @@ SceUID load_plugin_user(const char * path, int flags, SceKernelLMOption * option
 		printk("%s: loading %s into partition %d/%d with position %d\n", __func__, path, option->mpidtext, option->mpiddata, option->position);
 	}
 
-	static const char *force_fw_modules[] = {
-		"ifhandle.prx",
-		"pspnet.prx",
-		"pspnet_inet.prx",
-		"pspnet_apctl.prx",
-		"pspnet_resolver.prx"
-	};
-
-	for (int i = 0;i < sizeof(force_fw_modules) / sizeof(char *) && onlinemode;i++)
-	{
-		if (strstr(path, force_fw_modules[i]) != NULL && strstr(path, "disc0:/") != NULL)
-		{
-			printk("%s: forcing firmware %s\n", __func__, force_fw_modules[i]);
-			sprintf(path, "flash0:/kd/%s", force_fw_modules[i]);
-			break;
-		}
-	}
-
 	load_module_loader_functions();
 	return load_plugin(path, flags, option, load_plugin_user_orig);
 }
@@ -347,9 +343,36 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 	// Online Mode Enabled
 	if(onlinemode)
 	{
+		// Force module path case
+		char test_path[256] = {0};
+
+		int len = strlen(path);
+		for(int i = 0;i < len;i++){
+			test_path[i] = tolower(path[i]);
+		}
+
+		static const char *force_fw_modules[] = {
+			"ifhandle.prx",
+			"pspnet.prx",
+			"pspnet_inet.prx",
+			"pspnet_apctl.prx",
+			"pspnet_resolver.prx",
+			"sc_sascore.prx"
+		};
+
+		for (int i = 0;i < sizeof(force_fw_modules) / sizeof(char *) && onlinemode;i++)
+		{
+			if (strstr(test_path, force_fw_modules[i]) != NULL && strstr(test_path, "disc0:/") != NULL)
+			{
+				printk("%s: forcing firmware %s\n", __func__, force_fw_modules[i]);
+				sprintf(path, "flash0:/kd/%s", force_fw_modules[i]);
+				break;
+			}
+		}
+
 		// If these were already loaded prior
 		for(int i = 0;i < sizeof(no_unload_module_file_names) / sizeof(char *);i++){
-			if (strstr(path, no_unload_module_file_names[i]))
+			if (strstr(test_path, no_unload_module_file_names[i]))
 			{
 				if (no_unload_module_uids[i] >= 0)
 				{
@@ -371,7 +394,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 		if (sceKernelGetSystemTimeWide() - game_begin > LOAD_RETURN_MEMORY_THRES_USEC){
 			for (int i = 0;i < sizeof(late_load_modules) / sizeof(char *);i++)
 			{
-				if (strstr(path, late_load_modules[i]) != NULL)
+				if (strstr(test_path, late_load_modules[i]) != NULL)
 				{
 					return_memory();
 					break;
@@ -382,7 +405,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 		// Replace Adhoc Modules
 		int i = 0; for(; i < MODULE_LIST_SIZE; i++) {
 			// Matching Modulename
-			if(strstr(path, module_names[i]) != NULL) {
+			if(strstr(test_path, module_names[i]) != NULL) {
 				// Replace Modulename
 				strcpy((char*)path, "ms0:/kd/");
 				strcpy((char*)path + strlen(path), module_names[i]);
@@ -411,7 +434,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 				printk("%s: Swapping %s, UID=0x%08X\n", __func__, module_names[i], result);
 
 				for(int i = 0;i < sizeof(no_unload_module_file_names) / sizeof(char *);i++){
-					if (strstr(path, no_unload_module_file_names[i]))
+					if (strstr(test_path, no_unload_module_file_names[i]) != NULL)
 					{
 						no_unload_module_uids[i] = result;
 					}
@@ -429,7 +452,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 
 		for(int i = 0;i < sizeof(shimmed_modules) / sizeof(char *);i++)
 		{
-			if (strstr(path, shimmed_modules[i]) != NULL && shim_uid < 0)
+			if (strstr(test_path, shimmed_modules[i]) != NULL && shim_uid < 0)
 			{
 				if (shim_uid < 0)
 				{
@@ -805,6 +828,45 @@ int get_system_param_int(int id, int *value)
 	return sceUtilityGetSystemParamInt(id, value);
 }
 
+
+pspUtilityNetconfData *netconf_override;
+struct pspUtilityNetconfAdhoc *netconf_adhoc_override;
+int (*netconf_init_orig)(pspUtilityNetconfData *data) = NULL;
+int netconf_init(pspUtilityNetconfData *data){
+	if (data != NULL)
+	{
+		printk("%s: data size is %d, expected %d\n", __func__, data->base.size, sizeof(pspUtilityNetconfData));
+	}
+
+	if (data != NULL && data->action == PSP_NETCONF_ACTION_CONNECTAP && netconf_override != NULL && netconf_adhoc_override != NULL)
+	{
+		printk("%s: overriding netconf param for infra mode\n", __func__);
+		int ctrl = 1;
+		int lang = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+		sceUtilityGetSystemParamInt(9, &ctrl);
+		sceUtilityGetSystemParamInt(PSP_SYSTEMPARAM_ID_INT_LANGUAGE, &lang);
+
+		data = netconf_override;
+		memset(netconf_override, 0, sizeof(pspUtilityNetconfData));
+		netconf_override->base.size = sizeof(pspUtilityNetconfData);
+		netconf_override->base.language = lang;
+		netconf_override->base.buttonSwap = ctrl;
+		netconf_override->base.graphicsThread = 17;
+		netconf_override->base.accessThread = 19;
+		netconf_override->base.fontThread = 18;
+		netconf_override->base.soundThread = 16;
+
+		netconf_override->action = PSP_NETCONF_ACTION_CONNECTAP;
+		netconf_override->adhocparam = netconf_adhoc_override;
+		memset(netconf_adhoc_override, 0, sizeof(struct pspUtilityNetconfAdhoc));
+	}
+
+	int result = netconf_init_orig(data);
+	printk("%s: returning 0x%x/%d\n", __func__, result, result);
+
+	return result;
+}
+
 // Patcher to allow Utility-Made Connections
 void patch_netconf_utility(void * init, void * getstatus, void * update, void * shutdown)
 {
@@ -1139,6 +1201,12 @@ int online_patcher(SceModule2 * module)
 		hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x2E0911AA, unload_plugin_user);
 		hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x50F0C1EC, start_plugin_user);
 		hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0xD1FF982A, stop_plugin_user);
+
+		// allocate memory for netconf
+		//netconf_override = allocate_partition_memory(sizeof(allocate_partition_memory));
+		//netconf_adhoc_override = allocate_partition_memory(sizeof(struct pspUtilityNetconfAdhoc));
+		netconf_override = allocate_partition_memory(128);
+		netconf_adhoc_override = (void *)(((uint32_t)netconf_override) + 72);
 	}
 
 	// Userspace Module
@@ -1677,6 +1745,11 @@ int module_start(SceSize args, void * argp)
 						//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerUnlock), sceKernelPowerUnlockPatched, sceKernelPowerUnlockOrig);
 						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerLockForUser), sceKernelPowerLockForUserPatched, sceKernelPowerLockForUserOrig);
 						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerUnlockForUser), sceKernelPowerUnlockForUserPatched, sceKernelPowerUnlockForUserOrig);
+
+						// Monitor netconf init
+						void *netconf_init_func = (void *)sctrlHENFindFunction("sceUtility_Driver", "sceUtility", 0x4DB1E739);
+						HIJACK_FUNCTION(netconf_init_func, netconf_init, netconf_init_orig);
+
 					}
 					
 					// Create Input Thread
