@@ -84,7 +84,7 @@ all:
 #	@cd $(PSPNET_ADHOC_DISCOVER); make $(FLAGS)
 	@cd $(PSPNET_ADHOCCTL_SERVER); make $(FLAGS)
 	@cd $(PSPNET_MINIUPNC); make $(FLAGS)
-	@cd $(PSPNET_AP_DIALOG_DUMMY); make $(FLAGS)
+#	@cd $(PSPNET_AP_DIALOG_DUMMY); make $(FLAGS)
 
 clean:
 	@cd $(ATPRO); make clean $(FLAGS)
@@ -97,5 +97,5 @@ clean:
 #	@cd $(PSPNET_ADHOC_DISCOVER); make clean $(FLAGS)
 	@cd $(PSPNET_ADHOCCTL_SERVER); make clean $(FLAGS)
 	@cd $(PSPNET_MINIUPNC); make clean $(FLAGS)
-	@cd $(PSPNET_AP_DIALOG_DUMMY); make clean $(FLAGS)
+#	@cd $(PSPNET_AP_DIALOG_DUMMY); make clean $(FLAGS)
 	@rm -rf $(DISTRIBUTE) || true

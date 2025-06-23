@@ -85,7 +85,7 @@ char * module_names[MODULE_LIST_SIZE] = {
 	"pspnet_adhoc.prx",
 	"pspnet_adhocctl.prx",
 	"pspnet_adhoc_matching.prx",
-	"pspnet_ap_dialog_dummy.prx",
+//	"pspnet_ap_dialog_dummy.prx",
 //	"pspnet_adhoc_download.prx",
 //	"pspnet_adhoc_discover.prx"
 };
@@ -97,7 +97,7 @@ SceUID module_io_uids[MODULE_LIST_SIZE] = {
 	-1,
 	-1,
 	-1,
-	-1,
+//	-1,
 //	-1,
 //	-1
 };
