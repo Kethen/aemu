@@ -102,6 +102,9 @@ SceUID module_io_uids[MODULE_LIST_SIZE] = {
 //	-1
 };
 
+SceUID shim_uid = -1;
+static const char *shim_path = "ms0:/kd/pspnet_shims.prx";
+
 void steal_memory()
 {
 	static const int size = 1024 * 1024 * 2;
@@ -194,6 +197,39 @@ int strncasecmp(const char *lhs, const char *rhs, unsigned int max_len)
 		rhs_buf[i] = tolower(rhs[i]);
 	}
 	return strncmp(lhs_buf, rhs_buf, max_len);
+}
+
+static int load_start_module(const char *path){
+	uint32_t k1 = pspSdkSetK1(0);
+	int uid = sceKernelLoadModule(path, 0, NULL);
+	pspSdkSetK1(k1);
+	if (uid < 0){
+		printk("%s: failed loading %s, 0x%x\n", __func__, path, uid);
+		return uid;
+	}
+	#ifdef DEBUG
+	SceKernelModuleInfo info;
+	info.size = sizeof(info);
+	int query_status = sceKernelQueryModuleInfo(uid, &info);
+	if (query_status == 0)
+	{
+		printk("%s: %s loaded, text addr 0x%x\n", __func__, path, info.text_addr);
+	}
+	else
+	{
+		printk("%s: failed fetching module info of %s, 0x%x\n", __func__, path, query_status);
+	}
+	#endif
+	int module_start_ret;
+	k1 = pspSdkSetK1(0);
+	int start_status = sceKernelStartModule(uid, 0, NULL, &module_start_ret, NULL);
+	pspSdkSetK1(k1);
+	if (start_status < 0){
+		printk("%s: failed starting %s, 0x%x\n", __func__, path, start_status);
+		sceKernelUnloadModule(uid);
+		return start_status;
+	}
+	return uid;
 }
 
 // Kernel Module Loader
@@ -290,6 +326,22 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 
 				// Return Module UID
 				return result;
+			}
+		}
+
+		// Load shim if needed
+		static const char *shimmed_modules[] = {
+			"pspnet_apctl.prx"
+		};
+
+		for(int i = 0;i < sizeof(shimmed_modules) / sizeof(char *);i++)
+		{
+			if (strstr(path, shimmed_modules[i]) != NULL && shim_uid < 0)
+			{
+				if (shim_uid < 0)
+				{
+					shim_uid = load_start_module(shim_path);
+				}
 			}
 		}
 	}
@@ -561,9 +613,6 @@ void patch_netconf_utility(void * init, void * getstatus, void * update, void * 
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x6332AA39, getstatus);
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x91E70E35, update);
 				hook_import_bynid((SceModule *)module, "sceUtility", 0xF88155F6, shutdown);
-
-				// Lie to the game about adhoc channel for at least Ridge Racer 2
-				hook_import_bynid((SceModule *)module, "sceUtility", 0xA5DA2406, get_system_param_int);
 			}
 		}
 	}
@@ -997,7 +1046,25 @@ int online_patcher(SceModule2 * module)
 				printk("Patched %s with sceKernelLoadModule Hook\n", module->modname);
 			}
 		}
-		
+
+		// Hook shims
+		if (onlinemode)
+		{
+			if (strstr(module->modname, "sceNetApctl_Library")){
+				void (*hijack_sceNetApctlInit)() = (void (*)())sctrlHENFindFunction("pspnet_shims", "pspnet_shims", 0x1);
+				if (hijack_sceNetApctlInit != NULL)
+				{
+					printk("%s: redirecting sceNetApctlInit\n", __func__);
+					hijack_sceNetApctlInit();					
+				}else{
+					printk("%s: sceNetApctlInitShim is null!\n", __func__);
+				}
+			}
+
+			// Lie to the game about adhoc channel for at least Ridge Racer 2
+			hook_import_bynid((SceModule *)module, "sceUtility", 0xA5DA2406, get_system_param_int);
+		}
+
 		// Hook Framebuffer Setter
 		hook_import_bynid((SceModule *)module, "sceDisplay", 0x289D82FE, setframebuf);
 		

@@ -27,7 +27,7 @@ int proUtilityNetconfUpdate(int speed)
 	{
 		// Passthrough
 		printk("%s: passthrough\n", __func__);
-		sceUtilityNetconfUpdate(speed);
+		return sceUtilityNetconfUpdate(speed);
 	}
 
 	// We should get called once here

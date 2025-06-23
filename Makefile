@@ -9,6 +9,8 @@ PSPNET_ADHOC_DISCOVER = pspnet_adhoc_discover
 PSPNET_ADHOCCTL_SERVER = pspnet_adhocctl_server
 PSPNET_AP_DIALOG_DUMMY = pspnet_ap_dialog_dummy
 PSPNET_MINIUPNC = pspnet_miniupnc
+PSPNET_SHIMS = pspnet_shims
+
 CONTRIBUTIONS = contributions
 PROCFW = ../procfw
 DISTRIBUTE = dist
@@ -85,6 +87,7 @@ all:
 	@cd $(PSPNET_ADHOCCTL_SERVER); make $(FLAGS)
 	@cd $(PSPNET_MINIUPNC); make $(FLAGS)
 #	@cd $(PSPNET_AP_DIALOG_DUMMY); make $(FLAGS)
+	@cd $(PSPNET_SHIMS); make $(FLAGS)
 
 clean:
 	@cd $(ATPRO); make clean $(FLAGS)
@@ -98,4 +101,5 @@ clean:
 	@cd $(PSPNET_ADHOCCTL_SERVER); make clean $(FLAGS)
 	@cd $(PSPNET_MINIUPNC); make clean $(FLAGS)
 #	@cd $(PSPNET_AP_DIALOG_DUMMY); make clean $(FLAGS)
+	@cd $(PSPNET_SHIMS); make clean $(FLAGS)
 	@rm -rf $(DISTRIBUTE) || true
