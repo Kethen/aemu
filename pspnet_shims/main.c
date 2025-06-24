@@ -22,11 +22,11 @@
 
 #include <string.h>
 
+#include "../atpro/logs.h"
+
 #define MODULENAME "pspnet_shims"
 PSP_MODULE_INFO(MODULENAME, PSP_MODULE_USER + 6, 1, 6);
 PSP_HEAP_SIZE_KB(HEAP_SIZE);
-
-int printk(...);
 
 #define MAKE_JUMP(a, f) _sw(0x08000000 | (((u32)(f) & 0x0FFFFFFC) >> 2), a)
 #define GET_JUMP_TARGET(x) (((x) & 0x03FFFFFF) << 2)
