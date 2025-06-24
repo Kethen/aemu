@@ -18,6 +18,7 @@
 #include <pspsdk.h>
 #include <pspkernel.h>
 #include <pspnet_apctl.h>
+#include <pspnet_resolver.h>
 
 #include <string.h>
 
@@ -64,6 +65,34 @@ int sceNetApctlInit_patched(int stack_size, int init_priority){
 
 void hijack_sceNetApctlInit(){
 	HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t*)sceNetApctlInit), sceNetApctlInit_patched, sceNetApctlInit_orig);
+}
+
+int initialized = 0;
+int (*sceNetResolverInit_orig)() = NULL;
+int sceNetResolverInit_patched(){
+	if (initialized){
+		printk("%s: blocked re-initialization\n", __func__);
+		return 0;
+	}
+
+	int result = sceNetResolverInit_orig();
+	printk("%s: returning 0x%x/%d\n", __func__, result, result);
+
+	initialized = result == 0;
+
+	return result;
+}
+
+int (*sceNetResolverTerm_orig)() = NULL;
+int sceNetResolverTerm_patched(){
+	printk("%s: blocked termination\n", __func__);
+	return 0;
+}
+
+void hijack_sceNetResolver(){
+	initialized = 0;
+	HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceNetResolverInit), sceNetResolverInit_patched, sceNetResolverInit_orig);
+	HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceNetResolverTerm), sceNetResolverTerm_patched, sceNetResolverTerm_orig);
 }
 
 void init_littlec();

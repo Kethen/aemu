@@ -80,8 +80,11 @@ all:
 	@cd $(MEMAB); make $(FLAGS)
 	@cd $(PSPNET_ADHOC_AUTH); make $(FLAGS)
 	@cd $(PSPNET_ADHOC); make $(FLAGS)
+	rm littlec.o
 	@cd $(PSPNET_ADHOCCTL); make $(FLAGS)
+	rm littlec.o
 	@cd $(PSPNET_ADHOC_MATCHING); make $(FLAGS)
+	rm littlec.o
 #	@cd $(PSPNET_ADHOC_DOWNLOAD); make $(FLAGS)
 #	@cd $(PSPNET_ADHOC_DISCOVER); make $(FLAGS)
 	@cd $(PSPNET_ADHOCCTL_SERVER); make $(FLAGS)

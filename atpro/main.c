@@ -253,7 +253,7 @@ static const char *no_unload_modules[] = {
 	"sceNet_Library",
 	"sceNetInet_Library",
 	"sceNetApctl_Library",
-	//"sceNetResolver_Library"
+	"sceNetResolver_Library",
 	"sceNetAdhoc_Library",
 	"sceNetAdhocctl_Library",
 	"sceNetAdhocMatching_Library",
@@ -266,7 +266,7 @@ static const char *no_unload_module_file_names[] = {
 	"pspnet.prx",
 	"pspnet_inet.prx",
 	"pspnet_apctl.prx",
-	//"pspnet_resolver.prx",
+	"pspnet_resolver.prx",
 	"pspnet_adhoc.prx",
 	"pspnet_adhocctl.prx",
 	"pspnet_adhoc_matching.prx",
@@ -340,17 +340,18 @@ SceUID load_plugin_user(const char * path, int flags, SceKernelLMOption * option
 }
 SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, module_loader_func orig)
 {
+	// Force module path case
+	char test_path[256] = {0};
+
+	int len = strlen(path);
+	for(int i = 0;i < len;i++){
+		test_path[i] = tolower(path[i]);
+	}
+	printk("%s: test path %s\n", __func__, test_path);
+
 	// Online Mode Enabled
 	if(onlinemode)
 	{
-		// Force module path case
-		char test_path[256] = {0};
-
-		int len = strlen(path);
-		for(int i = 0;i < len;i++){
-			test_path[i] = tolower(path[i]);
-		}
-
 		static const char *force_fw_modules[] = {
 			"ifhandle.prx",
 			"pspnet.prx",
@@ -372,7 +373,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 
 		// If these were already loaded prior
 		for(int i = 0;i < sizeof(no_unload_module_file_names) / sizeof(char *);i++){
-			if (strstr(test_path, no_unload_module_file_names[i]))
+			if (strstr(test_path, no_unload_module_file_names[i]) != NULL)
 			{
 				if (no_unload_module_uids[i] >= 0)
 				{
@@ -436,6 +437,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 				for(int i = 0;i < sizeof(no_unload_module_file_names) / sizeof(char *);i++){
 					if (strstr(test_path, no_unload_module_file_names[i]) != NULL)
 					{
+						printk("%s: loaded no unload module %s\n", __func__, no_unload_module_file_names[i]);
 						no_unload_module_uids[i] = result;
 					}
 				}
@@ -447,7 +449,8 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 
 		// Load shim if needed
 		static const char *shimmed_modules[] = {
-			"pspnet_apctl.prx"
+			"pspnet_apctl.prx",
+			"pspnet_resolver.prx"
 		};
 
 		for(int i = 0;i < sizeof(shimmed_modules) / sizeof(char *);i++)
@@ -457,6 +460,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 				if (shim_uid < 0)
 				{
 					shim_uid = load_start_module(shim_path);
+					break;
 				}
 			}
 		}
@@ -495,8 +499,9 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 	}
 
 	for(int i = 0;i < sizeof(no_unload_module_file_names) / sizeof(char *);i++){
-		if (strstr(path, no_unload_module_file_names[i]))
+		if (strstr(test_path, no_unload_module_file_names[i]))
 		{
+			printk("%s: loaded no unload module %s\n", __func__, no_unload_module_file_names[i]);
 			no_unload_module_uids[i] = result;
 		}
 	}
@@ -1349,14 +1354,26 @@ int online_patcher(SceModule2 * module)
 		// Hook shims
 		if (onlinemode)
 		{
-			if (strstr(module->modname, "sceNetApctl_Library")){
+			if (strstr(module->modname, "sceNetApctl_Library"))
+			{
 				void (*hijack_sceNetApctlInit)() = (void (*)())sctrlHENFindFunction("pspnet_shims", "pspnet_shims", 0x1);
 				if (hijack_sceNetApctlInit != NULL)
 				{
 					printk("%s: redirecting sceNetApctlInit\n", __func__);
 					hijack_sceNetApctlInit();					
 				}else{
-					printk("%s: sceNetApctlInitShim is null!\n", __func__);
+					printk("%s: hijack_sceNetApctlInit is null!\n", __func__);
+				}
+			}
+			else if (strstr(module->modname, "sceNetResolver_Library"))
+			{
+				void (*hijack_sceNetResolver)() = (void (*)())sctrlHENFindFunction("pspnet_shims", "pspnet_shims", 0x2);
+				if (hijack_sceNetResolver != NULL)
+				{
+					printk("%s: redirecting sceNetResolverInit and sceNetResolverTerm\n", __func__);
+					hijack_sceNetResolver();
+				}else{
+					printk("%s: hijack_sceNetResolver is null!\n", __func__);
 				}
 			}
 
