@@ -836,6 +836,7 @@ int get_system_param_int(int id, int *value)
 
 pspUtilityNetconfData *netconf_override;
 struct pspUtilityNetconfAdhoc *netconf_adhoc_override;
+pspUtilityNetconfData *orig_data = NULL;
 int (*netconf_init_orig)(pspUtilityNetconfData *data) = NULL;
 int netconf_init(pspUtilityNetconfData *data){
 	if (data != NULL)
@@ -843,15 +844,18 @@ int netconf_init(pspUtilityNetconfData *data){
 		printk("%s: data size is %d, expected %d\n", __func__, data->base.size, sizeof(pspUtilityNetconfData));
 	}
 
-	if (data != NULL && data->action == PSP_NETCONF_ACTION_CONNECTAP && netconf_override != NULL && netconf_adhoc_override != NULL)
+	orig_data = NULL;
+	if (data != NULL && netconf_override != NULL && netconf_adhoc_override != NULL && data->action == PSP_NETCONF_ACTION_CONNECTAP)
 	{
 		printk("%s: overriding netconf param for infra mode\n", __func__);
+		orig_data = data;
+		data = netconf_override;
+
 		int ctrl = 1;
 		int lang = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
 		sceUtilityGetSystemParamInt(9, &ctrl);
 		sceUtilityGetSystemParamInt(PSP_SYSTEMPARAM_ID_INT_LANGUAGE, &lang);
 
-		data = netconf_override;
 		memset(netconf_override, 0, sizeof(pspUtilityNetconfData));
 		netconf_override->base.size = sizeof(pspUtilityNetconfData);
 		netconf_override->base.language = lang;
@@ -869,6 +873,19 @@ int netconf_init(pspUtilityNetconfData *data){
 	int result = netconf_init_orig(data);
 	printk("%s: returning 0x%x/%d\n", __func__, result, result);
 
+	return result;
+}
+
+int (*netconf_get_status_orig)() = NULL;
+int netconf_get_status()
+{
+	int result = netconf_get_status_orig();
+	if (orig_data != NULL)
+	{
+		printk("%s: copying netconf param from override to original\n", __func__);
+		memcpy(orig_data, netconf_override, orig_data->base.size);
+	}
+	printk("%s: returning %d/0x%x\n", __func__, result, result);
 	return result;
 }
 
@@ -1766,7 +1783,8 @@ int module_start(SceSize args, void * argp)
 						// Monitor netconf init
 						void *netconf_init_func = (void *)sctrlHENFindFunction("sceUtility_Driver", "sceUtility", 0x4DB1E739);
 						HIJACK_FUNCTION(netconf_init_func, netconf_init, netconf_init_orig);
-
+						void *netconf_get_status_func = (void *)sctrlHENFindFunction("sceUtility_Driver", "sceUtility", 0x6332AA39);
+						HIJACK_FUNCTION(netconf_get_status_func, netconf_get_status, netconf_get_status_orig);
 					}
 					
 					// Create Input Thread
