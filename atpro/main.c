@@ -170,7 +170,7 @@ void return_memory()
 	stolen_memory = -1;
 }
 
-char tolower(char value)
+static char tolower(char value)
 {
 	if (value < 'A' || value > 'Z')
 	{
@@ -303,13 +303,6 @@ static int no_unload_module_started[] = {
 // Kernel Module Loader
 typedef SceUID (*module_loader_func)(const char * path, int flags, SceKernelLMOption * option);
 module_loader_func load_plugin_user_orig = NULL;
-void load_module_loader_functions()
-{
-	if (load_plugin_user_orig == NULL)
-	{
-		load_plugin_user_orig = (module_loader_func)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForUser", 0x977DE386);
-	}
-}
 SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, module_loader_func orig);
 SceUID load_plugin_kernel(const char * path, int flags, SceKernelLMOption * option)
 {
@@ -321,11 +314,15 @@ SceUID load_plugin_kernel(const char * path, int flags, SceKernelLMOption * opti
 	{
 		printk("%s: loading %s into partition %d/%d with position %d\n", __func__, path, option->mpidtext, option->mpiddata, option->position);
 	}
-	load_module_loader_functions();
 	return load_plugin(path, flags, option, sceKernelLoadModule);
 }
 SceUID load_plugin_user(const char * path, int flags, SceKernelLMOption * option)
 {
+	if (load_plugin_user_orig == NULL)
+	{
+		load_plugin_user_orig = (module_loader_func)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForUser", 0x977DE386);
+	}
+
 	if (option == NULL)
 	{
 		printk("%s: loading %s without options\n", __func__, path);
@@ -335,7 +332,6 @@ SceUID load_plugin_user(const char * path, int flags, SceKernelLMOption * option
 		printk("%s: loading %s into partition %d/%d with position %d\n", __func__, path, option->mpidtext, option->mpiddata, option->position);
 	}
 
-	load_module_loader_functions();
 	return load_plugin(path, flags, option, load_plugin_user_orig);
 }
 SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, module_loader_func orig)
