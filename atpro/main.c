@@ -512,11 +512,13 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 typedef int (*module_unload_func)(SceUID uid);
 int unload_plugin(SceUID uid, module_unload_func);
 int unload_plugin_kernel(SceUID uid){
+	printk("%s: begin\n", __func__);
 	return unload_plugin(uid, sceKernelUnloadModule);
 }
 module_unload_func unload_plugin_user_orig = NULL;
 int unload_plugin_user(SceUID uid)
 {
+	printk("%s: begin\n", __func__);
 	if (unload_plugin_user_orig == NULL){
 		unload_plugin_user_orig = (module_unload_func)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForUser", 0x2E0911AA);
 	}
@@ -552,11 +554,13 @@ int unload_plugin(SceUID uid, module_unload_func orig)
 typedef int (*module_start_func)(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option);
 int start_plugin(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option, module_start_func);
 int start_plugin_kernel(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option){
+	printk("%s: begin\n", __func__);
 	return start_plugin(uid, argsize, argp, status, option, sceKernelStartModule);
 }
 module_start_func start_plugin_user_orig = NULL;
 int start_plugin_user(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option)
 {
+	printk("%s: begin\n", __func__);
 	if (start_plugin_user_orig == NULL){
 		start_plugin_user_orig = (module_start_func)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForUser", 0x50F0C1EC);
 	}
@@ -572,11 +576,10 @@ int start_plugin(SceUID uid, SceSize argsize, void *argp, int *status, SceKernel
 	int query_status = sceKernelQueryModuleInfo(uid, &info);
 	pspSdkSetK1(k1);
 	if (query_status != 0){
-		printk("%s: failed fetching module name\n", __func__);
-		return orig(uid, argsize, argp, status, option);
+		int result = orig(uid, argsize, argp, status, option);
+		printk("%s: failed fetching module name, started with result 0x%x/%d\n", __func__, result, result);
+		return result;
 	}
-
-	printk("%s: starting %s\n", __func__, info.name);
 
 	for(int i = 0;i < sizeof(no_unload_modules) / sizeof(char *) && onlinemode;i++){
 		// Start these modules once
@@ -594,17 +597,21 @@ int start_plugin(SceUID uid, SceSize argsize, void *argp, int *status, SceKernel
 		}
 	}
 
-	return orig(uid, argsize, argp, status, option);
+	int result = orig(uid, argsize, argp, status, option);
+	printk("%s: started %s, 0x%x/%d\n", __func__, info.name, result, result);
+	return result;
 }
 
 typedef int (*module_stop_func)(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option);
 int stop_plugin(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option, module_stop_func);
 int stop_plugin_kernel(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option){
+	printk("%s: begin\n", __func__);
 	return stop_plugin(uid, argsize, argp, status, option, sceKernelStopModule);
 }
 module_stop_func stop_plugin_user_orig = NULL;
 int stop_plugin_user(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelSMOption *option)
 {
+	printk("%s: begin\n", __func__);
 	if (stop_plugin_user_orig == NULL){
 		stop_plugin_user_orig = (module_stop_func)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForUser", 0xD1FF982A);
 	}
@@ -620,11 +627,10 @@ int stop_plugin(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelS
 	int query_status = sceKernelQueryModuleInfo(uid, &info);
 	pspSdkSetK1(k1);
 	if (query_status != 0){
-		printk("%s: failed fetching module name\n", __func__);
-		return orig(uid, argsize, argp, status, option);
+		int result = orig(uid, argsize, argp, status, option);
+		printk("%s: failed fetching module name, stopped with 0x%x/%d\n", __func__, result, result);
+		return result;
 	}
-
-	printk("%s: stopping %s\n", __func__, info.name);
 
 	for(int i = 0;i < sizeof(no_unload_modules) / sizeof(char *) && onlinemode;i++){
 		// Do not stop these modules
@@ -634,7 +640,9 @@ int stop_plugin(SceUID uid, SceSize argsize, void *argp, int *status, SceKernelS
 		}
 	}
 
-	return orig(uid, argsize, argp, status, option);
+	int result = orig(uid, argsize, argp, status, option);
+	printk("%s: stopped %s, 0x%x/%d\n", __func__, info.name, result, result);
+	return result;
 }
 
 // User Module Loader
