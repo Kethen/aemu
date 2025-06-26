@@ -25,7 +25,7 @@
 #include "library/upnperrors.h"
 
 #define MODULENAME "sceNetMiniUPnP"
-PSP_MODULE_INFO(MODULENAME, PSP_MODULE_USER + 6, 1, 6);
+PSP_MODULE_INFO(MODULENAME, PSP_MODULE_USER, 1, 6);
 PSP_HEAP_SIZE_KB(100);
 
 // Library Status
@@ -54,18 +54,50 @@ int _mainThread(SceSize args, void * argp);
 void SetRedirectAndTest(struct UPNPUrls * urls, struct IGDdatas * data, const char * iaddr, const char * iport, const char * eport, const char * proto, const char * leaseDuration, const char * description);
 void RemoveRedirect(struct UPNPUrls * urls, struct IGDdatas * data, const char * eport, const char * proto);
 
-// Module Start Event
-int module_start(SceSize args, void * argp)
+void miniupnc_start()
 {
-	printk(MODULENAME " start!\n");
+	printk("%s: begin\n", __func__);
 
 	// Create Main Thread
 	int update = sceKernelCreateThread("upnp_thread", _mainThread, 0x40, 16384, 0, NULL);
 
 	// Start Main Thread
-	if(update >= 0) sceKernelStartThread(update, 0, NULL);
+	if(update >= 0)
+	{
+		sceKernelStartThread(update, 0, NULL);
+		printk("%s: main thread started\n", __func__);
+	}
+	else
+	{
+		printk("%s: failed creating upnp thread, 0x%x\n", __func__, update);
+	}
+}
+
+// Module Start Event
+int module_start(SceSize args, void * argp)
+{
+	printk(MODULENAME " start!\n");
 
 	return 0;
+}
+
+void miniupnc_stop()
+{
+	printk("%s: begin\n", __func__);
+
+	// Library is running
+	if(_status == 1)
+	{
+		printk("%s: stopping current miniupnc instance\n", __func__);
+
+		// Trigger Library Shutdown
+		_status = -1;
+		
+		// Wait for Shutdown
+		while(_status != 0) sceKernelDelayThread(1000);
+
+		printk("%s: current miniupnc instance stopped\n", __func__);
+	}
 }
 
 // Module Stop Event
@@ -73,86 +105,97 @@ int module_stop(SceSize args, void * argp)
 {
 	printk(MODULENAME " stop!\n");
 	
-	// Library is running
-	if(_status == 1)
-	{
-		// Trigger Library Shutdown
-		_status = -1;
-		
-		// Wait for Shutdown
-		while(_status != 0) sceKernelDelayThread(1000);
-	}
-	
 	return 0;
 }
 
 // Main Thread
 int _mainThread(SceSize args, void * argp)
 {
-	// Initialize DNS Resolver
-	if(sceNetResolverInit() == 0)
-	{
-		// Create DNS Resolver
-		if(sceNetResolverCreate(&_rid, rbuf, sizeof(rbuf)) == 0)
-		{
-			// Discover Error
-			int error = 0;
-			
-			// UPNP Device List
-			_devlist = upnpDiscover(2000, NULL, NULL, 0, 0, &error);
-			
-			// Found UPNP Device(s)
-			if(_devlist != NULL)
-			{
-				// LAN IP Address Buffer
-				char lanaddr[64];
-				
-				// Filter IGD Control URL
-				if(UPNP_GetValidIGD(_devlist, &_urls, &_data, lanaddr, sizeof(lanaddr)) != 0)
-				{
-					// Grab Local IP Address
-					if(sceNetApctlGetInfo(PSP_NET_APCTL_INFO_IP, &_info) == 0)
-					{
-						// Set Library Status
-						_status = 1;
-						
-						// Main Loop
-						while(_status == 1)
-						{
-							// Delay Thread
-							sceKernelDelayThread(10000);
-						}
-					}
-					
-					// Free UPNP URL List
-					FreeUPNPUrls(&_urls);
-				}
-				
-				// Free UPNP Device List
-				freeUPNPDevlist(_devlist);
-			}
-			
-			// Delete DNS Resolver
-			sceNetResolverDelete(_rid);
-			
-			// Delete DNS Resolver ID
-			_rid = -1;
+	while(_status != -1){
+		#define DELAY_CONTINUE() { \
+			sceKernelDelayThread(1000000); \
+			continue; \
 		}
+
+		int resolver_init_status = sceNetResolverInit();
+		if(resolver_init_status != 0)
+		{
+			printk("%s: failed initializing dns resolver, 0x%x, retrying\n", __func__, resolver_init_status);
+			DELAY_CONTINUE();
+		}
+
+		int resolver_create_status = sceNetResolverCreate(&_rid, rbuf, sizeof(rbuf));
+		if (resolver_create_status != 0)
+		{
+			sceNetResolverTerm();
+			printk("%s: failed creating dns resolver, 0x%x, retrying\n", __func__, resolver_create_status);
+			DELAY_CONTINUE();
+		}
+
+		int error = 0;
+		_devlist = upnpDiscover(2000, NULL, NULL, 0, 0, &error);
+		if (_devlist == NULL)
+		{
+			sceNetResolverDelete(_rid);
+			_rid = -1;
+			sceNetResolverTerm();
+			printk("%s: failed discovering upnp device, %d, retrying\n", __func__, error);
+			DELAY_CONTINUE();
+		}
+
+		char lanaddr[64];
+		int get_igd_status = UPNP_GetValidIGD(_devlist, &_urls, &_data, lanaddr, sizeof(lanaddr));
+		if (get_igd_status != 1)
+		{
+			freeUPNPDevlist(_devlist);
+			sceNetResolverDelete(_rid);
+			_rid = -1;
+			sceNetResolverTerm();
+			printk("%s: failed getting igd, %d, retrying\n", __func__, get_igd_status);
+			DELAY_CONTINUE();
+		}
+
+		int get_local_ip_status = sceNetApctlGetInfo(PSP_NET_APCTL_INFO_IP, &_info);
+		if (get_local_ip_status != 0)
+		{
+			FreeUPNPUrls(&_urls);
+			freeUPNPDevlist(_devlist);
+			sceNetResolverDelete(_rid);
+			_rid = -1;
+			sceNetResolverTerm();
+			printk("%s: failed getting local ip, 0x%x, retrying\n", __func__, get_local_ip_status);
+			DELAY_CONTINUE();
+		}
+
+		// Set Library Status
+		_status = 1;
 		
-		// Shutdown DNS Resolver
+		// Main Loop
+		while(_status == 1)
+		{
+			// Delay Thread
+			sceKernelDelayThread(1000000);
+		}
+
+		FreeUPNPUrls(&_urls);
+		freeUPNPDevlist(_devlist);
+		sceNetResolverDelete(_rid);
+		_rid = -1;
 		sceNetResolverTerm();
 	}
-	
+
+	#if 0	
 	// Initialization Error
 	if(_status != -1)
 	{
 		// Unload Module because Router doesn't support UPNP
 		int status = 0; sceKernelStopUnloadSelfModule(0, NULL, &status, NULL);
 	}
-	
+	#endif
+
 	// Reset Library Status
 	_status = 0;
-	
+
 	// Kill Thread
 	sceKernelExitDeleteThread(0);
 	
@@ -254,8 +297,21 @@ void RemoveRedirect(struct UPNPUrls * urls, struct IGDdatas * data, const char *
 // Create Port Forward
 void sceNetPortOpen(const char * protocol, uint16_t port)
 {
+	printk("%s: opening %s %u\n", __func__, protocol, port);
+
 	// Wait for Initialization
-	while(_status != 1) sceKernelDelayThread(10000);
+	int wait_seconds = 5;
+	while(wait_seconds > 0 && _status != 1)
+	{
+		sceKernelDelayThread(1000000);
+		wait_seconds--;
+	}
+	
+	if (_status != 1)
+	{
+		printk("%s: cannot create port forward yet, the library is not ready\n", __func__);
+		return;
+	}
 	
 	// Argument Check
 	if(protofix(protocol) != NULL && port != 0)
@@ -271,8 +327,21 @@ void sceNetPortOpen(const char * protocol, uint16_t port)
 // Delete Port Forward
 void sceNetPortClose(const char * protocol, uint16_t port)
 {
+	printk("%s: closing %s %u\n", __func__, protocol, port);
+
 	// Wait for Initialization
-	while(_status != 1) sceKernelDelayThread(10000);
+	int wait_seconds = 5;
+	while(wait_seconds > 0 && _status != 1)
+	{
+		sceKernelDelayThread(1000000);
+		wait_seconds--;
+	}
+	
+	if (_status != 1)
+	{
+		printk("%s: cannot close port forward yet, the library is not ready\n", __func__);
+		return;
+	}
 	
 	// Argument Check
 	if(protofix(protocol) != NULL && port != 0)

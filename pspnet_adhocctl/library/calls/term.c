@@ -20,6 +20,8 @@
 // Function Prototypes
 void _freeNetworkRecursive(SceNetAdhocctlScanInfo * node);
 
+void miniupnc_stop();
+
 /**
  * Terminate Adhoc-Control Emulator
  * @return 0 on success or... ADHOCCTL_BUSY
@@ -67,10 +69,11 @@ int proNetAdhocctlTerm(void)
 		_metasocket = -1;
 		
 		// Stop UPNP Library
-		int status = 0; sceKernelStopModule(_upnp_uid, 0, NULL, &status, NULL);
+		//int status = 0; sceKernelStopModule(_upnp_uid, 0, NULL, &status, NULL);
+		miniupnc_stop();
 		
 		// Unload UPNP Library
-		sceKernelUnloadModule(_upnp_uid);
+		//sceKernelUnloadModule(_upnp_uid);
 		
 		// Close Hotspot Connection
 		sceNetApctlDisconnect();

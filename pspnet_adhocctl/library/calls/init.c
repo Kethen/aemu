@@ -26,6 +26,7 @@ int _thread_status = ADHOCCTL_STATE_DISCONNECTED;
 
 // UPNP Library Handle
 int _upnp_uid = -1;
+int _upnp_start_status = -1;
 
 // Game Product Code
 SceNetAdhocctlAdhocId _product_code;
@@ -174,6 +175,8 @@ int proNetAdhocctlInit(int stacksize, int prio, const SceNetAdhocctlAdhocId * ad
 	// Initialized Library
 	return ADHOCCTL_ALREADY_INITIALIZED;
 }
+
+void miniupnc_start();
 
 /**
  * Initialize Networking Components for Adhocctl Emulator
@@ -397,12 +400,29 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 		// Free Network Layer Lock
 		_freeNetworkLock();
 		
-		// Load UPNP Library
-		_upnp_uid = sceKernelLoadModule("ms0:/kd/pspnet_miniupnc.prx", 0, NULL);
-		
-		// Start UPNP Library
-		int status = 0; sceKernelStartModule(_upnp_uid, 0, NULL, &status, NULL);
-		
+		// Load and start UPNP Library, optional
+		if (_upnp_uid < 0)
+			_upnp_uid = sceKernelLoadModule("ms0:/kd/pspnet_miniupnc.prx", 0, NULL);
+
+		int _upnp_start_status = -1;
+		if (_upnp_uid >= 0 && _upnp_start_status < 0)
+		{
+			int status;
+			_upnp_start_status = sceKernelStartModule(_upnp_uid, 0, NULL, &status, NULL);
+		}
+		else
+		{
+			printk("%s: failed loading upnp module, 0x%x\n", __func__, _upnp_uid);
+		}
+
+		if (_upnp_start_status < 0)
+		{
+			printk("%s: failed starting upnp module, 0x%x\n", __func__, _upnp_start_status);
+		}
+
+		// Best effort
+		miniupnc_start();
+
 		// Return Success
 		return 0;
 	}
