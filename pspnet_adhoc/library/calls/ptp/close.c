@@ -37,8 +37,8 @@ int proNetAdhocPtpClose(int id, int flag)
 			// Close Connection
 			sceNetInetClose(socket->id);
 			
-			// Remove Port Forward from Router if we are listening
-			if (socket->state == PTP_STATE_LISTEN)
+			// Remove Port Forward from Router only if the connection is not from accept calls
+			if (socket->mode != PTP_MODE_ACCEPT)
 				sceNetPortClose("TCP", socket->lport);
 			
 			// Free Memory

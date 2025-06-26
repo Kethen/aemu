@@ -151,8 +151,11 @@ int proNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 										_ptp[i] = internal;
 										
 										// Add Port Forward to Router
-										sceNetPortOpen("TCP", internal->lport);
-										
+										// This should have been opened from listen
+										// sceNetPortOpen("TCP", internal->lport);
+
+										_ptp[i]->mode = PTP_MODE_ACCEPT;
+
 										// Return Socket
 										return i + 1;
 									}

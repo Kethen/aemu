@@ -40,6 +40,12 @@ typedef struct SceNetAdhocPdpStat {
 	uint32_t rcv_sb_cc;
 } __attribute__((packed)) SceNetAdhocPdpStat;
 
+enum PTP_MODES{
+	PTP_MODE_LISTEN = 0,
+	PTP_MODE_OPEN,
+	PTP_MODE_ACCEPT
+};
+
 // PTP Socket Status
 typedef struct SceNetAdhocPtpStat {
 	struct SceNetAdhocPtpStat * next;
@@ -51,6 +57,7 @@ typedef struct SceNetAdhocPtpStat {
 	uint32_t snd_sb_cc;
 	uint32_t rcv_sb_cc;
 	int state;
+	int mode;
 } __attribute__((packed)) SceNetAdhocPtpStat;
 
 // Gamemode Optional Peer Buffer Data

@@ -130,7 +130,10 @@ int proNetAdhocPtpListen(const SceNetEtherAddr * saddr, uint16_t sport, uint32_t
 										
 										// Add Port Forward to Router
 										sceNetPortOpen("TCP", sport);
-										
+
+										// Save ptp mode for cleanup
+										internal->mode = PTP_MODE_LISTEN;
+
 										// Return PTP Socket Pointer
 										return i + 1;
 									}
