@@ -37,6 +37,10 @@ PSP_EXPORT_FUNC_HASH(start_plugin_kernel)
 PSP_EXPORT_FUNC_HASH(start_plugin_user)
 PSP_EXPORT_FUNC_HASH(stop_plugin_kernel)
 PSP_EXPORT_FUNC_HASH(stop_plugin_user)
+PSP_EXPORT_FUNC_HASH(sceDisplayWaitVblankPatched)
+PSP_EXPORT_FUNC_HASH(sceDisplayWaitVblankCBPatched)
+PSP_EXPORT_FUNC_HASH(sceDisplayWaitVblankStartPatched)
+PSP_EXPORT_FUNC_HASH(sceDisplayWaitVblankStartCBPatched)
 PSP_EXPORT_END
 
 PSP_END_EXPORTS

@@ -45,7 +45,7 @@ const char * SysMemGameCodeGetter(void);
 STMOD_HANDLER sysctrl_patcher = NULL;
 
 // Display Canvas
-CANVAS displayCanvas;
+CANVAS displayCanvas = {0};
 
 // Input Thread Running Flag
 int running = 0;
@@ -57,7 +57,7 @@ int hud_on = 0;
 int wait = 0;
 
 // Frame Counter
-int framecount = 0;
+//int framecount = 0;
 
 // Online Mode Switch
 int onlinemode = 0;
@@ -934,25 +934,19 @@ void patch_netconf_utility(void * init, void * getstatus, void * update, void * 
 	}
 }
 
-// Framebuffer Setter
-int setframebuf(void *topaddr, int bufferwidth, int pixelformat, int sync)
+static void draw_hud()
 {
 	// Increase Frame Counter
-	framecount++;
-	
+	//framecount++;
+
 	// Ready to Paint State
-	if(wait == 0)
+	if(wait == 0 && displayCanvas.buffer != NULL)
 	{
 		// Lock State
 		wait = 1;
 		
 		// Get Canvas Information
 		int mode = 0; sceDisplayGetMode(&mode, &(displayCanvas.width), &(displayCanvas.height));
-		
-		// Update Canvas Information
-		displayCanvas.buffer = topaddr;
-		displayCanvas.lineWidth = bufferwidth;
-		displayCanvas.pixelFormat = pixelformat;
 		
 		// HUD Painting Required
 		if(hud_on) drawInfo(&displayCanvas);
@@ -963,10 +957,47 @@ int setframebuf(void *topaddr, int bufferwidth, int pixelformat, int sync)
 		// Unlock State
 		wait = 0;
 	}
-	
+}
+
+int sceDisplayWaitVblankPatched()
+{
+	draw_hud();
+	return sceDisplayWaitVblank();
+}
+
+int sceDisplayWaitVblankCBPatched()
+{
+	draw_hud();
+	return sceDisplayWaitVblankCB();
+}
+
+int sceDisplayWaitVblankStartPatched()
+{
+	draw_hud();
+	return sceDisplayWaitVblankStart();
+}
+
+int sceDisplayWaitVblankStartCBPatched()
+{
+	draw_hud();
+	return sceDisplayWaitVblankStartCB();
+}
+
+// Framebuffer Setter
+int setframebuf(void *topaddr, int bufferwidth, int pixelformat, int sync)
+{
+	// Update Canvas Information
+	displayCanvas.buffer = topaddr;
+	displayCanvas.lineWidth = bufferwidth;
+	displayCanvas.pixelFormat = pixelformat;
+
+	draw_hud();
+
 	// Passthrough
 	return sceDisplaySetFrameBuf(topaddr, bufferwidth, pixelformat, sync);
 }
+
+
 
 // Read Positive Null & Passthrough Hook
 int read_buffer_positive(SceCtrlData * pad_data, int count)
@@ -1218,21 +1249,39 @@ int online_patcher(SceModule2 * module)
 
 	printk("%s: module start %s text_addr 0x%x\n", __func__, module->modname, module->text_addr);
 
-	if (module->text_addr > 0x08800000 && module->text_addr < 0x08900000 && strcmp("opnssmp", module->modname) != 0 && onlinemode)
+	if (module->text_addr > 0x08800000 && module->text_addr < 0x08900000 && strcmp("opnssmp", module->modname) != 0)
 	{
 		// Very likely the game itself
-		printk("%s: guessing this is the game, %s text_addr 0x%x, trying to reserve memory now and hook mdoule loading/unloading\n", __func__, module->modname, module->text_addr);
-		early_memory_stealing();
-		hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x977DE386, load_plugin_user);
-		hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x2E0911AA, unload_plugin_user);
-		hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x50F0C1EC, start_plugin_user);
-		hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0xD1FF982A, stop_plugin_user);
 
-		// allocate memory for netconf
-		//netconf_override = allocate_partition_memory(sizeof(allocate_partition_memory));
-		//netconf_adhoc_override = allocate_partition_memory(sizeof(struct pspUtilityNetconfAdhoc));
-		netconf_override = allocate_partition_memory(128);
-		netconf_adhoc_override = (void *)(((uint32_t)netconf_override) + 72);
+		printk("%s: guessing this is the game, %s text_addr 0x%x\n", __func__, module->modname, module->text_addr);
+		if (onlinemode)
+		{
+			printk("%s: hooking module load/unload by the game and reserving memory for inet", __func__);
+			early_memory_stealing();
+			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x977DE386, load_plugin_user);
+			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x2E0911AA, unload_plugin_user);
+			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x50F0C1EC, start_plugin_user);
+			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0xD1FF982A, stop_plugin_user);
+
+			// allocate memory for netconf
+			//netconf_override = allocate_partition_memory(sizeof(allocate_partition_memory));
+			//netconf_adhoc_override = allocate_partition_memory(sizeof(struct pspUtilityNetconfAdhoc));
+			netconf_override = allocate_partition_memory(128);
+			netconf_adhoc_override = (void *)(((uint32_t)netconf_override) + 72);
+		}
+
+		printk("%s: hooking hud drawing and input\n", __func__);
+
+		hook_import_bynid((SceModule *)module, "sceDisplay", 0x289D82FE, setframebuf);
+		hook_import_bynid((SceModule *)module, "sceDisplay", 0x36CDFADE, sceDisplayWaitVblankPatched);
+		hook_import_bynid((SceModule *)module, "sceDisplay", 0x8EB9EC49, sceDisplayWaitVblankCBPatched);
+		hook_import_bynid((SceModule *)module, "sceDisplay", 0x984C27E7, sceDisplayWaitVblankStartPatched);
+		hook_import_bynid((SceModule *)module, "sceDisplay", 0x46F186C3, sceDisplayWaitVblankStartCBPatched);
+
+		hook_import_bynid((SceModule *)module, "sceCtrl", 0x1F803938, read_buffer_positive);
+		hook_import_bynid((SceModule *)module, "sceCtrl", 0x3A622550, peek_buffer_positive);
+		hook_import_bynid((SceModule *)module, "sceCtrl", 0x60B81F86, read_buffer_negative);
+		hook_import_bynid((SceModule *)module, "sceCtrl", 0xC152080A, peek_buffer_negative);
 	}
 
 	// Userspace Module
@@ -1401,15 +1450,6 @@ int online_patcher(SceModule2 * module)
 			// Lie to the game about adhoc channel for at least Ridge Racer 2
 			hook_import_bynid((SceModule *)module, "sceUtility", 0xA5DA2406, get_system_param_int);
 		}
-
-		// Hook Framebuffer Setter
-		hook_import_bynid((SceModule *)module, "sceDisplay", 0x289D82FE, setframebuf);
-		
-		// Hook Controller Input (for Game Isolation)
-		hook_import_bynid((SceModule *)module, "sceCtrl", 0x1F803938, read_buffer_positive);
-		hook_import_bynid((SceModule *)module, "sceCtrl", 0x3A622550, peek_buffer_positive);
-		hook_import_bynid((SceModule *)module, "sceCtrl", 0x60B81F86, read_buffer_negative);
-		hook_import_bynid((SceModule *)module, "sceCtrl", 0xC152080A, peek_buffer_negative);
 	}
 	
 	// Enable System Control Patching
