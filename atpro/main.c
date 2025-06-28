@@ -508,13 +508,13 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 typedef int (*module_unload_func)(SceUID uid);
 int unload_plugin(SceUID uid, module_unload_func);
 int unload_plugin_kernel(SceUID uid){
-	printk("%s: begin\n", __func__);
+	//printk("%s: begin\n", __func__);
 	return unload_plugin(uid, sceKernelUnloadModule);
 }
 module_unload_func unload_plugin_user_orig = NULL;
 int unload_plugin_user(SceUID uid)
 {
-	printk("%s: begin\n", __func__);
+	//printk("%s: begin\n", __func__);
 	if (unload_plugin_user_orig == NULL){
 		unload_plugin_user_orig = (module_unload_func)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForUser", 0x2E0911AA);
 	}
@@ -530,16 +530,16 @@ int unload_plugin(SceUID uid, module_unload_func orig)
 	int query_status = sceKernelQueryModuleInfo(uid, &info);
 	pspSdkSetK1(k1);
 	if (query_status != 0){
-		printk("%s: failed fetching module name\n", __func__);
+		//printk("%s: failed fetching module name\n", __func__);
 		return orig(uid);
 	}
 
-	printk("%s: unloading %s\n", __func__, info.name);
+	//printk("%s: unloading %s\n", __func__, info.name);
 
 	for(int i = 0;i < sizeof(no_unload_modules) / sizeof(char *) && onlinemode;i++){
 		// Stop these modules from being unloaded
 		if (strstr(info.name, no_unload_modules[i]) != NULL){
-			printk("%s: blocked %s unloading\n", __func__, no_unload_modules[i]);
+			//printk("%s: blocked %s unloading\n", __func__, no_unload_modules[i]);
 			return 0;
 		}
 	}
