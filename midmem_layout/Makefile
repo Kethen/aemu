@@ -1,0 +1,43 @@
+all:
+	mv midmem_layout.prx ../dist/seplugins/midmem_layout.prx
+
+TARGET = midmem_layout
+
+OBJS = main.o hen.o
+
+CFLAGS = -Os -fno-builtin -G0 -Wall -fno-pic
+
+ifeq ($(CONFIG_620), 1)
+CFLAGS += -DCONFIG_620=1
+endif
+
+ifeq ($(CONFIG_63X), 1)
+CFLAGS += -DCONFIG_63X=1
+endif
+
+ifeq ($(CONFIG_660), 1)
+CFLAGS += -DCONFIG_660=1
+endif
+
+ifeq ($(RELEASE), 1)
+CFLAGS += -DRELEASE=1
+else
+CFLAGS += -DDEBUG=1
+endif
+
+ifeq ($(TRACE), 1)
+CFLAGS += -DTRACE=1
+endif
+
+CXXFLAGS = $(CFLAGS) -fno-exceptions -fno-rtti
+ASFLAGS = $(CFLAGS)
+
+BUILD_PRX = 1
+PRX_EXPORTS = exports.exp
+
+USE_KERNEL_LIBS = 1
+
+LDFLAGS = -nostartfiles
+
+PSPSDK=$(shell psp-config --pspsdk-path)
+include $(PSPSDK)/lib/build.mak

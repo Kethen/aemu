@@ -141,13 +141,13 @@ void steal_memory()
 	void *test_head = sceKernelGetBlockHeadAddr(test_alloc);
 	sceKernelFreePartitionMemory(test_alloc);
 
-	if (test_head < 0x0B000000)
+	if (test_head < 0x0A000000)
 	{
 		printk("%s: Not in high memory layout, 0x%x, releasing %d\n", __func__, test_head, test_alloc);
 		return;
 	}
 
-	stolen_memory = sceKernelAllocPartitionMemory(2, "inet apctl load reserve", PSP_SMEM_Low, size, NULL);
+	stolen_memory = sceKernelAllocPartitionMemory(2, "inet apctl load reserve", PSP_SMEM_High, size, NULL);
 	if (stolen_memory >= 0)
 	{
 		printk("%s: stole %d, id %d, head 0x%x\n", __func__, size, stolen_memory, sceKernelGetBlockHeadAddr(stolen_memory));
@@ -1258,7 +1258,7 @@ int online_patcher(SceModule2 * module)
 		printk("%s: guessing this is the game, %s text_addr 0x%x\n", __func__, module->modname, module->text_addr);
 		if (onlinemode)
 		{
-			printk("%s: hooking module load/unload by the game and reserving memory for inet", __func__);
+			printk("%s: hooking module load/unload by the game and reserving memory for inet\n", __func__);
 			early_memory_stealing();
 			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x977DE386, load_plugin_user);
 			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x2E0911AA, unload_plugin_user);
