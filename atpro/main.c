@@ -1758,6 +1758,31 @@ s32 sceKernelPowerUnlockForUserPatched(s32 lockType)
 	#endif
 }
 
+static void vita_memlayout_hack(){
+	// sctrlHENSetMemory() from vsh does not work on adrenaline... ark has a stub... it only really works with pro
+	// So we're just forcing the layout here
+
+	// only adrenaline has the ApplyMemory call hash
+	void (*ApplyMemory)() = (void (*)())sctrlHENFindFunction("SystemControl", "SystemCtrlForKernel", 0xB86E36D1);
+	if (!ApplyMemory){
+		printk("%s: not vita\n", __func__);
+		return;
+	}
+	printk("%s: vita detected, changing memory layout\n", __func__);
+
+	int (*HENSetMemory)(u32, u32) = (int (*)(u32, u32))sctrlHENFindFunction("SystemControl", "SystemCtrlForKernel", 0x745286D1);
+	if (HENSetMemory == NULL){
+		printk("%s: HENSetMemory is NULL\n", __func__);
+		return;
+	}
+
+	HENSetMemory(32, 52 - 32);
+	ApplyMemory();
+	printk("%s: applied new memory layout\n", __func__);
+
+	return;
+}
+
 // Module Start Event
 int module_start(SceSize args, void * argp)
 {
@@ -1778,10 +1803,14 @@ int module_start(SceSize args, void * argp)
 	
 	// Grab API Type
 	// int api = sceKernelInitApitype();
-	
+
 	// Game Mode & WLAN Switch On
 	if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_GAME) {
 	// if(api == 0x120 || api == 0x123 || api == 0x125) {
+		// deploy vita hack
+		vita_memlayout_hack();
+
+
 		// Find Utility Manager
 		SceModule * utility = sceKernelFindModuleByName("sceUtility_Driver");
 		printk("sceUtility_Driver Scan: %08X\n", (u32)utility);

@@ -92,7 +92,7 @@ all:
 	@cd $(PSPNET_MINIUPNC); make $(FLAGS)
 #	@cd $(PSPNET_AP_DIALOG_DUMMY); make $(FLAGS)
 	@cd $(PSPNET_SHIMS); make $(FLAGS)
-	@cd $(MIDMEM_LAYOUT); make $(FLAGS)
+#	@cd $(MIDMEM_LAYOUT); make $(FLAGS)
 
 clean:
 	@cd $(ATPRO); make clean $(FLAGS)
@@ -107,5 +107,5 @@ clean:
 	@cd $(PSPNET_MINIUPNC); make clean $(FLAGS)
 #	@cd $(PSPNET_AP_DIALOG_DUMMY); make clean $(FLAGS)
 	@cd $(PSPNET_SHIMS); make clean $(FLAGS)
-	@cd $(MIDMEM_LAYOUT); make clean $(FLAGS)
+#	@cd $(MIDMEM_LAYOUT); make clean $(FLAGS)
 	@rm -rf $(DISTRIBUTE) || true
