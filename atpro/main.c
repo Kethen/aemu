@@ -1220,6 +1220,17 @@ void * create_ioclose_stub(void)
 
 static void early_memory_stealing()
 {
+	#ifdef DEBUG
+	PspSysmemPartitionInfo meminfo = {0};
+	meminfo.size = sizeof(PspSysmemPartitionInfo);
+	int query_status = sceKernelQueryMemoryPartitionInfo(2, &meminfo);
+	if (query_status == 0){
+		printk("%s: p2 startaddr 0x%x size %d attr 0x%x\n", __func__, meminfo.startaddr, meminfo.memsize, meminfo.attr);
+	}else{
+		printk("%s: p2 query failed, 0x%x\n", __func__, query_status);
+	}
+	#endif
+
 	static int stole_memory_here = 0;
 	// Steal some memory from game in case it tries to allocate as much as it can on start
 	if (!stole_memory_here)

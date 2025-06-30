@@ -16,10 +16,35 @@
  */
 
 #include <pspsdk.h>
+#include <pspiofilemgr.h>
+
 #include <string.h>
+#include <stdio.h>
 
 #define MODULENAME "midmem_layout"
 PSP_MODULE_INFO(MODULENAME, PSP_MODULE_KERNEL, 1, 6);
+
+int log_fd = -1;
+
+#ifdef DEBUG
+#define LOG(...) { \
+	if (log_fd < 0){ \
+		log_fd = sceIoOpen("ms0:/PSP/" MODULENAME ".log", PSP_O_WRONLY | PSP_O_APPEND, 0777); \
+		if (log_fd < 0){ \
+			log_fd = sceIoOpen("ef0:/PSP/" MODULENAME ".log", PSP_O_WRONLY | PSP_O_APPEND, 0777); \
+		} \
+	} \
+	if (log_fd >= 0){ \
+		char _log_buf[128]; \
+		int _log_len = sprintf(_log_buf, __VA_ARGS__); \
+		sceIoWrite(log_fd, _log_buf, _log_len); \
+		sceIoClose(log_fd); \
+		log_fd = -1; \
+	} \
+}
+#else
+#define LOG(...)
+#endif
 
 typedef struct SceModule2 {
     struct SceModule2   *next;
@@ -58,8 +83,18 @@ STMOD_HANDLER prev;
 #define TARGET_P2 32
 
 int mod_start_handler(SceModule2 *mod){
-	if (strcmp(mod->modname, "sceMpegVsh_library") == 0){
-		sctrlHENSetMemory(TARGET_P2, 52 - TARGET_P2);	
+	char name_buf[28] = {0};
+	memcpy(name_buf, mod->modname, 27);
+	LOG("%s: module %s\n", __func__, name_buf);
+
+
+	//#define TARGET_MOD_NAME "sceMpegVsh_library"
+	//#define TARGET_MOD_NAME "vsh_module"
+	#define TARGET_MOD_NAME "impose_plugin_module"
+
+	if (strcmp(mod->modname, TARGET_MOD_NAME) == 0){
+		int set_status = sctrlHENSetMemory(TARGET_P2, 52 - TARGET_P2);
+		LOG("%s: sctrlHENSetMemory status 0x%x\n", __func__, set_status);
 	}
 
 	if(prev != NULL){
@@ -72,6 +107,15 @@ int mod_start_handler(SceModule2 *mod){
 // Module Start Event
 int module_start(SceSize args, void * argp)
 {
+	#ifdef DEBUG
+	log_fd = sceIoOpen("ms0:/PSP/" MODULENAME ".log", PSP_O_WRONLY | PSP_O_TRUNC | PSP_O_CREAT, 0777);
+	if (log_fd < 0){
+		log_fd = sceIoOpen("ef0:/PSP/" MODULENAME ".log", PSP_O_WRONLY | PSP_O_TRUNC | PSP_O_CREAT, 0777);
+	}
+	#endif
+
+	LOG("%s: begin\n", __func__);
+
 	prev = sctrlHENSetStartModuleHandler(mod_start_handler);
 	return 0;
 }
