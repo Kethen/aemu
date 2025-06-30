@@ -435,6 +435,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 					{
 						printk("%s: loaded no unload module %s\n", __func__, no_unload_module_file_names[i]);
 						no_unload_module_uids[i] = result;
+						break;
 					}
 				}
 
@@ -499,6 +500,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 		{
 			printk("%s: loaded no unload module %s\n", __func__, no_unload_module_file_names[i]);
 			no_unload_module_uids[i] = result;
+			break;
 		}
 	}
 
