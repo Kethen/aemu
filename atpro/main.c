@@ -119,15 +119,33 @@ static void *allocate_partition_memory(int size){
 	return sceKernelGetBlockHeadAddr(uid);
 }
 
+static int is_vita(){
+	// Adrenaline
+	u32 ApplyMemory = sctrlHENFindFunction("SystemControl", "SystemCtrlForKernel", 0xB86E36D1);
+	// ark ecfw
+	u32 arkcompat_module_start = sctrlHENFindFunction("ARKCompatLayer", "syslib", 0xD632ACDB);
+
+	return ApplyMemory != NULL || arkcompat_module_start != NULL;
+}
+
 void steal_memory()
 {
-	static const int size = 1024 * 1024 * 4;
+	const int size = 4 * 1024 * 1024;
 
 	if (stolen_memory >= 0)
 	{
 		printk("%s: refuse to steal memory again\n", __func__);
 		return;
 	}
+
+	#if 1
+
+	if(sceKernelGetModel() == 0 && !is_vita()){
+		printk("%s: refuse to steal memroy on psp 1000\n", __func__);
+		return;
+	}
+
+	#else
 
 	// https://github.com/Freakler/CheatDeviceRemastered/blob/fb0b45a254c724a2cef2397237b2d9ada22b37b4/source/utils.c
 	SceUID test_alloc = sceKernelAllocPartitionMemory(2, "highmem probe", PSP_SMEM_High, 1024, NULL);
@@ -146,6 +164,8 @@ void steal_memory()
 		printk("%s: Not in high memory layout, 0x%x, releasing %d\n", __func__, test_head, test_alloc);
 		return;
 	}
+
+	#endif
 
 	stolen_memory = sceKernelAllocPartitionMemory(2, "inet apctl load reserve", PSP_SMEM_High, size, NULL);
 	if (stolen_memory >= 0)
@@ -1254,6 +1274,62 @@ static void early_memory_stealing()
 	}
 }
 
+typedef struct PartitionData {
+	u32 unk[5];
+	u32 size;
+} PartitionData;
+
+typedef struct SysMemPartition {
+	struct SysMemPartition *next;
+	u32	address;
+	u32 size;
+	u32 attributes;
+	PartitionData *data;
+} SysMemPartition;
+
+// based on Adrenaline
+static void memlayout_hack(){
+	if(sceKernelGetModel() == 0 && !is_vita()){
+		printk("%s: not slim/vita\n", __func__);
+		return;
+	}
+
+	SysMemPartition *(*get_partition)() = NULL;
+	for (u32 addr = 0x88000000;addr < 0x4000 + 0x88000000;addr+=4){
+		if (_lw(addr) == 0x2C85000D){
+		    get_partition = (SysMemPartition *(*)())(addr-4);
+		    break;
+		}
+	}
+
+	if (get_partition == NULL){
+		printk("%s: can't find get_partition\n", __func__);
+		return;
+	}
+
+	SysMemPartition *partition_2 = get_partition(2);
+	SysMemPartition *partition_9 = get_partition(is_vita() ? 11 : 9);
+
+	partition_2->size = 30 * 1024 * 1024;
+	partition_2->data->size = (((partition_2->size >> 8) << 9) | 0xFC);
+	partition_9->size = 18 * 1024 * 1024;
+	partition_9->address = 0x88800000 + partition_2->size;
+	partition_9->data->size = (((partition_9->size >> 8) << 9) | 0xFC);
+
+	// Change memory protection
+	u32 *prot = (u32 *)0xBC000040;
+
+	int i;
+	for (i = 0; i < 0x10; i++) {
+		prot[i] = 0xFFFFFFFF;
+	}
+
+	sceKernelDcacheWritebackInvalidateAll();
+	sceKernelIcacheClearAll();
+
+	printk("%s: changed partition layout\n", __func__);
+}
+
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
@@ -1758,29 +1834,9 @@ s32 sceKernelPowerUnlockForUserPatched(s32 lockType)
 	#endif
 }
 
-static void vita_memlayout_hack(){
-	// sctrlHENSetMemory() from vsh does not work on adrenaline... ark has a stub... it only really works with pro
-	// So we're just forcing the layout here
+static u32 find_get_partition(){
 
-	// only adrenaline has the ApplyMemory call hash
-	void (*ApplyMemory)() = (void (*)())sctrlHENFindFunction("SystemControl", "SystemCtrlForKernel", 0xB86E36D1);
-	if (!ApplyMemory){
-		printk("%s: not vita\n", __func__);
-		return;
-	}
-	printk("%s: vita detected, changing memory layout\n", __func__);
-
-	int (*HENSetMemory)(u32, u32) = (int (*)(u32, u32))sctrlHENFindFunction("SystemControl", "SystemCtrlForKernel", 0x745286D1);
-	if (HENSetMemory == NULL){
-		printk("%s: HENSetMemory is NULL\n", __func__);
-		return;
-	}
-
-	HENSetMemory(32, 52 - 32);
-	ApplyMemory();
-	printk("%s: applied new memory layout\n", __func__);
-
-	return;
+	return 0;
 }
 
 // Module Start Event
@@ -1807,9 +1863,9 @@ int module_start(SceSize args, void * argp)
 	// Game Mode & WLAN Switch On
 	if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_GAME) {
 	// if(api == 0x120 || api == 0x123 || api == 0x125) {
-		// deploy vita hack
-		vita_memlayout_hack();
-
+		if (onlinemode){
+			memlayout_hack();
+		}
 
 		// Find Utility Manager
 		SceModule * utility = sceKernelFindModuleByName("sceUtility_Driver");
