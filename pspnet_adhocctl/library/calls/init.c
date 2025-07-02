@@ -498,9 +498,9 @@ int _findHotspotConfigId(char * ssid)
 			if(strcmp(entry.asString, ssid) == 0) return i;
 		}
 	}
-	
-	// Hotspot not found
-	return -1;
+
+	printk("%s: Hotspot with SSID %s not found, using config 0\n", __func__, ssid);
+	return 0;
 }
 
 /**

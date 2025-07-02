@@ -108,7 +108,7 @@ SceUID shim_uid = -1;
 static const char *shim_path = "ms0:/kd/pspnet_shims.prx";
 
 static void *allocate_partition_memory(int size){
-	SceUID uid = sceKernelAllocPartitionMemory(2, "inet apctl load reserve", 3 /* low aligned */, size, (void *)4);
+	SceUID uid = sceKernelAllocPartitionMemory(2, "inet apctl load reserve", 4 /* high aligned */, size, (void *)4);
 
 	if (uid < 0)
 	{
@@ -1264,6 +1264,22 @@ static void early_memory_stealing()
 	}
 	#endif
 
+	#if 0
+	int memdump_1 = sceIoOpen("ms0:/memdump_8a000000.bin", PSP_O_WRONLY | PSP_O_CREAT | PSP_O_TRUNC, 0777);
+	if (memdump_1 >= 0){
+		sceIoWrite(memdump_1, (void *)0x8a000000, 1024 * 1024 * 4);
+		sceIoClose(memdump_1);
+	}
+	int memdump_2 = sceIoOpen("ms0:/memdump_8b000000.bin", PSP_O_WRONLY | PSP_O_CREAT | PSP_O_TRUNC, 0777);
+	if (memdump_2 >= 0){
+		sceIoWrite(memdump_2, (void *)0x8b000000, 1024 * 1024 * 4);
+		sceIoClose(memdump_2);
+	}
+
+	return;
+	#endif
+
+
 	static int stole_memory_here = 0;
 	// Steal some memory from game in case it tries to allocate as much as it can on start
 	if (!stole_memory_here)
@@ -1328,9 +1344,9 @@ static void memlayout_hack(){
 		return;
 	}
 
-	partition_2->size = 30 * 1024 * 1024;
+	partition_2->size = 40 * 1024 * 1024;
 	partition_2->data->size = (((partition_2->size >> 8) << 9) | 0xFC);
-	partition_9->size = 10 * 1024 * 1024;
+	partition_9->size = 0 * 1024 * 1024;
 	partition_9->address = 0x88800000 + partition_2->size;
 	partition_9->data->size = (((partition_9->size >> 8) << 9) | 0xFC);
 
@@ -1605,6 +1621,16 @@ int input_thread(SceSize args, void * argp)
 			// Enable or Disable GUI Overlay
 			hud_on = !hud_on;
 		}
+
+		// New hud hotkey for standalone ARK
+		if(!is_exit_button_pressed &&
+			(prev_buttons & PSP_CTRL_UP) == 0 && (curr_buttons & PSP_CTRL_UP) != 0 &&
+			(curr_buttons & PSP_CTRL_LTRIGGER) != 0 &&
+			(curr_buttons & PSP_CTRL_RTRIGGER) != 0
+		){
+			hud_on = !hud_on;
+		}
+
 		
 		// Home Menu Button Events
 		else if(hud_on)
