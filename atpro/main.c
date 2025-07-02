@@ -119,13 +119,22 @@ static void *allocate_partition_memory(int size){
 	return sceKernelGetBlockHeadAddr(uid);
 }
 
-static int is_vita(){
-	// Adrenaline
-	u32 ApplyMemory = sctrlHENFindFunction("SystemControl", "SystemCtrlForKernel", 0xB86E36D1);
-	// ark ecfw
-	u32 arkcompat_module_start = sctrlHENFindFunction("ARKCompatLayer", "syslib", 0xD632ACDB);
+static int is_standalone(){
+	int test_file = sceIoOpen("flash0:/kd/kermit.prx", PSP_O_RDONLY, 0777);
+	if (test_file >= 0){
+		sceIoClose(test_file);
+		return 1;
+	}
+	return 0;
+}
 
-	return ApplyMemory != NULL || arkcompat_module_start != NULL;
+static int is_vita(){
+	int test_file = sceIoOpen("flash0:/kd/usb.prx", PSP_O_RDONLY, 0777);
+	if (test_file >= 0){
+		sceIoClose(test_file);
+		return 0;
+	}
+	return 1;
 }
 
 void steal_memory()
@@ -1243,11 +1252,15 @@ static void early_memory_stealing()
 	#ifdef DEBUG
 	PspSysmemPartitionInfo meminfo = {0};
 	meminfo.size = sizeof(PspSysmemPartitionInfo);
-	int query_status = sceKernelQueryMemoryPartitionInfo(2, &meminfo);
-	if (query_status == 0){
-		printk("%s: p2 startaddr 0x%x size %d attr 0x%x\n", __func__, meminfo.startaddr, meminfo.memsize, meminfo.attr);
-	}else{
-		printk("%s: p2 query failed, 0x%x\n", __func__, query_status);
+	for(int i = 1;i < 13;i++){
+		int query_status = sceKernelQueryMemoryPartitionInfo(i, &meminfo);
+		if (query_status == 0){
+			int max_free = sceKernelPartitionMaxFreeMemSize(i);
+			int total_free = sceKernelPartitionTotalFreeMemSize(i);
+			printk("%s: p%d startaddr 0x%x size %d attr 0x%x max %d total %d\n", __func__, i, meminfo.startaddr, meminfo.memsize, meminfo.attr, max_free, total_free);
+		}else{
+			printk("%s: p%d query failed, 0x%x\n", __func__, i, query_status);
+		}
 	}
 	#endif
 
@@ -1310,9 +1323,14 @@ static void memlayout_hack(){
 	SysMemPartition *partition_2 = get_partition(2);
 	SysMemPartition *partition_9 = get_partition(is_vita() ? 11 : 9);
 
+	if (partition_9 == NULL){
+		printk("%s: partition 9 not found\n", __func__);
+		return;
+	}
+
 	partition_2->size = 30 * 1024 * 1024;
 	partition_2->data->size = (((partition_2->size >> 8) << 9) | 0xFC);
-	partition_9->size = 18 * 1024 * 1024;
+	partition_9->size = 10 * 1024 * 1024;
 	partition_9->address = 0x88800000 + partition_2->size;
 	partition_9->data->size = (((partition_9->size >> 8) << 9) | 0xFC);
 
@@ -1907,20 +1925,22 @@ int module_start(SceSize args, void * argp)
 					// Disable Sleep Mode to prevent Infrastructure Death
 					if(onlinemode)
 					{
-						// Disable Sleep Mode
-						scePowerLock(0);
-						printk("Disabled Power Button!\n");
+						if(!is_vita()){
+							// Disable Sleep Mode
+							scePowerLock(0);
+							printk("Disabled Power Button!\n");
 
-						// Monitor/disable volatile lock
-						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemLock), sceKernelVolatileMemLockPatched, sceKernelVolatileMemLockOrig);
-						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemTryLock), sceKernelVolatileMemTryLockPatched, sceKernelVolatileMemTryLockOrig);
-						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemUnlock), sceKernelVolatileMemUnlockPatched, sceKernelVolatileMemUnlockOrig);
+							// Monitor/disable volatile lock
+							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemLock), sceKernelVolatileMemLockPatched, sceKernelVolatileMemLockOrig);
+							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemTryLock), sceKernelVolatileMemTryLockPatched, sceKernelVolatileMemTryLockOrig);
+							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemUnlock), sceKernelVolatileMemUnlockPatched, sceKernelVolatileMemUnlockOrig);
 
-						// Monitor power locks
-						//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerLock), sceKernelPowerLockPatched, sceKernelPowerLockOrig);
-						//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerUnlock), sceKernelPowerUnlockPatched, sceKernelPowerUnlockOrig);
-						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerLockForUser), sceKernelPowerLockForUserPatched, sceKernelPowerLockForUserOrig);
-						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerUnlockForUser), sceKernelPowerUnlockForUserPatched, sceKernelPowerUnlockForUserOrig);
+							// Monitor power locks
+							//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerLock), sceKernelPowerLockPatched, sceKernelPowerLockOrig);
+							//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerUnlock), sceKernelPowerUnlockPatched, sceKernelPowerUnlockOrig);
+							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerLockForUser), sceKernelPowerLockForUserPatched, sceKernelPowerLockForUserOrig);
+							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerUnlockForUser), sceKernelPowerUnlockForUserPatched, sceKernelPowerUnlockForUserOrig);
+						}
 
 						// Monitor netconf init
 						void *netconf_init_func = (void *)sctrlHENFindFunction("sceUtility_Driver", "sceUtility", 0x4DB1E739);
