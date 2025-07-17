@@ -868,6 +868,33 @@ int get_system_param_int(int id, int *value)
 	return sceUtilityGetSystemParamInt(id, value);
 }
 
+int get_system_param_string(int id, char *str, int len)
+{
+	if (id == PSP_SYSTEMPARAM_ID_STRING_NICKNAME){
+		static char name[128] = {0};
+
+		if (name[0] == '\0')
+		{
+			uint32_t k1 = pspSdkSetK1(0);
+			int fetch_status = sceUtilityGetSystemParamString(PSP_SYSTEMPARAM_ID_STRING_NICKNAME, name, sizeof(name));
+			name[127] = '\0';
+			pspSdkSetK1(k1);
+			printk("%s: nickname from system is %s, fetch status 0x%x\n", __func__, name, fetch_status);
+		}
+
+		if (name[0] == '\0')
+		{
+			sprintf(name, "AEMU %u", sceKernelGetSystemTimeLow() % 125);
+		}
+
+		if (len > 0){
+			strncpy(str, name, len);
+			str[len - 1] = '\0';
+		}
+		return 0;
+	}
+	return sceUtilityGetSystemParamString(id, str, len);
+}
 
 pspUtilityNetconfData *netconf_override;
 struct pspUtilityNetconfAdhoc *netconf_adhoc_override;
@@ -1572,6 +1599,9 @@ int online_patcher(SceModule2 * module)
 
 			// Lie to the game about adhoc channel for at least Ridge Racer 2
 			hook_import_bynid((SceModule *)module, "sceUtility", 0xA5DA2406, get_system_param_int);
+
+			// Inject placeholder nickname is empty
+			hook_import_bynid((SceModule *)module, "sceUtility", 0x34B78343, get_system_param_string);
 		}
 	}
 	

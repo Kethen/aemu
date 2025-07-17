@@ -22,6 +22,7 @@ PSP_EXPORT_FUNC_HASH(peek_buffer_positive)
 PSP_EXPORT_FUNC_HASH(read_buffer_negative)
 PSP_EXPORT_FUNC_HASH(peek_buffer_negative)
 PSP_EXPORT_FUNC_HASH(get_system_param_int)
+PSP_EXPORT_FUNC_HASH(get_system_param_string)
 PSP_EXPORT_FUNC_HASH(steal_memory)
 PSP_EXPORT_FUNC_HASH(return_memory)
 
