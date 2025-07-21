@@ -411,11 +411,15 @@ int sceNetAdhocGameModeDeleteReplica(int id)
 
 void init_littlec();
 void clean_littlec();
+void rehook_inet();
 
 // Module Start Event
 int module_start(SceSize args, void * argp)
 {
 	printk(MODULENAME " start!\n");
+
+	rehook_inet();
+
 	init_littlec();
 	int mutex_create_status = sceKernelCreateLwMutex(&_gamemode_lock, "adhoc_gamemode_mutex", PSP_LW_MUTEX_ATTR_RECURSIVE, 0, NULL);
 	if (mutex_create_status != 0)

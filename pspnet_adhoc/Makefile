@@ -35,7 +35,8 @@ IMPORTS = \
 imports/sceNetAdhocctl.o \
 imports/sceNetAdhocctlIOLock.o \
 imports/sceNetAdhocctlInternal.o \
-imports/sceNetMiniUPnP.o
+imports/sceNetMiniUPnP.o \
+imports/pspnet_inet_kermit_redirect.o
 
 #OBJS = main.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
 OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)

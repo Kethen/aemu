@@ -32,7 +32,7 @@ library/calls/netconf/getstatus.o \
 library/calls/netconf/update.o \
 library/calls/netconf/shutdown.o
 
-OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o imports/sceNetMiniUPnP.o $(LIBRARYOBJS)
+OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o imports/sceNetMiniUPnP.o imports/pspnet_inet_kermit_redirect.o $(LIBRARYOBJS)
 #OBJS = main.o ../memab/ATPRO.o $(LIBRARYOBJS)
 
 #CFLAGS = -Os -G0 -Wall -fno-pic

@@ -363,11 +363,15 @@ int sceUtilityNetconfShutdownStartKernel(void)
 
 void init_littlec();
 void clean_littlec();
+void rehook_inet();
 
 // Module Start Event
 int module_start(SceSize args, void * argp)
 {
 	printk(MODULENAME " start!\n");
+
+	rehook_inet();
+
 	int create_status = sceKernelCreateLwMutex(&peer_lock, "adhocctl_peer", PSP_LW_MUTEX_ATTR_RECURSIVE, 0, NULL);
 	if (create_status != 0)
 	{

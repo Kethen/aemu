@@ -38,13 +38,14 @@ int _one = 1;
 // Global Zero
 int _zero = 0;
 
+void rehook_inet();
+
 /**
  * Adhoc Emulator Socket Library Init-Call
  * @return 0 on success or... ADHOC_ALREADY_INITIALIZED
  */
 int proNetAdhocInit(void)
 {
-
 	// Library uninitialized
 	if(!_init)
 	{
@@ -64,6 +65,9 @@ int proNetAdhocInit(void)
 			// Re-Initialize Internet Library
 			result = sceNetInetInit();
 		}
+
+		// redo inet hooks
+		rehook_inet();
 
 		if(result != 0)
 		{

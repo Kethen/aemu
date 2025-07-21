@@ -73,10 +73,13 @@ void miniupnc_start()
 	}
 }
 
+void rehook_inet();
+
 // Module Start Event
 int module_start(SceSize args, void * argp)
 {
 	printk(MODULENAME " start!\n");
+	rehook_inet();
 
 	return 0;
 }

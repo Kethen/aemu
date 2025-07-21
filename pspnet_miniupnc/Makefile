@@ -20,7 +20,7 @@ library/upnpreplyparse.o
 
 LIBS = 
 
-OBJS = main.o ../memab/ATPRO.o $(LIBRARYOBJS)
+OBJS = main.o ../memab/ATPRO.o imports/pspnet_inet_kermit_redirect.o $(LIBRARYOBJS)
 
 #CFLAGS = -Os -G0 -Wall -fno-pic
 CFLAGS = -O0 -G0 -Wall -fno-pic
