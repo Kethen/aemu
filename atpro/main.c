@@ -868,27 +868,26 @@ int get_system_param_int(int id, int *value)
 	return sceUtilityGetSystemParamInt(id, value);
 }
 
+static char nickname[128] = {0};
 int get_system_param_string(int id, char *str, int len)
 {
 	if (id == PSP_SYSTEMPARAM_ID_STRING_NICKNAME){
-		static char name[128] = {0};
 
-		if (name[0] == '\0')
+		if (nickname[0] == '\0')
 		{
 			uint32_t k1 = pspSdkSetK1(0);
-			int fetch_status = sceUtilityGetSystemParamString(PSP_SYSTEMPARAM_ID_STRING_NICKNAME, name, sizeof(name));
-			name[127] = '\0';
+			int fetch_status = sceUtilityGetSystemParamString(PSP_SYSTEMPARAM_ID_STRING_NICKNAME, nickname, sizeof(nickname));
+			nickname[127] = '\0';
 			pspSdkSetK1(k1);
-			printk("%s: nickname from system is %s, fetch status 0x%x\n", __func__, name, fetch_status);
 		}
 
-		if (name[0] == '\0')
+		if (nickname[0] == '\0')
 		{
-			sprintf(name, "AEMU %u", sceKernelGetSystemTimeLow() % 125);
+			sprintf(nickname, "AEMU %u", sceKernelGetSystemTimeLow() % 125);
 		}
 
 		if (len > 0){
-			strncpy(str, name, len);
+			strncpy(str, nickname, len);
 			str[len - 1] = '\0';
 		}
 		return 0;
@@ -1908,9 +1907,21 @@ s32 sceKernelPowerUnlockForUserPatched(s32 lockType)
 	#endif
 }
 
-static u32 find_get_partition(){
-
-	return 0;
+static void load_nickname_override(){
+	int fd = sceIoOpen("ms0:/seplugins/nickname.txt", PSP_O_RDONLY, 0777);
+	if (fd < 0){
+		fd = sceIoOpen("ef0:/seplugins/nickname.txt", PSP_O_RDONLY, 0777);
+	}
+	if (fd >= 0){
+		sceIoRead(fd, nickname, sizeof(nickname));
+		nickname[sizeof(nickname) - 1] = '\0';
+		for(int i = 0;i < sizeof(nickname);i++){
+			if (nickname[i] == '\n' || nickname[i] == '\r'){
+				nickname[i] = '\0';
+			}
+		}
+		printk("%s: loaded nickname (%s) from storage\n", __func__, nickname);
+	}
 }
 
 // Module Start Event
@@ -1924,7 +1935,9 @@ int module_start(SceSize args, void * argp)
 
 	// Alive Message
 	printk("ATPRO - ALPHA VERSION %s %s\n", __DATE__, __TIME__);
-	
+
+	load_nickname_override();
+
 	// Enable Online Mode
 	onlinemode = sceWlanGetSwitchState();
 	
