@@ -91,6 +91,9 @@ int proNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 						// Enable keep alive like PPSSPP
 						sceNetInetSetsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, &_one, sizeof(_one));
 
+						// Disable tcp delay
+						sceNetInetSetsockopt(socket, 6, 1, &_one, sizeof(_one));
+
 						// Binding Information for local Port
 						SceNetInetSockaddrIn addr;
 						addr.sin_len = sizeof(addr);
