@@ -56,6 +56,7 @@
 #define ETIMEDOUT 0x74
 #define EINPROGRESS 0x77
 #define EISCONN 0x7F
+#define EALREADY 0x78
 
 // Sockaddr
 typedef struct SceNetInetSockaddr {
