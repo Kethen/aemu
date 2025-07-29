@@ -92,7 +92,7 @@ int proNetAdhocPtpConnect(int id, uint32_t timeout, int flag)
 					}
 					
 					// Connection in Progress
-					else if(connectresult == -1 && errorcode == EINPROGRESS)
+					else if(connectresult == -1 && (errorcode == EINPROGRESS || errorcode == EALREADY))
 					{
 						// Nonblocking Mode
 						if(flag) return ADHOC_WOULD_BLOCK;
