@@ -61,6 +61,8 @@ int proNetAdhocMatchingCancelTargetWithOpt(int id, const SceNetEtherAddr * targe
 						(context->mode == ADHOC_MATCHING_MODE_PARENT && (peer->state == ADHOC_MATCHING_PEER_CHILD || peer->state == ADHOC_MATCHING_PEER_INCOMING_REQUEST)) || 
 						(context->mode == ADHOC_MATCHING_MODE_P2P && (peer->state == ADHOC_MATCHING_PEER_P2P || peer->state == ADHOC_MATCHING_PEER_INCOMING_REQUEST)))
 						{
+							// strict ordering of these two
+							context->input_stack_reverse_lock = 1;
 							// Notify other Children of Death
 							if(context->mode == ADHOC_MATCHING_MODE_PARENT && peer->state == ADHOC_MATCHING_PEER_CHILD && _countConnectedPeers(context) > 1)
 							{
@@ -73,7 +75,9 @@ int proNetAdhocMatchingCancelTargetWithOpt(int id, const SceNetEtherAddr * targe
 							
 							// Send Cancel Event to Peer
 							_sendCancelMessage(context, peer, optlen, opt);
-							
+
+							context->input_stack_reverse_lock = 0;
+
 							// Delete Peer from List
 							// Can't delete here, Threads need this data still.
 							// _deletePeer(context, peer);

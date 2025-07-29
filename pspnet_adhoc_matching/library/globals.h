@@ -106,4 +106,6 @@ extern SceNetAdhocMatchingContext * _contexts;
 extern SceLwMutexWorkarea context_list_lock;
 extern SceLwMutexWorkarea members_lock;
 
+extern uint64_t last_packet_send;
+
 #endif

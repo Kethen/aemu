@@ -60,15 +60,15 @@ int proNetAdhocctlJoinEnterGameMode(const SceNetAdhocctlGroupName * group_name, 
 	_gamemode_host_arrived = 0;
 	_gamemode_self_arrived = 0;
 
+	_gamemode_join_timestamp = sceKernelGetSystemTimeWide();
+
 	#if 1
 	uint64_t begin = sceKernelGetSystemTimeWide();
-	while(!_gamemode_notified && sceKernelGetSystemTimeWide() - begin < 10000000)
+	while(!_gamemode_notified && sceKernelGetSystemTimeWide() - begin < 5000000)
 	{
 		sceKernelDelayThread(100000);
 	}
 	#endif
-
-	_gamemode_join_timestamp = sceKernelGetSystemTimeWide();
 
 	return 0;
 }

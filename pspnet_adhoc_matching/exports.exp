@@ -23,6 +23,8 @@ PSP_EXPORT_FUNC_HASH(sceNetAdhocMatchingGetHelloOpt)
 PSP_EXPORT_FUNC_HASH(sceNetAdhocMatchingGetMembers)
 PSP_EXPORT_FUNC_HASH(sceNetAdhocMatchingGetPoolMaxAlloc)
 PSP_EXPORT_FUNC_HASH(sceNetAdhocMatchingGetPoolStat)
+
+PSP_EXPORT_FUNC_HASH(get_last_matching_packet_send)
 PSP_EXPORT_END
 
 PSP_END_EXPORTS

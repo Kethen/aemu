@@ -251,9 +251,21 @@ void _linkIOMessage(SceNetAdhocMatchingContext * context, ThreadMessage * messag
 	context->input_stack_lock = 1;
 	
 	// Link Message
+	#if 1
 	message->next = context->input_stack;
 	context->input_stack = message;
-	
+	#else
+	message->next = NULL;
+	if (context->input_stack == NULL){
+		context->input_stack = message;
+	}else{
+		ThreadMessage *last_message = context->input_stack;
+		while(last_message->next != NULL){
+			last_message = last_message->next;
+		}
+		last_message->next = message;
+	}
+	#endif
 	// Unlock Access
 	context->input_stack_lock = 0;
 }
@@ -295,7 +307,7 @@ void _sendGenericMessage(SceNetAdhocMatchingContext * context, int stack, SceNet
 	
 	// Allocate Memory
 	uint8_t * memory = (uint8_t *)_malloc(size);
-	
+
 	// Allocated Memory
 	if(memory != NULL)
 	{
@@ -322,6 +334,9 @@ void _sendGenericMessage(SceNetAdhocMatchingContext * context, int stack, SceNet
 		
 		// Link Thread Message to Input Stack
 		else _linkIOMessage(context, header);
+
+		// let stop() know that we just added something
+		last_packet_send = sceKernelGetSystemTimeWide();
 		
 		// Exit Function
 		return;

@@ -19,6 +19,8 @@
 
 uint64_t _disconnect_timestamp = 0;
 
+uint64_t get_last_matching_packet_send();
+
 /**
  * Leave current Network
  * @return 0 on success or... ADHOCCTL_NOT_INITIALIZED, ADHOCCTL_BUSY
@@ -45,7 +47,20 @@ int proNetAdhocctlDisconnect(void)
 			
 			// Acquire Network Lock
 			_acquireNetworkLock();
-			
+
+			#if 1
+			// grace period for matching
+			uint64_t last_matching_send = get_last_matching_packet_send();
+			uint64_t now = sceKernelGetSystemTimeWide();
+			uint64_t diff = now - last_matching_send;
+			static const uint64_t grace_period = 500000;
+			if (diff < grace_period){
+				uint64_t delay = grace_period - diff;
+				printk("%s: holding up disconnect for %d usecs for matching packets\n", __func__, delay);
+				sceKernelDelayThread(delay);
+			}
+			#endif
+
 			// Send Disconnect Request Packet
 			sceNetInetSend(_metasocket, &opcode, 1, INET_MSG_DONTWAIT);
 			

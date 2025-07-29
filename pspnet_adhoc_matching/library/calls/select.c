@@ -73,12 +73,14 @@ int proNetAdhocMatchingSelectTarget(int id, const SceNetEtherAddr * target, int 
 								{
 									// Accept Peer in Group
 									peer->state = ADHOC_MATCHING_PEER_CHILD;
-									
+
+									context->input_stack_reverse_lock = 1;
 									// Send Accept Confirmation to Peer
 									_sendAcceptMessage(context, peer, optlen, opt);
 									
 									// Tell Children about new Sibling
 									_sendBirthMessage(context, peer);
+									context->input_stack_reverse_lock = 0;
 									
 									// Return Success
 									UNLOCK_RETURN(0);

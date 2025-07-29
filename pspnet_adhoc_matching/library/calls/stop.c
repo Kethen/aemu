@@ -44,6 +44,17 @@ int proNetAdhocMatchingStop(int id)
 			{
 				// DO NOT CHANGE THE THREAD SHUTDOWN ORDER!
 				// MATCHING FIRES A BYE EVENT CAUSED BY THE IO THREAD SHUTDOWN THAT THE EVENT THREAD HAS TO CATCH!
+
+				uint64_t now = sceKernelGetSystemTimeWide();
+				uint64_t diff = now - last_packet_send;
+				static const uint64_t grace_period = 500000;
+				if (diff < grace_period){
+					uint64_t delay = grace_period - diff;
+					printk("%s: holding up matching destruction for %d usec for matching packets\n", __func__, delay);
+					sceKernelDelayThread(delay);
+				}
+
+				asm volatile("": : :"memory");
 				
 				// Shutdown IO Thread
 				context->input_thid = -1;

@@ -43,6 +43,7 @@ void _broadcastHelloMessage(SceNetAdhocMatchingContext * context);
 void _handleTimeout(SceNetAdhocMatchingContext * context);
 
 // Packet Response Handler
+uint64_t last_packet_send = 0;
 void _sendAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac, int optlen, void * opt);
 void _sendJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac, int optlen, void * opt);
 void _sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac, int optlen, void * opt);
@@ -522,6 +523,11 @@ int _matchingInputThread(SceSize args, void * argp)
 		// Messages on Stack ready for processing
 		if(context->input_stack != NULL && context->input_stack_lock == 0)
 		{
+			// dirty
+			while(context->input_stack_reverse_lock){
+				sceKernelDelayThread(1000);
+			}
+
 			// Claim Stack
 			// XXX these int locks are scary, probably should convert them to lwmutex, an interrupt here and some bad luck it could go borked
 			context->input_stack_lock = 1;
@@ -1454,7 +1460,7 @@ void _broadcastHelloMessage(SceNetAdhocMatchingContext * context)
 		
 		// Send Broadcast
 		sceNetAdhocPdpSend(context->socket, (SceNetEtherAddr *)_broadcast, context->port, hello, 5 + context->hellolen, 0, ADHOC_F_NONBLOCK);
-		
+
 		// Free Memory
 		_free(hello);
 	}
@@ -1622,7 +1628,7 @@ void _sendJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 			
 			// Send Data
 			sceNetAdhocPdpSend(context->socket, mac, context->port, join, 5 + optlen, 0, ADHOC_F_NONBLOCK);
-			
+
 			// Free Memory
 			_free(join);
 		}
@@ -1655,7 +1661,7 @@ void _sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * m
 		
 		// Send Data
 		sceNetAdhocPdpSend(context->socket, mac, context->port, cancel, 5 + optlen, 0, ADHOC_F_NONBLOCK);
-		
+
 		// Free Memory
 		_free(cancel);
 	}
@@ -1710,7 +1716,7 @@ void _sendBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr *
 			
 			// Send Data
 			sceNetAdhocPdpSend(context->socket, mac, context->port, send, 5 + datalen, 0, ADHOC_F_NONBLOCK);
-			
+
 			// Free Memory
 			_free(send);
 			
@@ -1832,3 +1838,6 @@ void _sendByePacket(SceNetAdhocMatchingContext * context)
 	}
 }
 
+uint64_t get_last_matching_packet_send(){
+	return last_packet_send;
+}
