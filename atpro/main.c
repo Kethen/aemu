@@ -1653,7 +1653,7 @@ int input_thread(SceSize args, void * argp)
 
 		// New hud hotkey for standalone ARK
 		if(!is_exit_button_pressed &&
-			(prev_buttons & PSP_CTRL_UP) == 0 && (curr_buttons & PSP_CTRL_UP) != 0 &&
+			(prev_buttons & PSP_CTRL_SELECT) == 0 && (curr_buttons & PSP_CTRL_SELECT) != 0 &&
 			(curr_buttons & PSP_CTRL_LTRIGGER) != 0 &&
 			(curr_buttons & PSP_CTRL_RTRIGGER) != 0
 		){
