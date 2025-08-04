@@ -536,6 +536,109 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 	return result;
 }
 
+struct fd_path_map_entry{
+	SceUID fd;
+	char path[256];
+};
+
+struct fd_path_map_entry fd_path_map[16] = {0};
+
+static void add_fd_path_map_entry(const char *path, SceUID fd){
+	int slot = -1;
+	int interrupts = pspSdkDisableInterrupts();
+	for (int i = 0;i < sizeof(fd_path_map) / sizeof(fd_path_map[0]);i++){
+		if (fd_path_map[i].fd == -1){
+			slot = i;
+			break;
+		}
+	}
+	if (slot == -1){
+		pspSdkEnableInterrupts(interrupts);
+		printk("%s: could not find a free slot for tracking 0x%x %s\n", __func__, fd, path);
+		return;
+	}
+	fd_path_map[slot].fd = fd;
+	strcpy(fd_path_map[slot].path, path);
+	pspSdkEnableInterrupts(interrupts);
+	return;
+}
+
+static void remove_fd_path_map_entry(SceUID fd){
+	int interrupts = pspSdkDisableInterrupts();
+	for (int i = 0;i < sizeof(fd_path_map) / sizeof(fd_path_map[0]);i++){
+		if (fd_path_map[i].fd == fd){
+			fd_path_map[i].fd = -1;
+			pspSdkEnableInterrupts(interrupts);
+			return;
+		}
+	}
+	pspSdkEnableInterrupts(interrupts);
+}
+
+static int get_fd_path(SceUID fd, char *path){
+	int interrupts = pspSdkDisableInterrupts();
+	for (int i = 0;i < sizeof(fd_path_map) / sizeof(fd_path_map[0]);i++){
+		if (fd_path_map[i].fd == fd){
+			strcpy(path, fd_path_map[i].path);
+			pspSdkEnableInterrupts(interrupts);
+			return 1;
+		}
+	}
+	pspSdkEnableInterrupts(interrupts);
+	return 0;
+}
+
+typedef SceUID (*open_func)(const char *path, int flags, SceMode mode);
+open_func open_orig = sceIoOpen;
+SceUID open_file(const char *path, int flags, SceMode mode){
+	SceUID fd = open_orig(path, flags, mode);
+	if (fd < 0){
+		return fd;
+	}
+
+	int len = strlen(path);
+	if (len < 4){
+		printk("%s: not tracking 0x%x %s\n", __func__, fd, path);
+		return fd;
+	}
+
+	char extension[4];
+	for (int i = 0;i < 4;i++){
+		extension[i] = tolower(path[len - (4 - i)]);
+	}
+	if (memcmp(extension, ".prx", 4) != 0){
+		printk("%s: not tracking 0x%x %s\n", __func__, fd, path);
+		return fd;
+	}
+
+	printk("%s: adding 0x%x %s to fd path map\n", __func__, fd, path);
+	add_fd_path_map_entry(path, fd);
+	return fd;
+}
+
+typedef int (*close_func)(SceUID fd);
+close_func close_orig = sceIoClose;
+int close_file(SceUID fd){
+	remove_fd_path_map_entry(fd);
+	return close_orig(fd);
+}
+
+typedef SceUID (*load_module_by_id_func)(SceUID fd, int flags, SceKernelLMOption *option);
+load_module_by_id_func load_module_by_id_orig = NULL;
+SceUID load_module_by_id(SceUID fd, int flags, SceKernelLMOption *option){
+	if (load_module_by_id_orig == NULL){
+		load_module_by_id_orig = (load_module_by_id_func)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForUser", 0xB7F46618);
+	}
+	char path[256] = {0};
+	if (!get_fd_path(fd, path)){
+		printk("%s: untracked module fd 0x%x!\n", __func__, fd);
+		return load_module_by_id_orig(fd, flags, option);
+	}
+
+	// we got a path
+	return load_plugin_user(path, flags, option);
+}
+
 typedef int (*module_unload_func)(SceUID uid);
 int unload_plugin(SceUID uid, module_unload_func);
 int unload_plugin_kernel(SceUID uid){
@@ -1411,6 +1514,9 @@ int online_patcher(SceModule2 * module)
 			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x2E0911AA, unload_plugin_user);
 			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x50F0C1EC, start_plugin_user);
 			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0xD1FF982A, stop_plugin_user);
+			hook_import_bynid((SceModule *)module, "IoFileMgrForUser", 0x109F50BC, open_file);
+			hook_import_bynid((SceModule *)module, "IoFileMgrForUser", 0x810C4BC3, close_file);
+			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0xB7F46618, load_module_by_id);
 
 			// allocate memory for netconf
 			//netconf_override = allocate_partition_memory(sizeof(allocate_partition_memory));
@@ -1946,6 +2052,10 @@ int module_start(SceSize args, void * argp)
 	
 	// Grab API Type
 	// int api = sceKernelInitApitype();
+
+	for (int i = 0;i < sizeof(fd_path_map)/sizeof(fd_path_map[0]);i++){
+		fd_path_map[i].fd = -1;
+	}
 
 	// Game Mode & WLAN Switch On
 	if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_GAME) {
