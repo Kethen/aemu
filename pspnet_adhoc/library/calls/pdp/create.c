@@ -75,7 +75,15 @@ int proNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 						// Enable Port Re-use
 						sceNetInetSetsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &_one, sizeof(_one));
 						sceNetInetSetsockopt(socket, SOL_SOCKET, SO_REUSEPORT, &_one, sizeof(_one));
-						
+
+						#if 0
+						// set limits like ppsspp does
+						int opt = bufsize * 5;
+						sceNetInetSetsockopt(socket, SOL_SOCKET, SO_SNDBUF, &opt, sizeof(opt));
+						opt = bufsize * 10;
+						sceNetInetSetsockopt(socket, SOL_SOCKET, SO_RCVBUF, &opt, sizeof(opt));
+						#endif
+
 						// Binding Information for local Port
 						SceNetInetSockaddrIn addr;
 						addr.sin_len = sizeof(addr);

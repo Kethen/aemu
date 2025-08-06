@@ -40,6 +40,8 @@
 #define SO_RCVTIMEO 0x1006
 #define SO_TYPE 0x1008
 #define SO_NBIO 0x1009
+#define SO_SNDBUF 0x1001
+#define SO_RCVBUF 0x1002
 
 // IP Macros
 #define INADDR_ANY 0
