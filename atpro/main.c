@@ -92,6 +92,32 @@ char * module_names[MODULE_LIST_SIZE] = {
 //	"pspnet_adhoc_discover.prx"
 };
 
+char * module_build_names[MODULE_LIST_SIZE] = {
+	"sceMemab",
+	"sceNetAdhocAuth_Service",
+	"sceNetAdhoc_Library",
+	"sceNetAdhocctl_Library",
+	"sceNetAdhocMatching_Library"
+};
+
+const char *force_fw_modules[] = {
+	"ifhandle.prx",
+	"pspnet.prx",
+	"pspnet_inet.prx",
+	"pspnet_apctl.prx",
+	"pspnet_resolver.prx",
+	"sc_sascore.prx"
+};
+
+const char *force_fw_module_names[sizeof(force_fw_modules) / sizeof(force_fw_modules[0])] = {
+	"sceNet_Service",
+	"sceNet_Library",
+	"sceNetInet_Library",
+	"sceNetApctl_Library",
+	"sceNetResolver_Library",
+	"sceSAScore"
+};
+
 // Adhoc Module Dummy IO SceUIDs
 SceUID module_io_uids[MODULE_LIST_SIZE] = {
 	-1,
@@ -372,20 +398,60 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 	for(int i = 0;i < len;i++){
 		test_path[i] = tolower(path[i]);
 	}
+
+	while (strstr(path, "disc0:/sce_lbn") != NULL){
+		SceUID modid = orig(path, 0, NULL);
+		if (modid < 0){
+			uint32_t k1 = pspSdkSetK1(0);
+			modid = sceKernelLoadModule(path, 0, NULL);
+			pspSdkSetK1(k1);
+		}
+		if (modid < 0){
+			//printk("%s: failed loading %s as a module, 0x%x\n", __func__, path, modid);
+			break;
+		}
+
+		SceKernelModuleInfo info = {0};
+		info.size = sizeof(info);
+
+		uint32_t k1 = pspSdkSetK1(0);
+		int query_status = sceKernelQueryModuleInfo(modid, &info);
+		pspSdkSetK1(k1);
+		if (query_status != 0){
+			//printk("%s: failed fetching module info of %s\n", __func__, path);
+			sceKernelUnloadModule(modid);
+			break;
+		}
+
+		printk("%s: module name of %s is %s\n", __func__, path, info.name);
+
+		sceKernelUnloadModule(modid);
+
+		// skip memab and adhoc_auth for now, it's exclusive load so if we load the orig one that's it, no unload
+		for (int i = 2;i < sizeof(module_build_names) / sizeof(module_build_names[0]);i++){
+			if (strcmp(info.name, module_build_names[i]) == 0){
+				sprintf(test_path, "disc0:/kd/%s", module_names[i]);
+				printk("%s: %s -> %s\n", __func__, path, test_path);
+				break;
+			}
+		}
+
+		for (int i = 0;i < sizeof(force_fw_module_names) / sizeof(force_fw_module_names[0]);i++){
+			if (strcmp(info.name, force_fw_module_names[i]) == 0){
+				sprintf(test_path, "disc0:/kd/%s", force_fw_modules[i]);
+				printk("%s: %s -> %s\n", __func__, path, test_path);
+				break;
+			}
+		}
+
+		break;
+	}
+
 	printk("%s: test path %s\n", __func__, test_path);
 
 	// Online Mode Enabled
 	if(onlinemode)
 	{
-		static const char *force_fw_modules[] = {
-			"ifhandle.prx",
-			"pspnet.prx",
-			"pspnet_inet.prx",
-			"pspnet_apctl.prx",
-			"pspnet_resolver.prx",
-			"sc_sascore.prx"
-		};
-
 		for (int i = 0;i < sizeof(force_fw_modules) / sizeof(char *) && onlinemode;i++)
 		{
 			if (strstr(test_path, force_fw_modules[i]) != NULL && strstr(test_path, "disc0:/") != NULL)
@@ -588,6 +654,9 @@ static int get_fd_path(SceUID fd, char *path){
 	return 0;
 }
 
+typedef SceUID (*load_module_by_id_func)(SceUID fd, int flags, SceKernelLMOption *option);
+load_module_by_id_func load_module_by_id_orig = NULL;
+
 typedef SceUID (*open_func)(const char *path, int flags, SceMode mode);
 open_func open_orig = sceIoOpen;
 SceUID open_file(const char *path, int flags, SceMode mode){
@@ -596,9 +665,82 @@ SceUID open_file(const char *path, int flags, SceMode mode){
 		return fd;
 	}
 
+	while (strstr(path, "disc0:/sce_lbn") != NULL){
+		// peek the magic... actually no it can't read that way it seems, for sce_lbn paths
+		#if 0
+		uint8_t magic[4];
+		sceIoLseek(fd, 0, PSP_SEEK_SET);
+		sceIoRead(fd, magic, sizeof(magic));
+		sceIoLseek(fd, 0, PSP_SEEK_SET);
+		static const uint8_t raw_prx_magic[] = {0x7f, 0x45, 0x4c, 0x46};
+		static const uint8_t normal_prx_magic[] = {0x7e, 0x50, 0x53, 0x50};
+		if (memcmp(magic, raw_prx_magic, sizeof(magic)) != 0 && memcmp(magic, normal_prx_magic, sizeof(magic)) != 0){
+			printk("%s: file is not a prx, 0x%x 0x%x 0x%x 0x%x\n", __func__, (uint32_t)magic[0], (uint32_t)magic[1], (uint32_t)magic[2], (uint32_t)magic[3]);
+			break;
+		}
+		#endif
+
+		if (load_module_by_id_orig == NULL){
+			load_module_by_id_orig = (load_module_by_id_func)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForUser", 0xB7F46618);
+		}
+
+		SceUID modid = load_module_by_id_orig(fd, 0, NULL);
+		if (modid < 0){
+			uint32_t k1 = pspSdkSetK1(0);
+			modid = sceKernelLoadModuleByID(fd, 0, NULL);
+			pspSdkSetK1(k1);
+		}
+		if (modid < 0){
+			//printk("%s: failed loading 0x%x %s as a module, 0x%x\n", __func__, fd, path, modid);
+			sceIoLseek(fd, 0, PSP_SEEK_SET);
+			break;
+		}
+
+		SceKernelModuleInfo info = {0};
+		info.size = sizeof(info);
+
+		uint32_t k1 = pspSdkSetK1(0);
+		int query_status = sceKernelQueryModuleInfo(modid, &info);
+		pspSdkSetK1(k1);
+		if (query_status != 0){
+			//printk("%s: failed fetching module info of 0x%x %s\n", __func__, fd, path);
+			sceIoLseek(fd, 0, PSP_SEEK_SET);
+			sceKernelUnloadModule(modid);
+			break;
+		}
+
+		printk("%s: module name of 0x%x %s is %s\n", __func__, fd, path, info.name);
+
+		sceIoLseek(fd, 0, PSP_SEEK_SET);
+		sceKernelUnloadModule(modid);
+
+		// skip memab and adhoc_auth for now, it's exclusive load so if we load the orig one that's it, no unload
+		for (int i = 2;i < sizeof(module_build_names) / sizeof(module_build_names[0]);i++){
+			if (strcmp(info.name, module_build_names[i]) == 0){
+				char full_path[128] = {0};
+				sprintf(full_path, "disc0:/kd/%s", module_names[i]);
+				printk("%s: adding 0x%x %s to fd path map as %s\n", __func__, fd, path, full_path);
+				add_fd_path_map_entry(full_path, fd);
+				return fd;
+			}
+		}
+
+		for (int i = 0;i < sizeof(force_fw_module_names) / sizeof(force_fw_module_names[0]);i++){
+			if (strcmp(info.name, force_fw_module_names[i]) == 0){
+				char full_path[128] = {0};
+				sprintf(full_path, "disc0:/kd/%s", force_fw_modules[i]);
+				printk("%s: adding 0x%x %s to fd path map as %s\n", __func__, fd, path, full_path);
+				add_fd_path_map_entry(full_path, fd);
+				return fd;
+			}
+		}
+
+		break;
+	}
+
 	int len = strlen(path);
 	if (len < 4){
-		printk("%s: not tracking 0x%x %s\n", __func__, fd, path);
+		//printk("%s: not tracking 0x%x %s\n", __func__, fd, path);
 		return fd;
 	}
 
@@ -606,8 +748,9 @@ SceUID open_file(const char *path, int flags, SceMode mode){
 	for (int i = 0;i < 4;i++){
 		extension[i] = tolower(path[len - (4 - i)]);
 	}
+
 	if (memcmp(extension, ".prx", 4) != 0){
-		printk("%s: not tracking 0x%x %s\n", __func__, fd, path);
+		//printk("%s: not tracking 0x%x %s\n", __func__, fd, path);
 		return fd;
 	}
 
@@ -623,8 +766,6 @@ int close_file(SceUID fd){
 	return close_orig(fd);
 }
 
-typedef SceUID (*load_module_by_id_func)(SceUID fd, int flags, SceKernelLMOption *option);
-load_module_by_id_func load_module_by_id_orig = NULL;
 SceUID load_module_by_id(SceUID fd, int flags, SceKernelLMOption *option){
 	if (load_module_by_id_orig == NULL){
 		load_module_by_id_orig = (load_module_by_id_func)sctrlHENFindFunction("sceModuleManager", "ModuleMgrForUser", 0xB7F46618);
@@ -636,7 +777,8 @@ SceUID load_module_by_id(SceUID fd, int flags, SceKernelLMOption *option){
 	}
 
 	// we got a path
-	return load_plugin_user(path, flags, option);
+	//return load_plugin_user(path, flags, option);
+	return load_plugin_user(path, 0, NULL);
 }
 
 typedef int (*module_unload_func)(SceUID uid);
