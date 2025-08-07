@@ -49,10 +49,16 @@ PSP_HEAP_SIZE_KB(HEAP_SIZE);
 	printk("original instructions: 0x%lx 0x%lx\n", _lw((u32)patch_buffer), _lw((u32)patch_buffer + 8)); \
 }
 
+static void apctl_event_spy(int prev_state, int new_state, int event, int error_code, void *arg){
+	printk("%s: 0x%x 0x%x 0x%x 0x%x 0x%x\n", __func__, prev_state, new_state, event, error_code, arg);
+}
+
 int (*sceNetApctlInit_orig)(int stack_size, int init_priority) = NULL;
 int sceNetApctlInit_patched(int stack_size, int init_priority){
-	if (stack_size < 0x1800){
-		stack_size = 0x1800;
+	// some event handlers are... very big
+	// considering we also force load fw apctl, we need to make this big as well
+	if (stack_size < 0x4000){
+		stack_size = 0x4000;
 		printk("%s: stack size too small, uping stack size to %d\n", __func__, stack_size);
 	}
 
@@ -60,11 +66,27 @@ int sceNetApctlInit_patched(int stack_size, int init_priority){
 
 	printk("%s: called sceNetApctlInit with 0x%x %d, 0x%x/%d\n", __func__, stack_size, init_priority, result, result);
 
+	#if 0
+	if (result >= 0){
+		sceNetApctlAddHandler(apctl_event_spy, NULL);
+	}
+	#endif
+
+	return result;
+}
+
+int (*sceNetApctlGetInfo_orig)(int code, union SceNetApctlInfo *pInfo) = NULL;
+int sceNetApctlGetInfo_patched(int code, union SceNetApctlInfo *pInfo){
+	int result = sceNetApctlGetInfo_orig(code, pInfo);
+
+	printk("%s: called sceNetApctlGetInfo 0x%x 0x%x, 0x%x\n", __func__, code, pInfo, result);
+
 	return result;
 }
 
 void hijack_sceNetApctlInit(){
 	HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t*)sceNetApctlInit), sceNetApctlInit_patched, sceNetApctlInit_orig);
+	//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t*)sceNetApctlGetInfo), sceNetApctlGetInfo_patched, sceNetApctlGetInfo_orig);
 }
 
 int initialized = 0;
@@ -76,7 +98,7 @@ int sceNetResolverInit_patched(){
 	}
 
 	int result = sceNetResolverInit_orig();
-	printk("%s: returning 0x%x/%d\n", __func__, result, result);
+	printk("%s: called sceNetResolverInit, 0x%x\n", __func__, result);
 
 	initialized = result == 0;
 
@@ -89,10 +111,18 @@ int sceNetResolverTerm_patched(){
 	return 0;
 }
 
+int (*sceNetResolverCreate_orig)(int *rid, void *buf, SceSize buflen) = NULL;
+int sceNetResolverCreate_patched(int *rid, void *buf, SceSize buflen){
+	int result = sceNetResolverCreate_orig(rid, buf, buflen);
+	printk("%s: called sceNetResolverCreate with 0x%x 0x%x %u, 0x%x\n", __func__, rid, buf, buflen, result);
+	return result;
+}
+
 void hijack_sceNetResolver(){
 	initialized = 0;
 	HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceNetResolverInit), sceNetResolverInit_patched, sceNetResolverInit_orig);
 	HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceNetResolverTerm), sceNetResolverTerm_patched, sceNetResolverTerm_orig);
+	//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceNetResolverCreate), sceNetResolverCreate_patched, sceNetResolverCreate_orig);
 }
 
 void init_littlec();

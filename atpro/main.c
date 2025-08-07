@@ -427,8 +427,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 
 		sceKernelUnloadModule(modid);
 
-		// skip memab and adhoc_auth for now, it's exclusive load so if we load the orig one that's it, no unload
-		for (int i = 2;i < sizeof(module_build_names) / sizeof(module_build_names[0]);i++){
+		for (int i = 0;i < sizeof(module_build_names) / sizeof(module_build_names[0]);i++){
 			if (strcmp(info.name, module_build_names[i]) == 0){
 				sprintf(test_path, "disc0:/kd/%s", module_names[i]);
 				printk("%s: %s -> %s\n", __func__, path, test_path);
@@ -714,8 +713,7 @@ SceUID open_file(const char *path, int flags, SceMode mode){
 		sceIoLseek(fd, 0, PSP_SEEK_SET);
 		sceKernelUnloadModule(modid);
 
-		// skip memab and adhoc_auth for now, it's exclusive load so if we load the orig one that's it, no unload
-		for (int i = 2;i < sizeof(module_build_names) / sizeof(module_build_names[0]);i++){
+		for (int i = 0;i < sizeof(module_build_names) / sizeof(module_build_names[0]);i++){
 			if (strcmp(info.name, module_build_names[i]) == 0){
 				char full_path[128] = {0};
 				sprintf(full_path, "disc0:/kd/%s", module_names[i]);
@@ -1188,10 +1186,13 @@ int netconf_get_status()
 	int result = netconf_get_status_orig();
 	if (orig_data != NULL)
 	{
-		printk("%s: copying netconf param from override to original\n", __func__);
-		memcpy(orig_data, netconf_override, orig_data->base.size);
+		//printk("%s: copying netconf param from override to original\n", __func__);
+		int size = orig_data->base.size;
+		memcpy(orig_data, netconf_override, size);
+		orig_data->base.size = size;
+		//printk("%s: ret 0x%x result 0x%x\n", __func__, result, orig_data->base.result);
 	}
-	printk("%s: returning %d/0x%x\n", __func__, result, result);
+	//printk("%s: returning %d/0x%x\n", __func__, result, result);
 	return result;
 }
 
