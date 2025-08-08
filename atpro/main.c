@@ -118,6 +118,14 @@ const char *force_fw_module_names[sizeof(force_fw_modules) / sizeof(force_fw_mod
 	"sceSAScore"
 };
 
+const char *late_load_modules[] = {
+	"ifhandle.prx",
+	"pspnet.prx",
+	"pspnet_inet.prx",
+	"pspnet_apctl.prx",
+	"pspnet_resolver.prx"
+};
+
 // Adhoc Module Dummy IO SceUIDs
 SceUID module_io_uids[MODULE_LIST_SIZE] = {
 	-1,
@@ -473,16 +481,8 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 			}
 		}
 
-		// Games might also load inet itself for infra mode
-		static const char *late_load_modules[] = {
-			"ifhandle.prx",
-			"pspnet.prx",
-			"pspnet_inet.prx",
-			"pspnet_apctl.prx",
-			"pspnet_resolver.prx"
-		};
-
-		if (sceKernelGetSystemTimeWide() - game_begin > LOAD_RETURN_MEMORY_THRES_USEC){
+		//if (sceKernelGetSystemTimeWide() - game_begin > LOAD_RETURN_MEMORY_THRES_USEC)
+		{
 			for (int i = 0;i < sizeof(late_load_modules) / sizeof(char *);i++)
 			{
 				if (strstr(test_path, late_load_modules[i]) != NULL)
@@ -501,7 +501,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 				strcpy((char*)path, "ms0:/kd/");
 				strcpy((char*)path + strlen(path), module_names[i]);
 				
-				if (sceKernelGetSystemTimeWide() - game_begin > LOAD_RETURN_MEMORY_THRES_USEC)
+				//if (sceKernelGetSystemTimeWide() - game_begin > LOAD_RETURN_MEMORY_THRES_USEC)
 				{
 					return_memory();
 				}
@@ -939,7 +939,7 @@ SceUID load_plugin_io(SceUID fd, int flags, SceKernelLMOption * option)
 				strcpy(path, "ms0:/kd/");
 				strcpy(path + strlen(path), module_names[i]);
 
-				if (sceKernelGetSystemTimeWide() - game_begin > LOAD_RETURN_MEMORY_THRES_USEC)
+				//if (sceKernelGetSystemTimeWide() - game_begin > LOAD_RETURN_MEMORY_THRES_USEC)
 				{
 					return_memory();
 				}
@@ -1007,7 +1007,7 @@ SceUID open_plugin(char * path, int flags, int mode)
 				strcpy(path, "ms0:/kd/");
 				strcpy(path + strlen(path), module_names[i]);
 
-				if (sceKernelGetSystemTimeWide() - game_begin > LOAD_RETURN_MEMORY_THRES_USEC)
+				//if (sceKernelGetSystemTimeWide() - game_begin > LOAD_RETURN_MEMORY_THRES_USEC)
 				{
 					return_memory();
 				}

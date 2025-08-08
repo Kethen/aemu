@@ -75,8 +75,8 @@ int sceNetApctlInit_patched(int stack_size, int init_priority){
 	return result;
 }
 
-int (*sceNetApctlGetInfo_orig)(int code, union SceNetApctlInfo *pInfo) = NULL;
-int sceNetApctlGetInfo_patched(int code, union SceNetApctlInfo *pInfo){
+static int (*sceNetApctlGetInfo_orig)(int code, union SceNetApctlInfo *pInfo) = NULL;
+static int sceNetApctlGetInfo_patched(int code, union SceNetApctlInfo *pInfo){
 	int result = sceNetApctlGetInfo_orig(code, pInfo);
 
 	printk("%s: called sceNetApctlGetInfo 0x%x 0x%x, 0x%x\n", __func__, code, pInfo, result);
@@ -84,9 +84,17 @@ int sceNetApctlGetInfo_patched(int code, union SceNetApctlInfo *pInfo){
 	return result;
 }
 
+static int (*sceNetApctlAddHandler_orig)(sceNetApctlHandler handler, void *pArg);
+static int sceNetApctlAddHandler_patched(sceNetApctlHandler handler, void *pArg){
+	int result = sceNetApctlAddHandler_orig(handler, pArg);
+	printk("%s: adding handler 0x%x 0x%x, 0x%x\n", __func__, handler, pArg, result);
+	return result;
+}
+
 void hijack_sceNetApctlInit(){
 	HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t*)sceNetApctlInit), sceNetApctlInit_patched, sceNetApctlInit_orig);
 	//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t*)sceNetApctlGetInfo), sceNetApctlGetInfo_patched, sceNetApctlGetInfo_orig);
+	//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t*)sceNetApctlAddHandler), sceNetApctlAddHandler_patched, sceNetApctlAddHandler_orig);
 }
 
 int initialized = 0;
