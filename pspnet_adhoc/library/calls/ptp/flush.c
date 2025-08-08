@@ -30,7 +30,7 @@ int proNetAdhocPtpFlush(int id, uint32_t timeout, int flag)
 	if(_init)
 	{
 		// Valid Socket
-		if(id > 0 && id <= 255 && _ptp[id - 1] != NULL)
+		if(id > 0 && id <= 255 && _sockets[id - 1] != NULL && _sockets[id - 1]->is_ptp)
 		{
 			// Dummy Result
 			return 0;

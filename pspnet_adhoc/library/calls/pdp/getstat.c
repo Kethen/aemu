@@ -55,10 +55,10 @@ int proNetAdhocGetPdpStat(int * buflen, SceNetAdhocPdpStat * buf)
 			int j = 0; for(; j < 255 && i < count; j++)
 			{
 				// Valid Socket Entry
-				if(_pdp[j] != NULL)
+				if(_sockets[j] != NULL && !_sockets[j]->is_ptp)
 				{
 					// Copy Socket Data from Internal Memory
-					buf[i] = *_pdp[j];
+					buf[i] = _sockets[j]->pdp;
 					
 					// Fix Client View Socket ID
 					buf[i].id = j + 1;
@@ -99,7 +99,7 @@ int _getPDPSocketCount(void)
 	int counter = 0;
 	
 	// Count Sockets
-	int i = 0; for(; i < 255; i++) if(_pdp[i] != NULL) counter++;
+	int i = 0; for(; i < 255; i++) if(_sockets[i] != NULL && !_sockets[i]->is_ptp) counter++;
 	
 	// Return Socket Count
 	return counter;

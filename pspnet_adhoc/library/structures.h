@@ -18,6 +18,8 @@
 #ifndef _ADHOC_STRUCTURES_H_
 #define _ADHOC_STRUCTURES_H_
 
+#include <stdbool.h>
+
 // Ethernet Address
 #define ETHER_ADDR_LEN 6
 typedef struct SceNetEtherAddr {
@@ -59,6 +61,13 @@ typedef struct SceNetAdhocPtpStat {
 	int state;
 	int mode;
 } __attribute__((packed)) SceNetAdhocPtpStat;
+
+// adhoc socket reference
+typedef struct AdhocSocket{
+	bool is_ptp;
+	SceNetAdhocPdpStat pdp;
+	SceNetAdhocPtpStat ptp;
+}AdhocSocket;
 
 // Gamemode Optional Peer Buffer Data
 typedef struct SceNetAdhocGameModeOptData {

@@ -42,6 +42,7 @@
 #define SO_NBIO 0x1009
 #define SO_SNDBUF 0x1001
 #define SO_RCVBUF 0x1002
+#define TCP_NODELAY 1
 
 // IP Macros
 #define INADDR_ANY 0

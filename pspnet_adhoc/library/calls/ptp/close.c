@@ -29,10 +29,10 @@ int proNetAdhocPtpClose(int id, int flag)
 	if(_init)
 	{
 		// Valid Arguments & Atleast one Socket
-		if(id > 0 && id <= 255 && _ptp[id - 1] != NULL)
+		if(id > 0 && id <= 255 && _sockets[id - 1] != NULL && _sockets[id - 1]->is_ptp)
 		{
 			// Cast Socket
-			SceNetAdhocPtpStat * socket = _ptp[id - 1];
+			SceNetAdhocPtpStat * socket = &_sockets[id - 1]->ptp;
 			
 			// Close Connection
 			sceNetInetClose(socket->id);
@@ -42,10 +42,10 @@ int proNetAdhocPtpClose(int id, int flag)
 				sceNetPortClose("TCP", socket->lport);
 			
 			// Free Memory
-			free(socket);
+			free(_sockets[id - 1]);
 			
 			// Free Reference
-			_ptp[id - 1] = NULL;
+			_sockets[id - 1] = NULL;
 			
 			// Success
 			return 0;

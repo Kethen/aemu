@@ -32,10 +32,10 @@ int proNetAdhocPtpSend(int id, const void * data, int * len, uint32_t timeout, i
 	if(_init)
 	{
 		// Valid Socket
-		if(id > 0 && id <= 255 && _ptp[id - 1] != NULL)
+		if(id > 0 && id <= 255 && _sockets[id - 1] != NULL && _sockets[id - 1]->is_ptp)
 		{
 			// Cast Socket
-			SceNetAdhocPtpStat * socket = _ptp[id - 1];
+			SceNetAdhocPtpStat * socket = &_sockets[id - 1]->ptp;
 			
 			// Connected Socket
 			if(socket->state == PTP_STATE_ESTABLISHED)

@@ -32,10 +32,10 @@ int proNetAdhocPtpRecv(int id, void * buf, int * len, uint32_t timeout, int flag
 	if(_init)
 	{
 		// Valid Socket
-		if(id > 0 && id <= 255 && _ptp[id - 1] != NULL && _ptp[id - 1]->state == PTP_STATE_ESTABLISHED)
+		if(id > 0 && id <= 255 && _sockets[id - 1] != NULL && _sockets[id - 1]->is_ptp && _sockets[id - 1]->ptp.state == PTP_STATE_ESTABLISHED)
 		{
 			// Cast Socket
-			SceNetAdhocPtpStat * socket = _ptp[id - 1];
+			SceNetAdhocPtpStat * socket = &_sockets[id - 1]->ptp;
 			
 			// Valid Arguments
 			if(buf != NULL && len != NULL && *len > 0)

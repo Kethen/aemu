@@ -37,7 +37,10 @@ int proNetAdhocPdpDelete(int id, int flag)
 			#endif
 			
 			// Cast Socket
-			SceNetAdhocPdpStat * socket = _pdp[id - 1];
+			SceNetAdhocPdpStat *socket = NULL;
+			if (_sockets[id - 1] != NULL && !_sockets[id - 1]->is_ptp){
+				socket = &_sockets[id - 1]->pdp;
+			}
 			
 			// Valid Socket
 			if(socket != NULL)
@@ -49,10 +52,10 @@ int proNetAdhocPdpDelete(int id, int flag)
 				sceNetPortClose("UDP", socket->lport);
 				
 				// Free Memory
-				free(socket);
+				free(_sockets[id - 1]);
 				
 				// Free Translation Slot
-				_pdp[id - 1] = NULL;
+				_sockets[id - 1] = NULL;
 				
 				// Success
 				return 0;

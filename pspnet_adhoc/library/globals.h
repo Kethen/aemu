@@ -66,11 +66,8 @@
 #define ADHOC_F_ALERTFLUSH 0x0200
 #define ADHOC_F_ALERTALL (ADHOC_F_ALERTSEND | ADHOC_F_ALERTRECV | ADHOC_F_ALERTPOLL | ADHOC_F_ALERTCONNECT | ADHOC_F_ALERTACCEPT | ADHOC_F_ALERTFLUSH)
 
-// PDP Sockets
-extern SceNetAdhocPdpStat * _pdp[255];
-
-// PTP Sockets
-extern SceNetAdhocPtpStat * _ptp[255];
+// Sockets
+extern AdhocSocket *_sockets[255];
 
 // Gamemode Buffer
 extern SceNetAdhocGameModeBufferStat * _gmb;

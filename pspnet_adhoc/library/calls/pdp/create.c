@@ -95,29 +95,29 @@ int proNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 						if(sceNetInetBind(socket, (SceNetInetSockaddr *)&addr, sizeof(addr)) == 0)
 						{
 							// Allocate Memory for Internal Data
-							SceNetAdhocPdpStat * internal = (SceNetAdhocPdpStat *)malloc(sizeof(SceNetAdhocPdpStat));
+							AdhocSocket* internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 							
 							// Allocated Memory
 							if(internal != NULL)
 							{
 								// Clear Memory
-								memset(internal, 0, sizeof(SceNetAdhocPdpStat));
+								memset(internal, 0, sizeof(AdhocSocket));
 								
 								// Find Free Translator Index
-								int i = 0; for(; i < 255; i++) if(_pdp[i] == NULL) break;
+								int i = 0; for(; i < 255; i++) if(_sockets[i] == NULL) break;
 								
 								// Found Free Translator Index
 								if(i < 255)
 								{
 									// Fill in Data
-									internal->id = socket;
-									//internal->laddr = *saddr;
-									internal->laddr = local_mac;
-									internal->lport = sport;
-									internal->rcv_sb_cc = bufsize;
+									internal->pdp.id = socket;
+									//internal->pdp.laddr = *saddr;
+									internal->pdp.laddr = local_mac;
+									internal->pdp.lport = sport;
+									internal->pdp.rcv_sb_cc = bufsize;
 									
 									// Link Socket to Translator ID
-									_pdp[i] = internal;
+									_sockets[i] = internal;
 									
 									// Forward Port on Router
 									sceNetPortOpen("UDP", sport);
@@ -181,7 +181,7 @@ int _IsLocalMAC(const SceNetEtherAddr * addr)
 int _IsPDPPortInUse(uint16_t port)
 {
 	// Iterate Elements
-	int i = 0; for(; i < 255; i++) if(_pdp[i] != NULL && _pdp[i]->lport == port) return 1;
+	int i = 0; for(; i < 255; i++) if(_sockets[i] != NULL && !_sockets[i]->is_ptp && _sockets[i]->pdp.lport == port) return 1;
 	
 	// Unused Port
 	return 0;

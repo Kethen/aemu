@@ -32,10 +32,10 @@ int proNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 	if(_init)
 	{
 		// Valid Socket
-		if(id > 0 && id <= 255 && _ptp[id - 1] != NULL)
+		if(id > 0 && id <= 255 && _sockets[id - 1] != NULL && _sockets[id - 1]->is_ptp)
 		{
 			// Cast Socket
-			SceNetAdhocPtpStat * socket = _ptp[id - 1];
+			SceNetAdhocPtpStat * socket = &_sockets[id - 1]->ptp;
 			
 			// Listener Socket
 			if(socket->state == PTP_STATE_LISTEN)
@@ -103,6 +103,9 @@ int proNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 						// Enable keep alive like PPSSPP
 						sceNetInetSetsockopt(newsocket, SOL_SOCKET, SO_KEEPALIVE, &_one, sizeof(_one));
 
+						// Send faster in case of timeout
+						//sceNetInetSetsockopt(newsocket, IPPROTO_TCP, TCP_NODELAY, &_one, sizeof(_one));
+
 						// Grab Local Address
 						if(sceNetInetGetsockname(newsocket, (SceNetInetSockaddr *)&local, &locallen) == 0)
 						{
@@ -113,48 +116,51 @@ int proNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 							if(_resolveIP(peeraddr.sin_addr, &mac) == 0)
 							{
 								// Allocate Memory
-								SceNetAdhocPtpStat * internal = (SceNetAdhocPtpStat *)malloc(sizeof(SceNetAdhocPtpStat));
+								AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 								
 								// Allocated Memory
 								if(internal != NULL)
 								{
 									// Find Free Translator ID
-									int i = 0; for(; i < 255; i++) if(_ptp[i] == NULL) break;
+									int i = 0; for(; i < 255; i++) if(_sockets[i] == NULL) break;
 									
 									// Found Free Translator ID
 									if(i < 255)
 									{
 										// Clear Memory
-										memset(internal, 0, sizeof(SceNetAdhocPtpStat));
+										memset(internal, 0, sizeof(AdhocSocket));
+
+										// Tag ptp
+										internal->is_ptp = true;
 										
 										// Copy Socket Descriptor to Structure
-										internal->id = newsocket;
+										internal->ptp.id = newsocket;
 										
 										// Copy Local Address Data to Structure
-										sceNetGetLocalEtherAddr(&internal->laddr);
-										internal->lport = sceNetNtohs(local.sin_port);
+										sceNetGetLocalEtherAddr(&internal->ptp.laddr);
+										internal->ptp.lport = sceNetNtohs(local.sin_port);
 										
 										// Copy Peer Address Data to Structure
-										internal->paddr = mac;
-										internal->pport = sceNetNtohs(peeraddr.sin_port);
+										internal->ptp.paddr = mac;
+										internal->ptp.pport = sceNetNtohs(peeraddr.sin_port);
 										
 										// Set Connected State
-										internal->state = PTP_STATE_ESTABLISHED;
+										internal->ptp.state = PTP_STATE_ESTABLISHED;
 										
 										// Return Peer Address Information
 										if (addr != NULL)
-											*addr = internal->paddr;
+											*addr = internal->ptp.paddr;
 										if (port != NULL)
-											*port = internal->pport;
+											*port = internal->ptp.pport;
 										
 										// Link PTP Socket
-										_ptp[i] = internal;
+										_sockets[i] = internal;
 										
 										// Add Port Forward to Router
 										// This should have been opened from listen
 										// sceNetPortOpen("TCP", internal->lport);
 
-										_ptp[i]->mode = PTP_MODE_ACCEPT;
+										_sockets[i]->ptp.mode = PTP_MODE_ACCEPT;
 
 										// Return Socket
 										return i + 1;

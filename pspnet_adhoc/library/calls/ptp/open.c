@@ -91,6 +91,9 @@ int proNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 						// Enable keep alive like PPSSPP
 						sceNetInetSetsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, &_one, sizeof(_one));
 
+						// Send faster in case of timeout
+						//sceNetInetSetsockopt(socket, IPPROTO_TCP, TCP_NODELAY, &_one, sizeof(_one));
+
 						// Binding Information for local Port
 						SceNetInetSockaddrIn addr;
 						addr.sin_len = sizeof(addr);
@@ -102,41 +105,44 @@ int proNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 						if(sceNetInetBind(socket, (SceNetInetSockaddr *)&addr, sizeof(addr)) == 0)
 						{
 							// Allocate Memory
-							SceNetAdhocPtpStat * internal = (SceNetAdhocPtpStat *)malloc(sizeof(SceNetAdhocPtpStat));
+							AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 							
 							// Allocated Memory
 							if(internal != NULL)
 							{
 								// Find Free Translator ID
-								int i = 0; for(; i < 255; i++) if(_ptp[i] == NULL) break;
+								int i = 0; for(; i < 255; i++) if(_sockets[i] == NULL) break;
 								
 								// Found Free Translator ID
 								if(i < 255)
 								{
 									// Clear Memory
-									memset(internal, 0, sizeof(SceNetAdhocPtpStat));
+									memset(internal, 0, sizeof(AdhocSocket));
+
+									// Tag ptp
+									internal->is_ptp = true;
 									
 									// Copy Infrastructure Socket ID
-									internal->id = socket;
+									internal->ptp.id = socket;
 									
 									// Copy Address Information
-									//internal->laddr = *saddr;
-									internal->laddr = local_mac;
-									internal->paddr = *daddr;
-									internal->lport = sport;
-									internal->pport = dport;
+									//internal->ptp.laddr = *saddr;
+									internal->ptp.laddr = local_mac;
+									internal->ptp.paddr = *daddr;
+									internal->ptp.lport = sport;
+									internal->ptp.pport = dport;
 									
 									// Set Buffer Size
-									internal->rcv_sb_cc = bufsize;
+									internal->ptp.rcv_sb_cc = bufsize;
 									
 									// Link PTP Socket
-									_ptp[i] = internal;
+									_sockets[i] = internal;
 									
 									// Add Port Forward to Router
 									sceNetPortOpen("TCP", sport);
 
 									// Save mode for upnp cleanup
-									internal->mode = PTP_MODE_OPEN;
+									internal->ptp.mode = PTP_MODE_OPEN;
 
 									// Return PTP Socket Pointer
 									return i + 1;
@@ -183,11 +189,11 @@ int _IsPTPPortInUse(uint16_t sport, int listen, const SceNetEtherAddr *daddr, ui
 {
 	// Iterate Sockets
 	for (int i = 0; i < 255; i++) {
-		if (_ptp[i] != NULL)
+		if (_sockets[i] != NULL && _sockets[i]->is_ptp)
 		{
 			// Based on PPSSPP's new implementation
 			// Fingers crossed that the PSP has netbsd inet socket, and allows open + listen on the same sport
-			SceNetAdhocPtpStat *sock = _ptp[i];
+			SceNetAdhocPtpStat *sock = &_sockets[i]->ptp;
 			if (sock->lport == sport &&
 			    ((listen && sock->state == PTP_STATE_LISTEN) ||
 			     (!listen && sock->state != PTP_STATE_LISTEN &&

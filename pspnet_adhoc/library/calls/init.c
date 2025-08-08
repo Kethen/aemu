@@ -17,11 +17,8 @@
 
 #include "../common.h"
 
-// PDP Sockets
-SceNetAdhocPdpStat * _pdp[255];
-
-// PTP Sockets
-SceNetAdhocPtpStat * _ptp[255];
+// sockets
+AdhocSocket *_sockets[255];
 
 // Gamemode Buffer
 SceNetAdhocGameModeBufferStat * _gmb = NULL;
@@ -79,8 +76,7 @@ int proNetAdhocInit(void)
 		if(result == 0)
 		{
 			// Clear Translator Memory
-			memset(&_pdp, 0, sizeof(_pdp));
-			memset(&_ptp, 0, sizeof(_ptp));
+			memset(&_sockets, 0, sizeof(_sockets));
 			
 			// Library initialized
 			_init = 1;

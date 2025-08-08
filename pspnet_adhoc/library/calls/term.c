@@ -90,16 +90,16 @@ void _deleteAllPDP(void)
 	int i = 0; for(; i < 255; i++)
 	{
 		// Active Socket
-		if(_pdp[i] != NULL)
+		if(_sockets[i] != NULL && !_sockets[i]->is_ptp)
 		{
 			// Close Socket
-			sceNetInetClose(_pdp[i]->id);
+			sceNetInetClose(_sockets[i]->pdp.id);
 			
 			// Free Memory
-			free(_pdp[i]);
+			free(_sockets[i]);
 			
 			// Delete Reference
-			_pdp[i] = NULL;
+			_sockets[i] = NULL;
 		}
 	}
 }
@@ -113,16 +113,16 @@ void _deleteAllPTP(void)
 	int i = 0; for(; i < 255; i++)
 	{
 		// Active Socket
-		if(_ptp[i] != NULL)
+		if(_sockets[i] != NULL && _sockets[i]->is_ptp)
 		{
 			// Close Socket
-			sceNetInetClose(_ptp[i]->id);
+			sceNetInetClose(_sockets[i]->ptp.id);
 			
 			// Free Memory
-			free(_ptp[i]);
+			free(_sockets[i]);
 			
 			// Delete Reference
-			_ptp[i] = NULL;
+			_sockets[i] = NULL;
 		}
 	}
 }

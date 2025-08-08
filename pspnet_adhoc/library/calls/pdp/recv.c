@@ -34,10 +34,10 @@ int proNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 	if(_init)
 	{
 		// Valid Socket ID
-		if(id > 0 && id <= 255 && _pdp[id - 1] != NULL)
+		if(id > 0 && id <= 255 && _sockets[id - 1] != NULL && !_sockets[id - 1]->is_ptp)
 		{
 			// Cast Socket
-			SceNetAdhocPdpStat * socket = _pdp[id - 1];
+			SceNetAdhocPdpStat * socket = &_sockets[id - 1]->pdp;
 			
 			// Valid Arguments
 			if(saddr != NULL && sport != NULL && buf != NULL && len != NULL && *len > 0)

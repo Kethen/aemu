@@ -40,10 +40,10 @@ int proNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 			if(len >= 0) // matching PPSSPP, which allows empty pdp packets
 			{
 				// Valid Socket ID
-				if(id > 0 && id <= 255 && _pdp[id - 1] != NULL)
+				if(id > 0 && id <= 255 && _sockets[id - 1] != NULL && !_sockets[id - 1]->is_ptp)
 				{
 					// Cast Socket
-					SceNetAdhocPdpStat * socket = _pdp[id - 1];
+					SceNetAdhocPdpStat * socket = &_sockets[id - 1]->pdp;
 					
 					// Valid Data Buffer
 					if(data != NULL)

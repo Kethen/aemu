@@ -30,10 +30,10 @@ int proNetAdhocPtpConnect(int id, uint32_t timeout, int flag)
 	if(_init)
 	{
 		// Valid Socket
-		if(id > 0 && id <= 255 && _ptp[id - 1] != NULL)
+		if(id > 0 && id <= 255 && _sockets[id - 1] != NULL && _sockets[id - 1]->is_ptp)
 		{
 			// Cast Socket
-			SceNetAdhocPtpStat * socket = _ptp[id - 1];
+			SceNetAdhocPtpStat * socket = &_sockets[id - 1]->ptp;
 
 			// PPSSPP's Phantasy Star Portable 2 fix, allow re-calling connect
 			if (socket->state == PTP_STATE_ESTABLISHED) 

@@ -37,7 +37,7 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 			int i = 0; for(; i < nsds; i++)
 			{
 				// Invalid Socket
-				if(sds[i].id < 1 || sds[i].id > 255 || _pdp[sds[i].id - 1] == NULL) return ADHOC_INVALID_SOCKET_ID;
+				if(sds[i].id < 1 || sds[i].id > 255 || _sockets[sds[i].id - 1] == NULL) return ADHOC_INVALID_SOCKET_ID;
 			}
 			
 			// Allocate Infrastructure Memory
@@ -48,19 +48,24 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 			{
 				// Clear Memory
 				memset(isds, 0, sizeof(SceNetInetPollfd) * nsds);
-				
+
+				//printk("%s: nsds %d\n", __func__, nsds);
+
 				// Translate Polling Flags to Infrastructure
 				for(i = 0; i < nsds; i++)
 				{
 					// Fill in Infrastructure Socket ID
-					isds[i].fd = _pdp[sds[i].id - 1]->id;
+					isds[i].fd = _sockets[sds[i].id - 1]->is_ptp ? _sockets[sds[i].id - 1]->ptp.id : _sockets[sds[i].id - 1]->pdp.id;
 					
 					// Send Event
 					if(sds[i].events & ADHOC_EV_SEND) isds[i].events |= INET_POLLWRNORM;
 					
 					// Receive Event
 					if(sds[i].events & ADHOC_EV_RECV) isds[i].events |= INET_POLLRDNORM;
+					//printk("%s: adhoc sock 0x%x inet sock 0x%x events 0x%x\n", __func__, sds[i].id, isds[i].fd, isds[i].events);
 				}
+
+				//sceKernelDelayThread(1000000);
 				
 				// Nonblocking Mode
 				if(flags) timeout = 0;
