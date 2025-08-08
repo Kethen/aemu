@@ -55,6 +55,7 @@ extern SceNetAdhocctlPeerInfoEmu * _friends;
 
 // Scan Network List
 extern SceNetAdhocctlScanInfo * _networks;
+extern SceNetAdhocctlScanInfo * _newnetworks;
 
 // Event Handler
 #define ADHOCCTL_MAX_HANDLER 4

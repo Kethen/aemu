@@ -39,6 +39,8 @@ SceNetAdhocctlPeerInfoEmu * _friends = NULL;
 
 // Scan Network List
 SceNetAdhocctlScanInfo * _networks = NULL;
+SceNetAdhocctlScanInfo * _newnetworks = NULL;
+
 
 // Event Handler
 SceNetAdhocctlHandler _event_handler[ADHOCCTL_MAX_HANDLER];
@@ -878,9 +880,9 @@ int _friendFinder(SceSize args, void * argp)
 					
 					// Cast Packet
 					SceNetAdhocctlScanPacketS2C * packet = (SceNetAdhocctlScanPacketS2C *)rx;
-					
+
 					// Allocate Structure Data
-					SceNetAdhocctlScanInfo * group = (SceNetAdhocctlScanInfo *)malloc(sizeof(SceNetAdhocctlScanInfo));
+					SceNetAdhocctlScanInfo *group = (SceNetAdhocctlScanInfo *)malloc(sizeof(SceNetAdhocctlScanInfo));
 
 					#ifdef DEBUG
 					printk("%s: incoming Group Information from group %s\n", __func__, packet->group);
@@ -895,7 +897,7 @@ int _friendFinder(SceSize args, void * argp)
 						_acquireGroupLock();
 
 						// Link to existing Groups
-						group->next = _networks;
+						group->next = _newnetworks;
 						
 						// Copy Group Name
 						group->group_name = packet->group;
@@ -904,7 +906,7 @@ int _friendFinder(SceSize args, void * argp)
 						group->bssid.mac_addr = packet->mac;
 						
 						// Link into Group List
-						_networks = group;
+						_newnetworks = group;
 
 						_freeGroupLock();
 					}
@@ -924,7 +926,15 @@ int _friendFinder(SceSize args, void * argp)
 				#ifdef DEBUG
 				printk("Incoming Scan complete response...\n");
 				#endif
-				
+
+				_acquireGroupLock();
+
+				_freeNetworkRecursive(_networks);
+				_networks = _newnetworks;
+				_newnetworks = NULL;
+
+				_freeGroupLock();
+
 				// Change State
 				_thread_status = ADHOCCTL_STATE_DISCONNECTED;
 

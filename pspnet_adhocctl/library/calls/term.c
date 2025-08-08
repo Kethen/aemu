@@ -56,9 +56,11 @@ int proNetAdhocctlTerm(void)
 
 		// Free Group Memory
 		_freeNetworkRecursive(_networks);
+		_freeNetworkRecursive(_newnetworks);
 		
 		// Delete Group Reference
 		_networks = NULL;
+		_newnetworks = NULL;
 
 		_freeGroupLock();
 
@@ -100,14 +102,11 @@ int proNetAdhocctlTerm(void)
  */
 void _freeFriendsRecursive(SceNetAdhocctlPeerInfoEmu * node)
 {
-	// End of List
-	if(node == NULL) return;
-	
-	// Increase Recursion Depth
-	_freeFriendsRecursive(node->next);
-	
-	// Free Memory
-	free(node);
+	while(node != NULL){
+		SceNetAdhocctlPeerInfoEmu *next = node->next;
+		free(node);
+		node = next;
+	}
 }
 
 /**
@@ -116,12 +115,9 @@ void _freeFriendsRecursive(SceNetAdhocctlPeerInfoEmu * node)
  */
 void _freeNetworkRecursive(SceNetAdhocctlScanInfo * node)
 {
-	// End of List
-	if(node == NULL) return;
-	
-	// Increase Recursion Depth
-	_freeNetworkRecursive(node->next);
-	
-	// Free Memory
-	free(node);
+	while(node != NULL){
+		SceNetAdhocctlScanInfo *next = node->next;
+		free(node);
+		node = next;
+	}
 }
