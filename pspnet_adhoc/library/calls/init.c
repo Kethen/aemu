@@ -71,7 +71,7 @@ int proNetAdhocInit(void)
 
 		if(result != 0)
 		{
-			steal_memory();
+			//steal_memory();
 			printk("%s: failed to initialize internet lib, 0x%x\n", __func__, result);
 		}
 

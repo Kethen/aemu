@@ -72,7 +72,7 @@ int proNetAdhocTerm(void)
 		_init = 0;
 
 		// Occupy memory again
-		steal_memory();
+		//steal_memory();
 	}
 
 	sceKernelUnlockLwMutex(&_gamemode_lock, 1);
