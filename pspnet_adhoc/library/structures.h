@@ -59,14 +59,19 @@ typedef struct SceNetAdhocPtpStat {
 	uint32_t snd_sb_cc;
 	uint32_t rcv_sb_cc;
 	int state;
-	int mode;
 } __attribute__((packed)) SceNetAdhocPtpStat;
+
+typedef struct PtpSocketExt {
+	int mode;
+	bool connect_event_fired;
+} PtpSocketExt;
 
 // adhoc socket reference
 typedef struct AdhocSocket{
 	bool is_ptp;
 	SceNetAdhocPdpStat pdp;
 	SceNetAdhocPtpStat ptp;
+	PtpSocketExt ptp_ext;
 }AdhocSocket;
 
 // Gamemode Optional Peer Buffer Data

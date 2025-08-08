@@ -53,6 +53,10 @@
 // Event Flags
 #define INET_POLLRDNORM 0x0040
 #define INET_POLLWRNORM 0x0004
+#define INET_POLLNVAL 0x0020
+#define INET_POLLHUP 0x0010
+#define INET_POLLERR 0x0008
+#define INET_POLLIN 0x0001
 
 // Infrastructure Errno Numbers
 #define EAGAIN 0x0B

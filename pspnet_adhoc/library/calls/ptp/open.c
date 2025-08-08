@@ -142,7 +142,7 @@ int proNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 									sceNetPortOpen("TCP", sport);
 
 									// Save mode for upnp cleanup
-									internal->ptp.mode = PTP_MODE_OPEN;
+									internal->ptp_ext.mode = PTP_MODE_OPEN;
 
 									// Return PTP Socket Pointer
 									return i + 1;

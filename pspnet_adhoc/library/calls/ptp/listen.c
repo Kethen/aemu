@@ -138,7 +138,7 @@ int proNetAdhocPtpListen(const SceNetEtherAddr * saddr, uint16_t sport, uint32_t
 										sceNetPortOpen("TCP", sport);
 
 										// Save ptp mode for cleanup
-										internal->ptp.mode = PTP_MODE_LISTEN;
+										internal->ptp_ext.mode = PTP_MODE_LISTEN;
 
 										// Return PTP Socket Pointer
 										return i + 1;

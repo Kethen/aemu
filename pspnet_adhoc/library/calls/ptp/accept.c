@@ -160,7 +160,7 @@ int proNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 										// This should have been opened from listen
 										// sceNetPortOpen("TCP", internal->lport);
 
-										_sockets[i]->ptp.mode = PTP_MODE_ACCEPT;
+										_sockets[i]->ptp_ext.mode = PTP_MODE_ACCEPT;
 
 										// Return Socket
 										return i + 1;
