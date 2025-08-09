@@ -85,26 +85,29 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 				}
 
 				//sceKernelDelayThread(1000000);
-				
+
+				int final_timeout = timeout;
+
 				// Nonblocking Mode
-				if(flags) timeout = 0;
-				
+				if(flags){
+					final_timeout = 0;
+					timeout = 0;
 				// Timeout Translation (Micro to Milliseconds)
-				else
-				{
+				}else{
 					// Convert Timeout
-					timeout /= 1000;
+					final_timeout /= 1000;
 					
 					// Prevent Nonblocking Mode
-					if(timeout == 0) timeout = 1;
+					if(final_timeout == 0) final_timeout = 1;
 				}
 
-				//printk("%s: calling poll with final timeout %u on thread 0x%x with %d free stack\n", __func__, timeout, sceKernelGetThreadId(), sceKernelGetThreadStackFreeSize(0));
+				//printk("%s: calling poll with final timeout %u on thread 0x%x with %d free stack\n", __func__, final_timeout, sceKernelGetThreadId(), sceKernelGetThreadStackFreeSize(0));
 				
-				// mitigate multi thread poll lock up on the PSP
 				int affectedsockets = 0;
+
+				// mitigate multi thread poll lock up on the PSP
 				uint64_t begin = sceKernelGetSystemTimeWide();
-				while(sceKernelGetSystemTimeWide() - begin < timeout){
+				do{
 					// Acquire Network Lock
 					_acquireNetworkLock();
 
@@ -118,7 +121,7 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 						break;
 					}
 					sceKernelDelayThread(1000);
-				}
+				}while(sceKernelGetSystemTimeWide() - begin < timeout);
 				
 				//printk("%s: affected socktes %d\n", __func__, affectedsockets);
 
