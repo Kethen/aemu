@@ -2252,6 +2252,7 @@ int module_start(SceSize args, void * argp)
 							scePowerLock(0);
 							printk("Disabled Power Button!\n");
 
+							#if 0
 							// Monitor/disable volatile lock
 							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemLock), sceKernelVolatileMemLockPatched, sceKernelVolatileMemLockOrig);
 							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemTryLock), sceKernelVolatileMemTryLockPatched, sceKernelVolatileMemTryLockOrig);
@@ -2262,6 +2263,7 @@ int module_start(SceSize args, void * argp)
 							//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerUnlock), sceKernelPowerUnlockPatched, sceKernelPowerUnlockOrig);
 							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerLockForUser), sceKernelPowerLockForUserPatched, sceKernelPowerLockForUserOrig);
 							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerUnlockForUser), sceKernelPowerUnlockForUserPatched, sceKernelPowerUnlockForUserOrig);
+							#endif
 						}
 
 						// Monitor netconf init
