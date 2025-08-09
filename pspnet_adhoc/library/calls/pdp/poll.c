@@ -30,17 +30,22 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 	// Library is initialized
 	if(_init)
 	{
+		//printk("%s: polling %d sockets timeout %u flags 0x%x\n", __func__, nsds, timeout, flags);
 		// Valid Arguments
 		if(sds != NULL && nsds > 0)
 		{
 			// Socket Check
 			int i = 0; for(; i < nsds; i++)
 			{
+				sds[i].revents = 0;
+
 				// Invalid Socket
 				if(sds[i].id < 1 || sds[i].id > 255 || _sockets[sds[i].id - 1] == NULL){
 					sds[i].revents = ADHOC_EV_INVALID;
 					return ADHOC_INVALID_SOCKET_ID;
 				}
+
+				//printk("%s: adhocfd 0x%x fd 0x%x events 0x%x\n", __func__, sds[i].id, _sockets[sds[i].id - 1]->is_ptp ? _sockets[sds[i].id - 1]->ptp.id : _sockets[sds[i].id - 1]->pdp.id, sds[i].events);
 			}
 			
 			// Allocate Infrastructure Memory
@@ -93,16 +98,30 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 					// Prevent Nonblocking Mode
 					if(timeout == 0) timeout = 1;
 				}
+
+				//printk("%s: calling poll with final timeout %u on thread 0x%x with %d free stack\n", __func__, timeout, sceKernelGetThreadId(), sceKernelGetThreadStackFreeSize(0));
 				
-				// Acquire Network Lock
-				_acquireNetworkLock();
+				// mitigate multi thread poll lock up on the PSP
+				int affectedsockets = 0;
+				uint64_t begin = sceKernelGetSystemTimeWide();
+				while(sceKernelGetSystemTimeWide() - begin < timeout){
+					// Acquire Network Lock
+					_acquireNetworkLock();
+
+					// Poll Sockets
+					affectedsockets = sceNetInetPoll(isds, nsds, 0);
+
+					// Free Network Lock
+					_freeNetworkLock();
+
+					if (affectedsockets != 0){
+						break;
+					}
+					sceKernelDelayThread(1000);
+				}
 				
-				// Poll Sockets
-				int affectedsockets = sceNetInetPoll(isds, nsds, timeout);
-				
-				// Free Network Lock
-				_freeNetworkLock();
-				
+				//printk("%s: affected socktes %d\n", __func__, affectedsockets);
+
 				// Sockets affected
 				if(affectedsockets > 0)
 				{
@@ -138,6 +157,8 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 						if (isds[i].revents & INET_POLLHUP){
 							sds[i].revents |= ADHOC_EV_DISCONNECT;
 						}
+
+						//printk("%s: adhocfd 0x%x fd 0x%x events 0x%x/0x%x revents 0x%x/0x%x\n", __func__, sds[i].id, isds[i].fd, isds[i].events, sds[i].events, isds[i].revents, sds[i].revents);
 					}
 				}
 				
