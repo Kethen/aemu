@@ -657,8 +657,30 @@ typedef SceUID (*load_module_by_id_func)(SceUID fd, int flags, SceKernelLMOption
 load_module_by_id_func load_module_by_id_orig = NULL;
 
 typedef SceUID (*open_func)(const char *path, int flags, SceMode mode);
-open_func open_orig = sceIoOpen;
+open_func open_orig = NULL;
 SceUID open_file(const char *path, int flags, SceMode mode){
+	if (open_orig == NULL){
+		// first try nploader
+		open_orig = (void *)sctrlHENFindFunction("nploader", "nploader", 0x333A34AE);
+		if (open_orig != NULL){
+			printk("%s: using nploader sceIoOpen\n", __func__);
+		}
+
+		if (open_orig == NULL){
+			// try procfw stargate
+			open_orig = (void *)sctrlHENFindFunction("stargate", "stargate", 0x7C8EFE7D);
+			if (open_orig != NULL){
+				printk("%s: using procfw stargate sceIoOpen\n", __func__);
+			}
+		}
+
+		if (open_orig == NULL){
+			// fallback to normal impl
+			open_orig = (void *)sctrlHENFindFunction("sceIOFileManager", "IoFileMgrForUser", 0x109F50BC);
+			printk("%s: using normal sceIoOpen\n", __func__);
+		}
+	}
+
 	SceUID fd = open_orig(path, flags, mode);
 	if (fd < 0){
 		return fd;
