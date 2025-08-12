@@ -31,6 +31,7 @@
 #include <psputility_sysparam.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include "libs.h"
 #include "hud.h"
 #include "logs.h"
@@ -106,7 +107,6 @@ const char *force_fw_modules[] = {
 	"pspnet_inet.prx",
 	"pspnet_apctl.prx",
 	"pspnet_resolver.prx",
-	"sc_sascore.prx"
 };
 
 const char *force_fw_module_names[sizeof(force_fw_modules) / sizeof(force_fw_modules[0])] = {
@@ -115,7 +115,6 @@ const char *force_fw_module_names[sizeof(force_fw_modules) / sizeof(force_fw_mod
 	"sceNetInet_Library",
 	"sceNetApctl_Library",
 	"sceNetResolver_Library",
-	"sceSAScore"
 };
 
 const char *late_load_modules[] = {
@@ -774,7 +773,7 @@ SceUID open_file(const char *path, int flags, SceMode mode){
 		return fd;
 	}
 
-	printk("%s: adding 0x%x %s to fd path map\n", __func__, fd, path);
+	printk("%s: adding 0x%x 0x%x 0x%x %s to fd path map\n", __func__, fd, flags, mode, path);
 	add_fd_path_map_entry(path, fd);
 	return fd;
 }
@@ -793,12 +792,52 @@ SceUID load_module_by_id(SceUID fd, int flags, SceKernelLMOption *option){
 	char path[256] = {0};
 	if (!get_fd_path(fd, path)){
 		printk("%s: untracked module fd 0x%x!\n", __func__, fd);
-		return load_module_by_id_orig(fd, flags, option);
+		SceUID result = load_module_by_id_orig(fd, flags, option);
+		printk("%s: load result 0x%x\n", __func__, result);
+		return result;
 	}
 
 	// we got a path
-	//return load_plugin_user(path, flags, option);
-	return load_plugin_user(path, 0, NULL);
+
+	#if 1
+	// check if we should mess with the module at all
+	// Force module path case
+	bool should_redirect = false;
+
+	int len = strlen(path);
+	for(int i = 0;i < len;i++){
+		path[i] = tolower(path[i]);
+	}
+
+	for (int i = 0;i < sizeof(module_names) / sizeof(module_names[0]);i++){
+		if(strstr(path, module_names[i]) != NULL){
+			should_redirect = true;
+			break;
+		}
+	}
+
+	for(int i = 0;i < sizeof(force_fw_modules) / sizeof(force_fw_modules[0]) && !should_redirect;i++){
+		if(strstr(path, force_fw_modules[i]) != NULL){
+			should_redirect = true;
+			break;
+		}
+	}
+
+	// restore the path
+	get_fd_path(fd, path);
+
+	if (!should_redirect){
+		printk("%s: not interfering with the loading of %s 0x%x\n", __func__, path, fd);
+		SceUID result = load_module_by_id_orig(fd, flags, option);
+		printk("%s: load result 0x%x\n", __func__, result);
+		return result;
+	}
+	#endif
+
+	//SceUID result = load_plugin_user(path, flags, option);
+	SceUID result = load_plugin_user(path, 0, NULL);
+	printk("%s: load result 0x%x\n", __func__, result);
+	return result;
 }
 
 typedef int (*module_unload_func)(SceUID uid);

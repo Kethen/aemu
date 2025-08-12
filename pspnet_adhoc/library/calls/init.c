@@ -47,21 +47,16 @@ int proNetAdhocInit(void)
 	if(!_init)
 	{
 		return_memory();
-		// Initialize Internet Library
-		int result = sceNetInetInit();
+
+		// Load Internet Modules
+		int result = sceUtilityLoadModule(PSP_MODULE_NET_INET);
+		printk("%s: loading internet modules, 0x%x\n", __func__, result);
 		
-		// Missing Internet Modules
-		if(result != 0)
-		{
-			// Load Internet Modules
-			sceUtilityLoadModule(PSP_MODULE_NET_INET);
-			
-			// Enable Manual Infrastructure Module Control
-			_manage_modules = 1;
-			
-			// Re-Initialize Internet Library
-			result = sceNetInetInit();
-		}
+		// Enable Manual Infrastructure Module Control
+		_manage_modules = 1;
+
+		// Initialize Internet Library
+		result = sceNetInetInit();
 
 		// redo inet hooks
 		rehook_inet();
