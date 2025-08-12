@@ -142,7 +142,7 @@ SceUID shim_uid = -1;
 static const char *shim_path = "ms0:/kd/pspnet_shims.prx";
 
 static void *allocate_partition_memory(int size){
-	SceUID uid = sceKernelAllocPartitionMemory(2, "inet apctl load reserve", 4 /* high aligned */, size, (void *)4);
+	SceUID uid = sceKernelAllocPartitionMemory(2, "aemu allocation", 4 /* high aligned */, size, (void *)4);
 
 	if (uid < 0)
 	{
@@ -1610,6 +1610,8 @@ typedef struct SysMemPartition {
 	PartitionData *data;
 } SysMemPartition;
 
+
+
 // based on Adrenaline
 static void memlayout_hack(){
 	if(sceKernelGetModel() == 0 && !is_vita()){
@@ -1638,7 +1640,7 @@ static void memlayout_hack(){
 		return;
 	}
 
-	partition_2->size = 40 * 1024 * 1024;
+	partition_2->size = 30 * 1024 * 1024;
 	partition_2->data->size = (((partition_2->size >> 8) << 9) | 0xFC);
 	partition_9->size = 0 * 1024 * 1024;
 	partition_9->address = 0x88800000 + partition_2->size;
