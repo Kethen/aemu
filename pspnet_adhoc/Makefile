@@ -42,7 +42,7 @@ imports/pspnet_inet_kermit_redirect.o
 OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
 
 #CFLAGS = -Os -G0 -Wall -fno-pic
-CFLAGS = -Os -fno-builtin -G0 -Wall -fno-pic -DHEAP_SIZE=100
+CFLAGS = -Os -fno-builtin -G0 -Wall -fno-pic -DHEAP_SIZE=500
 
 ifeq ($(CONFIG_620), 1)
 CFLAGS += -DCONFIG_620=1

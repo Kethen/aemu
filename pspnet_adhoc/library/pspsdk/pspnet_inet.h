@@ -49,6 +49,7 @@
 
 // On-Demand Nonblocking Flag
 #define INET_MSG_DONTWAIT 0x80
+#define INET_MSG_PEEK 0x2
 
 // Event Flags
 #define INET_POLLRDNORM 0x0040

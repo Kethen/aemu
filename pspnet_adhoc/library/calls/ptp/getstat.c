@@ -62,13 +62,28 @@ int proNetAdhocGetPtpStat(int * buflen, SceNetAdhocPtpStat * buf)
 					
 					// Fix Client View Socket ID
 					buf[i].id = j + 1;
+
+					// Peek tcp size, as PPSSPP does in https://github.com/hrydgard/ppsspp/commit/4881f4f0bd0110af5cceeba8dc70f90d0e8d0978
+					uint8_t *peek_buf = malloc(4096);
+					if (peek_buf == NULL){
+						printk("%s: cannot allocate buffer to check current buffered data size\n", __func__);
+					}else{
+						int tcp_size = sceNetInetRecv(_sockets[j]->ptp.id, peek_buf, 4096, INET_MSG_DONTWAIT | INET_MSG_PEEK);
+						//printk("%s: tcp size %d\n", __func__, tcp_size);
+						if (tcp_size <= 0){
+							buf[i].rcv_sb_cc = 0;
+						}else{
+							buf[i].rcv_sb_cc = tcp_size;
+						}
+						free(peek_buf);
+					}
 					
 					// Write End of List Reference
 					buf[i].next = NULL;
-					
+
 					// Link previous Element to this one
 					if(i > 0) buf[i-1].next = &buf[i];
-					
+
 					// Increment Counter
 					i++;
 				}

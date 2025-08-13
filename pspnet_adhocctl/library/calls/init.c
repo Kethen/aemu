@@ -97,6 +97,7 @@ int set_gp_value(int gp_value)
 
 void _notifyAdhocctlhandlers(int event, int error_code)
 {
+	printk("%s: event 0x%x 0x%x\n", __func__, event, error_code);
 	int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
 	{
 		// Active Handler
