@@ -1679,7 +1679,8 @@ static void memlayout_hack(){
 		return;
 	}
 
-	partition_2->size = 30 * 1024 * 1024;
+	// 128K of netconf param alloc + 4 MB of stolen memory
+	partition_2->size = 28 * 1024 * 1024 + 128;
 	partition_2->data->size = (((partition_2->size >> 8) << 9) | 0xFC);
 	partition_9->size = 0 * 1024 * 1024;
 	partition_9->address = 0x88800000 + partition_2->size;
