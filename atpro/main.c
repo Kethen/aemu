@@ -37,7 +37,7 @@
 #include "logs.h"
 #include "systemctrl.h"
 
-PSP_MODULE_INFO("ATPRO", PSP_MODULE_KERNEL, 1, 0);
+PSP_MODULE_INFO("ATPRO", PSP_MODULE_KERNEL, 1, 1);
 
 // Game Code Getter (discovered in utility.prx)
 const char * SysMemGameCodeGetter(void);
