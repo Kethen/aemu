@@ -38,6 +38,8 @@ int proUtilityNetconfShutdownStart(void)
 
 	// Set Library Status
 	_netconf_status = UTILITY_NETCONF_STATUS_SHUTDOWN;
+
+	printk("%s: set state to shutdown\n", __func__);
 	
 	// Return Success
 	return 0;

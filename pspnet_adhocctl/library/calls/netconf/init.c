@@ -57,6 +57,7 @@ int proUtilityNetconfInitStart(SceUtilityNetconfParam * param)
 	}
 
 	_netconf_status = UTILITY_NETCONF_STATUS_INITIALIZE;
+	printk("%s: handling netconf in adhocctl\n", __func__);
 
 	return 0;
 }

@@ -33,9 +33,13 @@ int proNetAdhocctlDelHandler(int id)
 			// Valid ID
 			if(_event_handler[id - 1] != NULL)
 			{
+				printk("%s: removing handler id 0x%x 0x%x 0x%x\n", __func__, id, _event_handler[id - 1], _event_args[id - 1]);
+
+
 				// Clear Event Handler
 				_event_handler[id - 1] = NULL;
 				_event_args[id - 1] = NULL;
+
 				
 				// Return Success
 				return 0;

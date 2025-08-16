@@ -40,12 +40,14 @@ int proUtilityNetconfGetStatus(void)
 	// State Transition
 	if (_netconf_status == UTILITY_NETCONF_STATUS_INITIALIZE)
 	{
+		printk("%s: UTILITY_NETCONF_STATUS_INITIALIZE -> UTILITY_NETCONF_STATUS_RUNNING\n", __func__);
 		_netconf_status = UTILITY_NETCONF_STATUS_RUNNING;
 		return UTILITY_NETCONF_STATUS_INITIALIZE;
 	}
 
 	if (_netconf_status == UTILITY_NETCONF_STATUS_SHUTDOWN)
 	{
+		printk("%s: UTILITY_NETCONF_STATUS_SHUTDOWN -> UTILITY_NETCONF_STATUS_NONE\n", __func__);
 		_netconf_status = UTILITY_NETCONF_STATUS_NONE;
 		return UTILITY_NETCONF_STATUS_SHUTDOWN;
 	}
