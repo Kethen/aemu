@@ -48,6 +48,9 @@ int proNetAdhocInit(void)
 	{
 		return_memory();
 
+		// Load port offset
+		_readPortOffsetConfig();
+
 		// Load Internet Modules
 		int result = sceUtilityLoadModule(PSP_MODULE_NET_INET);
 		printk("%s: loading internet modules, 0x%x\n", __func__, result);

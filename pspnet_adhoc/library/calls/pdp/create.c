@@ -104,6 +104,7 @@ int proNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 								memset(internal, 0, sizeof(AdhocSocket));
 								
 								// Find Free Translator Index
+								sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
 								int i = 0; for(; i < 255; i++) if(_sockets[i] == NULL) break;
 								
 								// Found Free Translator Index
@@ -121,10 +122,13 @@ int proNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 									
 									// Forward Port on Router
 									sceNetPortOpen("UDP", sport);
+
+									sceKernelSignalSema(_socket_mapper_mutex, 1);
 									
 									// Success
 									return i + 1;
 								}
+								sceKernelSignalSema(_socket_mapper_mutex, 1);
 								
 								// Free Memory for Internal Data
 								free(internal);

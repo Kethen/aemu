@@ -5,6 +5,7 @@ TARGET = pspnet_adhoc
 
 LIBRARYOBJS = \
 library/functions.o \
+library/workers.o \
 library/calls/init.o \
 library/calls/term.o \
 library/calls/setalert.o \

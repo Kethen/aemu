@@ -111,6 +111,7 @@ int proNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 							if(internal != NULL)
 							{
 								// Find Free Translator ID
+								sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
 								int i = 0; for(; i < 255; i++) if(_sockets[i] == NULL) break;
 								
 								// Found Free Translator ID
@@ -144,9 +145,12 @@ int proNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 									// Save mode for upnp cleanup
 									internal->ptp_ext.mode = PTP_MODE_OPEN;
 
+									sceKernelSignalSema(_socket_mapper_mutex, 1);
+
 									// Return PTP Socket Pointer
 									return i + 1;
 								}
+								sceKernelSignalSema(_socket_mapper_mutex, 1);
 								
 								// Free Memory
 								free(internal);

@@ -117,6 +117,8 @@ int sceNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 int sceNetAdhocPdpDelete(int id, int flag);
 int sceNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void * buf, int * len, uint32_t timeout, int flag);
 
+void _readPortOffsetConfig();
+
 // From kernel module
 void return_memory();
 void steal_memory();

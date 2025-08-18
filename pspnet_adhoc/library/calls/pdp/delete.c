@@ -55,7 +55,9 @@ int proNetAdhocPdpDelete(int id, int flag)
 				free(_sockets[id - 1]);
 				
 				// Free Translation Slot
+				sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
 				_sockets[id - 1] = NULL;
+				sceKernelSignalSema(_socket_mapper_mutex, 1);
 				
 				// Success
 				return 0;

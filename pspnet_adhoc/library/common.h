@@ -60,6 +60,9 @@
 // Adhoc Common Functions
 #include "functions.h"
 
+// Stack usage reduction workers
+#include "workers.h"
+
 // --- Improved PSPSDK Header ---
 
 // Adhoc Network Control Library

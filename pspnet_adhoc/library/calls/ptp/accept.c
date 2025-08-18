@@ -122,6 +122,7 @@ int proNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 								if(internal != NULL)
 								{
 									// Find Free Translator ID
+									sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
 									int i = 0; for(; i < 255; i++) if(_sockets[i] == NULL) break;
 									
 									// Found Free Translator ID
@@ -162,9 +163,12 @@ int proNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 
 										_sockets[i]->ptp_ext.mode = PTP_MODE_ACCEPT;
 
+										sceKernelSignalSema(_socket_mapper_mutex, 1);
+
 										// Return Socket
 										return i + 1;
 									}
+									sceKernelSignalSema(_socket_mapper_mutex, 1);
 									
 									// Free Memory
 									free(internal);
