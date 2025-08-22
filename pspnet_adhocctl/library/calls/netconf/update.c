@@ -63,6 +63,14 @@ int proUtilityNetconfUpdate(int speed)
 	else
 	{
 		join_status = proNetAdhocctlCreate(&_netconf_adhoc_param.group_name);
+
+		if (join_status >= 0){
+			// wait for 5 seconds or till we have been connected
+			uint64_t begin = sceKernelGetSystemTimeWide();
+			while(_thread_status != ADHOCCTL_STATE_CONNECTED && sceKernelGetSystemTimeWide() - begin < 5000000){
+				sceKernelDelayThread(1000);
+			}
+		}
 	}
 
 	if (join_status == 0)
