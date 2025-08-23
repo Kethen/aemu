@@ -154,7 +154,7 @@ int init_workers(){
 			sceKernelDeleteSema(workers[i].work_sema);
 			break;
 		}
-		workers[i].thid = sceKernelCreateThread("adhoc worker", worker_thread_func, 0x18, 0x4000, 0, NULL);
+		workers[i].thid = sceKernelCreateThread("adhoc worker", worker_thread_func, 16, 0x4000, 0, NULL);
 		if (workers[i].thid < 0){
 			printk("%s: failed creating kernel thread, 0x%x\n", __func__, workers[i].thid);
 			sceKernelDeleteSema(workers[i].work_sema);
