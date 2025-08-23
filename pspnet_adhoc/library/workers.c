@@ -17,6 +17,7 @@ static SceUID workers_mutex = -1;
 static int workers_created = 0;
 static worker workers[16];
 static bool workers_should_stop = false;
+static bool ready = false;
 
 static int worker_thread_func(SceSize args, void *argp){
 	worker *w = *(worker **)argp;
@@ -164,10 +165,16 @@ int init_workers(){
 		sceKernelStartThread(workers[i].thid, sizeof(worker_ptr), &worker_ptr);
 		workers_created++;
 	}
+
+	ready = true;
 	return workers_created;
 }
 
 int work_using_worker(work_type type, uint32_t num_args, uint32_t *args){
+	while (!ready){
+		sceKernelDelayThread(1000);
+	}
+
 	while (true){
 		// First secure a worker
 		worker *w = NULL;
@@ -210,6 +217,7 @@ int work_using_worker(work_type type, uint32_t num_args, uint32_t *args){
 }
 
 void stop_workers(){
+	ready = false;
 	workers_should_stop = true;
 	for (int i = 0;i < workers_created;i++){
 		// give the worker one more signal
