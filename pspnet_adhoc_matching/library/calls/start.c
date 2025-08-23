@@ -356,7 +356,7 @@ int _matchingEventThread(SceSize args, void * argp)
 					printk("%s: failed allocating aligned opt buffer, game might have issue processing opt\n", __func__);
 				}
 
-				printk("%s: handler at 0x%x\n", __func__, context->handler);
+				printk("%s: handler at 0x%x free stack 0x%x\n", __func__, context->handler, sceKernelGetThreadStackFreeSize(0));
 
 				// Apply gp value obtained earlier, this looks a bit cursed but needed for GTA:VCS
 				int old_gp_value = get_gp_value();

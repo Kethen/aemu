@@ -108,7 +108,7 @@ void _notifyAdhocctlhandlers(int event, int error_code)
 
 		int old_gp_value = get_gp_value();
 
-		printk("%s: handler 0x%x 0x%x local gp 0x%x game gp 0x%x\n", __func__, _event_handler[i], _event_args[i], old_gp_value, _event_handler_gp[i]);
+		printk("%s: handler 0x%x 0x%x local gp 0x%x game gp 0x%x free stack 0x%x\n", __func__, _event_handler[i], _event_args[i], old_gp_value, _event_handler_gp[i], sceKernelGetThreadStackFreeSize(0));
 
 		set_gp_value(_event_handler_gp[i]);
 		_event_handler[i](event, error_code, _event_args[i]);
