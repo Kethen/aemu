@@ -1580,8 +1580,7 @@ void * create_ioclose_stub(void)
 }
 #endif
 
-static void early_memory_stealing()
-{
+static void log_memory_info(){
 	#ifdef DEBUG
 	PspSysmemPartitionInfo meminfo = {0};
 	meminfo.size = sizeof(PspSysmemPartitionInfo);
@@ -1596,7 +1595,10 @@ static void early_memory_stealing()
 		}
 	}
 	#endif
+}
 
+static void early_memory_stealing()
+{
 	#if 0
 	int memdump_1 = sceIoOpen("ms0:/memdump_8a000000.bin", PSP_O_WRONLY | PSP_O_CREAT | PSP_O_TRUNC, 0777);
 	if (memdump_1 >= 0){
@@ -1679,9 +1681,16 @@ static void memlayout_hack(){
 		return;
 	}
 
-	// 128 B of netconf param alloc + 4 MB of stolen memory + 10 KB buffer
+	// memory layout with just r6 loaded: log_memory_info: p2 startaddr 0x8800000 size 25165824 attr 0xf max 17314048 total 17314048
+
+	#if 1
+	// 128 B of netconf param alloc + 4 MB of stolen memory + 50 KB buffer
 	// note that this is curretly so tight due to how r6 vegas crashes when having just 2MB of extra memory
-	partition_2->size = 24 * 1024 * 1024 + 8 + 128 + 4 * 1024 * 1024 + 10 * 1024;
+	partition_2->size = 24 * 1024 * 1024 + 8 + 128 + 4 * 1024 * 1024 + 50 * 1024;
+	#else
+	// 40 MB is currently the limit on the vita, until all unsafe zones are mapped
+	partition_2->size = 40 * 1024;
+	#endif
 	partition_2->data->size = (((partition_2->size >> 8) << 9) | 0xFC);
 	partition_9->size = 0 * 1024 * 1024;
 	partition_9->address = 0x88800000 + partition_2->size;
@@ -1732,6 +1741,8 @@ int online_patcher(SceModule2 * module)
 			netconf_override = allocate_partition_memory(128);
 			netconf_adhoc_override = (void *)(((uint32_t)netconf_override) + 72);
 		}
+
+		log_memory_info();
 
 		printk("%s: hooking hud drawing and input\n", __func__);
 
