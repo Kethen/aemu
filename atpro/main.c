@@ -1679,9 +1679,9 @@ static void memlayout_hack(){
 		return;
 	}
 
-	// 128K of netconf param alloc + 4 MB of stolen memory
+	// 128 B of netconf param alloc + 4 MB of stolen memory + 10 KB buffer
 	// note that this is curretly so tight due to how r6 vegas crashes when having just 2MB of extra memory
-	partition_2->size = 28 * 1024 * 1024 + 128;
+	partition_2->size = 24 * 1024 * 1024 + 8 + 128 + 4 * 1024 * 1024 + 10 * 1024;
 	partition_2->data->size = (((partition_2->size >> 8) << 9) | 0xFC);
 	partition_9->size = 0 * 1024 * 1024;
 	partition_9->address = 0x88800000 + partition_2->size;
