@@ -324,7 +324,7 @@ int sceNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 
 	SceNetEtherAddr addr_capture;
 	uint16_t port_capture;
-	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)addr, (uint32_t)port, timeout, *(uint32_t*)&flag};
+	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)&addr_capture, (uint32_t)&port_capture, timeout, *(uint32_t*)&flag};
 	#if USE_WORKER_PTP
 	int result = work_using_worker(PTP_ACCEPT, sizeof(args) / sizeof(args[0]), args);
 	#else
