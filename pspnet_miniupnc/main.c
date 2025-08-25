@@ -73,7 +73,7 @@ void miniupnc_start()
 	}
 }
 
-void rehook_inet();
+int rehook_inet();
 
 // Module Start Event
 int module_start(SceSize args, void * argp)

@@ -28,6 +28,7 @@
 #define MODULENAME "sceNetAdhoc_Library"
 PSP_MODULE_INFO(MODULENAME, PSP_MODULE_USER + 6, 1, 4);
 PSP_HEAP_SIZE_KB(100);
+bool use_worker = true;
 
 int _port_offset = 0;
 
@@ -86,11 +87,12 @@ int sceNetAdhocInit(void)
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
-	#if USE_WORKER_COMMON
-	int result = work_using_worker(INIT, 0, NULL);
-	#else
-	int result = proNetAdhocInit();
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_COMMON){
+		result = work_using_worker(INIT, 0, NULL);
+	}else{
+		result = proNetAdhocInit();
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -103,11 +105,12 @@ int sceNetAdhocTerm(void)
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
-	#if USE_WORKER_COMMON
-	int result = work_using_worker(TERM, 0, NULL);
-	#else
-	int result = proNetAdhocTerm();
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_COMMON){
+		result = work_using_worker(TERM, 0, NULL);
+	}else{
+		result = proNetAdhocTerm();
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -120,11 +123,12 @@ int sceNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {(uint32_t)sds, *(uint32_t*)&nsds, timeout, *(uint32_t*)&flags};
-	#if USE_WORKER_COMMON
-	int result = work_using_worker(POLL, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocPollSocket(sds, nsds, timeout, flags);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_COMMON){
+		result = work_using_worker(POLL, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocPollSocket(sds, nsds, timeout, flags);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -137,11 +141,12 @@ int sceNetAdhocSetSocketAlert(int id, int flag)
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {*(uint32_t *)&id, *(uint32_t *)&flag};
-	#if USE_WORKER_COMMON
-	int result = work_using_worker(SET_SOCKET_ALERT, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocSetSocketAlert(id, flag);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_COMMON){
+		result = work_using_worker(SET_SOCKET_ALERT, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocSetSocketAlert(id, flag);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -154,11 +159,12 @@ int sceNetAdhocGetSocketAlert(int id, int * flag)
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)flag};
-	#if USE_WORKER_COMMON
-	int result = work_using_worker(GET_SOCKET_ALERT, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocGetSocketAlert(id, flag);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_COMMON){
+		result = work_using_worker(GET_SOCKET_ALERT, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocGetSocketAlert(id, flag);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -171,11 +177,12 @@ int sceNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {(uint32_t)saddr, (uint32_t)offset_source_port(sport), *(uint32_t*)&bufsize, *(uint32_t*)&flag};
-	#if USE_WORKER_PDP
-	int result = work_using_worker(PDP_CREATE, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocPdpCreate(saddr, offset_source_port(sport), bufsize, flag);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_PDP){
+		result = work_using_worker(PDP_CREATE, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocPdpCreate(saddr, offset_source_port(sport), bufsize, flag);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -189,11 +196,12 @@ int sceNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)daddr, (uint32_t)offset_destination_port(dport), (uint32_t)data, *(uint32_t*)&len, timeout, *(uint32_t*)&flag};
-	#if USE_WORKER_PDP
-	int result = work_using_worker(PDP_SEND, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocPdpSend(id, daddr, offset_destination_port(dport), data, len, timeout, flag);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_PDP){
+		result = work_using_worker(PDP_SEND, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocPdpSend(id, daddr, offset_destination_port(dport), data, len, timeout, flag);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -207,11 +215,12 @@ int sceNetAdhocPdpDelete(int id, int flag)
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {*(uint32_t*)&id, *(uint32_t*)&flag};
-	#if USE_WORKER_PDP
-	int result = work_using_worker(PDP_DELETE, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocPdpDelete(id, flag);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_PDP){
+		result = work_using_worker(PDP_DELETE, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocPdpDelete(id, flag);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -225,11 +234,12 @@ int sceNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)saddr, (uint32_t)sport, (uint32_t)buf, (uint32_t)len, timeout, *(uint32_t*)&flag};
-	#if USE_WORKER_PDP
-	int result = work_using_worker(PDP_RECV, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocPdpRecv(id, saddr, sport, buf, len, timeout, flag);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_PDP){
+		result = work_using_worker(PDP_RECV, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocPdpRecv(id, saddr, sport, buf, len, timeout, flag);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -251,11 +261,12 @@ int sceNetAdhocGetPdpStat(int * buflen, SceNetAdhocPdpStat * buf)
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {(uint32_t)buflen, (uint32_t)buf};
-	#if USE_WORKER_PDP
-	int result = work_using_worker(PDP_GETSTAT, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocGetPdpStat(buflen, buf);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_PDP){
+		result = work_using_worker(PDP_GETSTAT, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocGetPdpStat(buflen, buf);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -268,11 +279,12 @@ int sceNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {(uint32_t)saddr, (uint32_t)offset_source_port(sport), (uint32_t)daddr, (uint32_t)offset_destination_port(dport), bufsize, rexmt_int, *(uint32_t*)&rexmt_cnt, *(uint32_t*)&flag};
-	#if USE_WORKER_PTP
-	int result = work_using_worker(PTP_OPEN, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocPtpOpen(saddr, offset_source_port(sport), daddr, offset_destination_port(dport), bufsize, rexmt_int, rexmt_cnt, flag);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_PTP){
+		result = work_using_worker(PTP_OPEN, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocPtpOpen(saddr, offset_source_port(sport), daddr, offset_destination_port(dport), bufsize, rexmt_int, rexmt_cnt, flag);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -286,11 +298,12 @@ int sceNetAdhocPtpConnect(int id, uint32_t timeout, int flag)
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {*(uint32_t*)&id, timeout, *(uint32_t*)&flag};
-	#if USE_WORKER_PTP
-	int result = work_using_worker(PTP_CONNECT, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocPtpConnect(id, timeout, flag);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_PTP){
+		result = work_using_worker(PTP_CONNECT, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocPtpConnect(id, timeout, flag);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -304,11 +317,12 @@ int sceNetAdhocPtpListen(const SceNetEtherAddr * saddr, uint16_t sport, uint32_t
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {(uint32_t)saddr, (uint32_t)offset_source_port(sport), bufsize, rexmt_int, *(uint32_t*)&rexmt_cnt, *(uint32_t*)&backlog, *(uint32_t*)&flag};
-	#if USE_WORKER_PTP
-	int result = work_using_worker(PTP_LISTEN, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocPtpListen(saddr, offset_source_port(sport), bufsize, rexmt_int, rexmt_cnt, backlog, flag);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_PTP){
+		result = work_using_worker(PTP_LISTEN, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocPtpListen(saddr, offset_source_port(sport), bufsize, rexmt_int, rexmt_cnt, backlog, flag);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -325,11 +339,12 @@ int sceNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 	SceNetEtherAddr addr_capture;
 	uint16_t port_capture;
 	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)&addr_capture, (uint32_t)&port_capture, timeout, *(uint32_t*)&flag};
-	#if USE_WORKER_PTP
-	int result = work_using_worker(PTP_ACCEPT, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocPtpAccept(id, &addr_capture, &port_capture, timeout, flag);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_PTP){
+		result = work_using_worker(PTP_ACCEPT, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocPtpAccept(id, &addr_capture, &port_capture, timeout, flag);
+	}
 	if (addr != NULL)
 	{
 		memcpy(addr, &addr_capture, sizeof(SceNetEtherAddr));
@@ -352,11 +367,12 @@ int sceNetAdhocPtpSend(int id, const void * data, int * len, uint32_t timeout, i
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)data, (uint32_t)len, timeout, *(uint32_t*)&flag};
-	#if USE_WORKER_PTP
-	int result = work_using_worker(PTP_SEND, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocPtpSend(id, data, len, timeout, flag);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_PTP){
+		result = work_using_worker(PTP_SEND, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocPtpSend(id, data, len, timeout, flag);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -369,11 +385,12 @@ int sceNetAdhocPtpRecv(int id, void * buf, int * len, uint32_t timeout, int flag
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)buf, (uint32_t)len, timeout, *(uint32_t*)&flag};
-	#if USE_WORKER_PTP
-	int result = work_using_worker(PTP_RECV, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocPtpRecv(id, buf, len, timeout, flag);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_PTP){
+		result = work_using_worker(PTP_RECV, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocPtpRecv(id, buf, len, timeout, flag);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -386,11 +403,12 @@ int sceNetAdhocPtpFlush(int id, uint32_t timeout, int flag)
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {*(uint32_t*)&id, timeout, *(uint32_t*)&flag};
-	#if USE_WORKER_PTP
-	int result = work_using_worker(PTP_FLUSH, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocPtpFlush(id, timeout, flag);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_PTP){
+		result = work_using_worker(PTP_FLUSH, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocPtpFlush(id, timeout, flag);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -403,11 +421,12 @@ int sceNetAdhocPtpClose(int id, int flag)
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {*(uint32_t*)&id, *(uint32_t*)&flag};
-	#if USE_WORKER_PTP
-	int result = work_using_worker(PTP_CLOSE, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocPtpClose(id, flag);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_PTP){
+		result = work_using_worker(PTP_CLOSE, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocPtpClose(id, flag);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -421,11 +440,12 @@ int sceNetAdhocGetPtpStat(int * buflen, SceNetAdhocPtpStat * buf)
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {(uint32_t)buflen, (uint32_t)buf};
-	#if USE_WORKER_PTP
-	int result = work_using_worker(PTP_GETSTAT, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocGetPtpStat(buflen, buf);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_PTP){
+		result = work_using_worker(PTP_GETSTAT, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocGetPtpStat(buflen, buf);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -438,11 +458,12 @@ int sceNetAdhocGameModeCreateMaster(const void * ptr, uint32_t size)
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {(uint32_t)ptr, size};
-	#if USE_WORKER_GAMEMODE
-	int result = work_using_worker(GAMEMODE_CREATE_MASTER, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocGameModeCreateMaster(ptr, size);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_GAMEMODE){
+		result = work_using_worker(GAMEMODE_CREATE_MASTER, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocGameModeCreateMaster(ptr, size);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -456,11 +477,12 @@ int sceNetAdhocGameModeCreateReplica(const SceNetEtherAddr * src, void * ptr, ui
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {(uint32_t)src, (uint32_t)ptr, size};
-	#if USE_WORKER_GAMEMODE
-	int result = work_using_worker(GAMEMODE_CREATE_REPLICA, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocGameModeCreateReplica(src, ptr, size);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_GAMEMODE){
+		result = work_using_worker(GAMEMODE_CREATE_REPLICA, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocGameModeCreateReplica(src, ptr, size);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -473,11 +495,12 @@ int sceNetAdhocGameModeUpdateMaster(void)
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
-	#if USE_WORKER_GAMEMODE
-	int result = work_using_worker(GAMEMODE_UPDATE_MASTER, 0, NULL);
-	#else
-	int result = proNetAdhocGameModeUpdateMaster();
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_GAMEMODE){
+		result = work_using_worker(GAMEMODE_UPDATE_MASTER, 0, NULL);
+	}else{
+		result = proNetAdhocGameModeUpdateMaster();
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -489,11 +512,12 @@ int sceNetAdhocGameModeDeleteMaster(void)
 	//#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	//#endif
-	#if USE_WORKER_GAMEMODE
-	int result = work_using_worker(GAMEMODE_DELETE_MASTER, 0, NULL);
-	#else
-	int result = proNetAdhocGameModeDeleteMaster();
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_GAMEMODE){
+		result = work_using_worker(GAMEMODE_DELETE_MASTER, 0, NULL);
+	}else{
+		result = proNetAdhocGameModeDeleteMaster();
+	}
 	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	//#endif
@@ -506,11 +530,12 @@ int sceNetAdhocGameModeUpdateReplica(int id, SceNetAdhocGameModeOptData * opt)
 	printk("Entering %s\n", __func__);
 	#endif
 	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)opt};
-	#if USE_WORKER_GAMEMODE
-	int result = work_using_worker(GAMEMODE_UPDATE_REPLICA, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocGameModeUpdateReplica(id, opt);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_GAMEMODE){
+		result = work_using_worker(GAMEMODE_UPDATE_REPLICA, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocGameModeUpdateReplica(id, opt);
+	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -523,11 +548,12 @@ int sceNetAdhocGameModeDeleteReplica(int id)
 	printk("Entering %s\n", __func__);
 	//#endif
 	uint32_t args[] = {*(uint32_t*)&id};
-	#if USE_WORKER_GAMEMODE
-	int result = work_using_worker(GAMEMODE_DELETE_REPLICA, sizeof(args) / sizeof(args[0]), args);
-	#else
-	int result = proNetAdhocGameModeDeleteReplica(id);
-	#endif
+	int result = 0;
+	if (use_worker && USE_WORKER_GAMEMODE){
+		result = work_using_worker(GAMEMODE_DELETE_REPLICA, sizeof(args) / sizeof(args[0]), args);
+	}else{
+		result = proNetAdhocGameModeDeleteReplica(id);
+	}
 	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	//#endif
@@ -536,14 +562,21 @@ int sceNetAdhocGameModeDeleteReplica(int id)
 
 void init_littlec();
 void clean_littlec();
-void rehook_inet();
+int rehook_inet();
 
 // Module Start Event
 int module_start(SceSize args, void * argp)
 {
 	printk(MODULENAME " start!\n");
 
-	rehook_inet();
+	int rehook_result = rehook_inet();
+	if (rehook_result == 0){
+		printk("%s: vita speedup detected, disabling workers\n", __func__);
+		use_worker = false;
+	}else{
+		printk("%s: vita speedup not detected, enabling workers\n", __func__);
+		use_worker = true;
+	}
 
 	init_littlec();
 	int mutex_create_status = sceKernelCreateLwMutex(&_gamemode_lock, "adhoc_gamemode_mutex", PSP_LW_MUTEX_ATTR_RECURSIVE, 0, NULL);
@@ -557,8 +590,10 @@ int module_start(SceSize args, void * argp)
 		printk("%s: failed creating socket mapper mutex\n", __func__);
 	}
 
-	int num_workers = init_workers();
-	printk("%s: created %d workers\n", __func__, num_workers);
+	if (use_worker){
+		int num_workers = init_workers();
+		printk("%s: created %d workers\n", __func__, num_workers);
+	}
 
 	return 0;
 }

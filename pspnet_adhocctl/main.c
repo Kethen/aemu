@@ -363,7 +363,7 @@ int sceUtilityNetconfShutdownStartKernel(void)
 
 void init_littlec();
 void clean_littlec();
-void rehook_inet();
+int rehook_inet();
 
 // Module Start Event
 int module_start(SceSize args, void * argp)

@@ -35,7 +35,7 @@ int _one = 1;
 // Global Zero
 int _zero = 0;
 
-void rehook_inet();
+int rehook_inet();
 
 /**
  * Adhoc Emulator Socket Library Init-Call
