@@ -17,6 +17,8 @@
 
 #include "../../common.h"
 
+#define NBIO_BCAST 1
+
 /**
  * Adhoc Emulator PDP Send Call
  * @param id Socket File Descriptor
@@ -131,8 +133,12 @@ int proNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 									target.sin_addr = peer->ip_addr;
 									target.sin_port = sceNetHtons(dport);
 									
-									// Send Data
+									// Send Data, nbio, and if the packet buffer can't fit it so be it
+									#if NBIO_BCAST
+									sceNetInetSendto(socket->id, data, len, INET_MSG_DONTWAIT, (SceNetInetSockaddr *)&target, sizeof(target));
+									#else
 									sceNetInetSendto(socket->id, data, len, ((flag != 0) ? (INET_MSG_DONTWAIT) : (0)), (SceNetInetSockaddr *)&target, sizeof(target));
+									#endif
 								}
 								
 								// Free Peer Lock
