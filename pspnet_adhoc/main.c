@@ -66,6 +66,10 @@ void _readPortOffsetConfig(void)
 
 	// Open Configuration File
 	int fd = sceIoOpen("ms0:/seplugins/port_offset.txt", PSP_O_RDONLY, 0777);
+	if (fd < 0){
+		// PPSSPP style
+		fd = sceIoOpen("ms0:/PSP/PLUGINS/atpro/port_offset.txt", PSP_O_RDONLY, 0777);
+	}
 
 	// Opened Configuration File
 	if(fd >= 0)
@@ -564,6 +568,8 @@ void init_littlec();
 void clean_littlec();
 int rehook_inet();
 
+int _is_ppsspp = 0;
+
 // Module Start Event
 int module_start(SceSize args, void * argp)
 {
@@ -593,6 +599,11 @@ int module_start(SceSize args, void * argp)
 	if (use_worker){
 		int num_workers = init_workers();
 		printk("%s: created %d workers\n", __func__, num_workers);
+	}
+
+	_is_ppsspp = sceIoDevctl("kemulator:", 0x00000003, NULL, 0, NULL, 0) == 0;
+	if (_is_ppsspp){
+		printk("%s: ppsspp detected\n", __func__);
 	}
 
 	return 0;

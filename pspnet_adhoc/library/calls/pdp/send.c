@@ -124,23 +124,52 @@ int proNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 								_acquirePeerLock();
 								
 								// Iterate Peers
-								SceNetAdhocctlPeerInfoEmu * peer = _getInternalPeerList();
-								for(; peer != NULL; peer = peer->next)
-								{
-									// Fill in Target Structure
-									SceNetInetSockaddrIn target;
-									target.sin_family = AF_INET;
-									target.sin_addr = peer->ip_addr;
-									target.sin_port = sceNetHtons(dport);
-									
-									// Send Data, nbio, and if the packet buffer can't fit it so be it
-									#if NBIO_BCAST
-									sceNetInetSendto(socket->id, data, len, INET_MSG_DONTWAIT, (SceNetInetSockaddr *)&target, sizeof(target));
-									#else
-									sceNetInetSendto(socket->id, data, len, ((flag != 0) ? (INET_MSG_DONTWAIT) : (0)), (SceNetInetSockaddr *)&target, sizeof(target));
-									#endif
+								if(!_is_ppsspp){
+									SceNetAdhocctlPeerInfoEmu * peer = _getInternalPeerList();
+									for(; peer != NULL; peer = peer->next)
+									{
+										// Fill in Target Structure
+										SceNetInetSockaddrIn target;
+										target.sin_family = AF_INET;
+										target.sin_addr = peer->ip_addr;
+										target.sin_port = sceNetHtons(dport);
+
+										// Send Data, nbio, and if the packet buffer can't fit it so be it
+										#if NBIO_BCAST
+										sceNetInetSendto(socket->id, data, len, INET_MSG_DONTWAIT, (SceNetInetSockaddr *)&target, sizeof(target));
+										#else
+										sceNetInetSendto(socket->id, data, len, ((flag != 0) ? (INET_MSG_DONTWAIT) : (0)), (SceNetInetSockaddr *)&target, sizeof(target));
+										#endif
+									}
+								}else{
+									// haven't figured out adhocctl loading on ppsspp, so here we're dealing with HLE adhocctl
+									// making a linked list on emulator side is also a bit meh, so just use the normal peer list, then resolve
+									SceNetAdhocctlPeerInfo peers[32];
+									int num_peers = sizeof(peers);
+									int fetch_result = sceNetAdhocctlGetPeerList(&num_peers, peers);
+									if (fetch_result != 0){
+										printk("%s: failed fetching peer list in ppsspp mode while trying to broadcast, 0x%x\n", __func__, fetch_result);
+									}else{
+										for(int i = 0;i < num_peers / sizeof(SceNetAdhocctlPeerInfo);i++){
+											SceNetInetSockaddrIn target;
+											int resolve_status = _resolveMAC((SceNetEtherAddr *)&peers[i].mac_addr, &target.sin_addr);
+											if (resolve_status != 0){
+												// printk("%s: failed resolving mac address during broadcast", __func__);
+												continue;
+											}
+											target.sin_family = AF_INET;
+											target.sin_port = sceNetHtons(dport);
+
+											// Send Data, nbio, and if the packet buffer can't fit it so be it
+											#if NBIO_BCAST
+											sceNetInetSendto(socket->id, data, len, INET_MSG_DONTWAIT, (SceNetInetSockaddr *)&target, sizeof(target));
+											#else
+											sceNetInetSendto(socket->id, data, len, ((flag != 0) ? (INET_MSG_DONTWAIT) : (0)), (SceNetInetSockaddr *)&target, sizeof(target));
+											#endif
+										}
+									}
 								}
-								
+
 								// Free Peer Lock
 								_freePeerLock();
 								

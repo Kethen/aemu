@@ -111,6 +111,6 @@ extern SceUID _socket_mapper_mutex;
 
 extern int _port_offset;
 
-
+extern int _is_ppsspp;
 
 #endif
