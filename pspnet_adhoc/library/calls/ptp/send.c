@@ -17,6 +17,43 @@
 
 #include "../../common.h"
 
+static int ptp_send_postoffice(int idx, const void *data, int *len, uint32_t timeout, int nonblock){
+	uint64_t begin = sceKernelGetSystemTimeWide();
+	uint64_t end = begin + timeout;
+
+	if (*len > 2048){
+		// okay what's with the giant buffers in games
+		*len = 2048;
+	}
+
+	int send_status;
+	while (1){
+		send_status = ptp_send(*(void **)&_sockets[idx]->ptp.id, (const char *)data, *len, nonblock || timeout != 0);
+		if (send_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK){
+			if (nonblock){
+				return ADHOC_WOULD_BLOCK;
+			}else if (timeout != 0){
+				if (sceKernelGetSystemTimeWide() < end){
+					sceKernelDelayThread(100);
+					continue;
+				}
+				return ADHOC_TIMEOUT;
+			}
+		}
+		if (send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
+			return ADHOC_DISCONNECTED;
+		}
+		if (send_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY){
+			// critical
+			printk("%s: critical: client buffer way too big, %d, please debug this\n", __func__, *len);
+		}
+		break;
+	}
+
+	// the library currently sends in blocks, so there will not be partial sends
+	return 0;
+}
+
 /**
  * Adhoc Emulator PTP Sender
  * @param id Socket File Descriptor
@@ -43,6 +80,10 @@ int proNetAdhocPtpSend(int id, const void * data, int * len, uint32_t timeout, i
 				// Valid Arguments
 				if(data != NULL && len != NULL && *len > 0)
 				{
+					if (_postoffice){
+						return ptp_send_postoffice(id - 1, data, len, timeout, flag);
+					}
+
 					// Schedule Timeout Removal
 					if(flag) timeout = 0;
 					

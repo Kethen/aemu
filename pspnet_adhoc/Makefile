@@ -37,7 +37,8 @@ imports/sceNetAdhocctl.o \
 imports/sceNetAdhocctlIOLock.o \
 imports/sceNetAdhocctlInternal.o \
 imports/sceNetMiniUPnP.o \
-imports/pspnet_inet_kermit_redirect.o
+imports/pspnet_inet_kermit_redirect.o \
+imports/postoffice_client_import.o
 
 #OBJS = main.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
 OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
@@ -80,7 +81,7 @@ PRX_EXPORTS = exports.exp
 USE_PSPSDK_LIBC = 1
 
 LDFLAGS = -nostartfiles
-LIBS = -nostdlib -lpspuser -lpspnet_inet -lpspmodinfo -lpsputility -lpspnet_adhocctl -lpspnet_adhocmatching
+LIBS = -nostdlib -lpspuser -lpspnet_inet -lpspnet_resolver -lpspmodinfo -lpsputility -lpspnet_adhocctl -lpspnet_adhocmatching
 
 PSPSDK=$(shell psp-config --pspsdk-path)
 include $(PSPSDK)/lib/build.mak

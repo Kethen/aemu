@@ -17,6 +17,26 @@
 
 #include "../../common.h"
 
+static int get_postoffice_fd(int idx){
+	AdhocSocket *internal = _sockets[idx];
+	if (internal->is_ptp){
+		void *socket = *(void **)&internal->ptp.id;
+		if (socket != NULL){
+			if (internal->ptp.state == PTP_STATE_LISTEN){
+				return ptp_listen_get_native_sock(socket);
+			}else if (internal->ptp.state == PTP_STATE_ESTABLISHED){
+				return ptp_get_native_sock(socket);
+			}
+		}
+	}else{
+		void *socket = *(void **)&internal->pdp.id;
+		if (socket != NULL){
+			return pdp_get_native_sock(socket);
+		}
+	}
+	return -1;
+}
+
 /**
  * Adhoc Emulator PDP Socket Poller (Select Equivalent)
  * @param sds Poll Socket Descriptor Array
@@ -63,7 +83,11 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 				for(i = 0; i < nsds; i++)
 				{
 					// Fill in Infrastructure Socket ID
-					isds[i].fd = _sockets[sds[i].id - 1]->is_ptp ? _sockets[sds[i].id - 1]->ptp.id : _sockets[sds[i].id - 1]->pdp.id;
+					if (_postoffice){
+						isds[i].fd = get_postoffice_fd(sds[i].id - 1);
+					}else{
+						isds[i].fd = _sockets[sds[i].id - 1]->is_ptp ? _sockets[sds[i].id - 1]->ptp.id : _sockets[sds[i].id - 1]->pdp.id;
+					}
 					
 					// Send Event
 					if(sds[i].events & ADHOC_EV_SEND) isds[i].events |= INET_POLLWRNORM;

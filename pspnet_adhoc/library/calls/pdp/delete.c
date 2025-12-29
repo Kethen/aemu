@@ -17,6 +17,18 @@
 
 #include "../../common.h"
 
+int pdp_delete_postoffice(int idx){
+	void *pdp_socket = *(void **)&_sockets[idx]->pdp.id;
+	if (pdp_socket != NULL){
+		pdp_delete(pdp_socket);
+	}
+	sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
+	free(_sockets[idx]);
+	_sockets[idx] = NULL;
+	sceKernelSignalSema(_socket_mapper_mutex, 1);
+	return 0;
+}
+
 /**
  * Adhoc Emulator PDP Socket Delete
  * @param id Socket File Descriptor
@@ -45,6 +57,10 @@ int proNetAdhocPdpDelete(int id, int flag)
 			// Valid Socket
 			if(socket != NULL)
 			{
+				if (_postoffice){
+					return pdp_delete_postoffice(id - 1);
+				}
+
 				// Close Connection
 				sceNetInetClose(socket->id);
 				

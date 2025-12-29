@@ -17,6 +17,47 @@
 
 #include "../../common.h"
 
+static int ptp_connect_postoffice(int idx, uint32_t timeout, int nonblock){
+	uint64_t begin = sceKernelGetSystemTimeWide();
+	uint64_t end = begin + timeout;
+
+	struct aemu_post_office_sock_addr addr = {
+		.addr = resolve_server_ip(),
+		.port = htons(POSTOFFICE_PORT)
+	};
+
+	AdhocSocket *internal = _sockets[idx];
+	void *ptp_socket = NULL;
+
+	while(1){
+		int state;
+		// TODO actually nonblock mode, this might cause game stutter without
+		ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->ptp.laddr, internal->ptp.lport, (const char *)&internal->ptp.paddr, internal->ptp.pport, &state);
+		if (ptp_socket == NULL){
+			printk("%s: failed connecting to ptp socket, %d\n", __func__, state);
+			if (nonblock){
+				return ADHOC_CONNECTION_REFUSED;
+			}else{
+				if (timeout == 0){
+					return ADHOC_CONNECTION_REFUSED;
+				}else{
+					if (sceKernelGetSystemTimeWide() < end){
+						sceKernelDelayThread(100);
+						continue;
+					}
+					return ADHOC_TIMEOUT;
+				}
+			}
+		}
+		break;
+	}
+
+	// we got a new socket
+	*(void **)&internal->ptp.id = ptp_socket;
+	internal->ptp.state = PTP_STATE_ESTABLISHED;
+	return 0;
+}
+
 /**
  * Adhoc Emulator PTP Connection Opener
  * @param id Socket File Descriptor
@@ -44,6 +85,10 @@ int proNetAdhocPtpConnect(int id, uint32_t timeout, int flag)
 			// Valid Client Socket
 			if(socket->state == 0)
 			{
+				if (_postoffice){
+					return ptp_connect_postoffice(id - 1, timeout, flag);
+				}
+
 				// Target Address
 				SceNetInetSockaddrIn sin;
 				memset(&sin, 0, sizeof(sin));

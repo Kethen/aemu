@@ -17,6 +17,135 @@
 
 #include "../../common.h"
 
+static uint32_t server_ip = 0;
+
+uint32_t resolve_server_ip(){
+	sceKernelWaitSema(_server_resolve_mutex, 1, 0);
+
+	if (server_ip != 0){
+		sceKernelSignalSema(_server_resolve_mutex, 1);
+		return server_ip;
+	}
+
+	int dns_init_status = sceNetResolverInit();
+	if (dns_init_status != 0){
+		sceKernelSignalSema(_server_resolve_mutex, 1);
+		printk("%s: failed initializing dns resolver\n", __func__, dns_init_status);
+		return -1;
+	}
+
+	unsigned char rbuf[512]; int rid = 0;
+	int dns_create_status = sceNetResolverCreate(&rid, rbuf, sizeof(rbuf));
+	if (dns_create_status != 0){
+		sceNetResolverTerm();
+		sceKernelSignalSema(_server_resolve_mutex, 1);
+		printk("%s: failed creating dns resolver instance\n", __func__);
+		return -1;
+	}
+
+	int fd = sceIoOpen("ms0:/seplugins/server.txt", PSP_O_RDONLY, 0777);
+	if (fd < 0){
+		fd = sceIoOpen("ms0:/PSP/PLUGINS/atpro/server.txt", PSP_O_RDONLY, 0777);
+	}
+	if (fd < 0){
+		sceNetResolverDelete(rid);
+		sceNetResolverTerm();
+		sceKernelSignalSema(_server_resolve_mutex, 1);
+		printk("%s: failed opening server.txt for reading, 0x%x\n", __func__, fd);
+		return -1;
+	}
+	char namebuf[128] = {0};
+	int read_status = sceIoRead(fd, namebuf, 127);
+	sceIoClose(fd);
+	if (read_status < 0){
+		sceNetResolverDelete(rid);
+		sceNetResolverTerm();
+		sceKernelSignalSema(_server_resolve_mutex, 1);
+		printk("%s: failed reading server.txt, 0x%x\n", __func__, read_status);
+		return -1;
+	}
+	for(int i = 0;i < 127;i++){
+		if (namebuf[i] == '\0'){
+			break;
+		}
+		if (namebuf[i] == '\r' || namebuf[i] == '\n'){
+			namebuf[i] = '\0';
+		}
+	}
+
+	uint32_t pending_ip = 0;
+	int resolve_status = sceNetResolverStartNtoA(rid, namebuf, (struct in_addr *)&pending_ip, 500000, 2);
+	sceNetResolverDelete(rid);
+	sceNetResolverTerm();
+	if (resolve_status){
+		sceNetInetInetAton(namebuf, &pending_ip);
+	}
+
+	server_ip = pending_ip;
+	sceKernelSignalSema(_server_resolve_mutex, 1);
+
+	printk("%s: server ip resolved as 0x%x\n", __func__, pending_ip);
+
+	return server_ip;
+}
+
+uint16_t htons(uint16_t host){
+	uint16_t ret;
+	char *host_bytes = (char *)&host;
+	char *ret_bytes = (char *)&ret;
+	ret_bytes[0] = host_bytes[1];
+	ret_bytes[1] = host_bytes[0];
+	return ret;
+}
+
+static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bufsize){
+	struct aemu_post_office_sock_addr addr = {
+		.addr = resolve_server_ip(),
+		.port = htons(POSTOFFICE_PORT)
+	};
+
+	int state = 0;
+	void *pdp_sock = pdp_create_v4(&addr, (const char *)saddr, sport, &state);
+	if (pdp_sock == NULL){
+		printk("%s: failed creating post office pdp socket, %d\n", __func__, state);
+		return NET_NO_SPACE;
+	}
+
+	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
+	if (internal == NULL){
+		printk("%s: failed allocating space for pdp socket entry\n", __func__);
+		pdp_delete(pdp_sock);
+		return NET_NO_SPACE;
+	}
+
+	internal->is_ptp = false;
+	*(void **)&internal->pdp.id = pdp_sock;
+	internal->pdp.laddr = *saddr;
+	internal->pdp.lport = sport;
+	internal->pdp.rcv_sb_cc = bufsize;
+
+	sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
+
+	AdhocSocket **free_slot = NULL;
+	int i;
+	for(i = 0;i < 255; i++){
+		if(_sockets[i] == NULL){
+			free_slot = &_sockets[i];
+			break;
+		}
+	}
+	if (free_slot == NULL){
+		sceKernelSignalSema(_socket_mapper_mutex, 1);
+		printk("%s: failed finding a free slot to keep track of the socket\n", __func__);
+		free(internal);
+		pdp_delete(pdp_sock);
+		return NET_NO_SPACE;
+	}
+	*free_slot = internal;
+	sceKernelSignalSema(_socket_mapper_mutex, 1);
+	return i + 1;
+}
+
 /**
  * Adhoc Emulator PDP Socket Creator
  * @param saddr Local MAC (Unused)
@@ -66,6 +195,10 @@ int proNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 				// Unused port supplied
 				if(!_IsPDPPortInUse(sport))
 				{
+					if (_postoffice){
+						return pdp_create_postoffice(&local_mac, sport, bufsize);
+					}
+
 					// Create Internet UDP Socket
 					int socket = sceNetInetSocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 					

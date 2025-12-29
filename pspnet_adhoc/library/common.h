@@ -44,6 +44,15 @@
 // PSP thread control
 #include <pspthreadman.h>
 
+// module loading
+#include <pspmodulemgr.h>
+
+// dns
+#include <pspnet_resolver.h>
+
+// config reading
+#include <pspiofilemgr.h>
+
 // --- Kernel Debugger ---
 
 // Kernel Debug Printer
@@ -62,6 +71,9 @@
 
 // Stack usage reduction workers
 #include "workers.h"
+
+// aemu postoffice
+#include "postoffice_client.h"
 
 // --- Improved PSPSDK Header ---
 

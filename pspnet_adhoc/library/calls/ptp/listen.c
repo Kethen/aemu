@@ -17,6 +17,56 @@
 
 #include "../../common.h"
 
+static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, uint32_t bufsize){
+	struct aemu_post_office_sock_addr addr = {
+		.addr = resolve_server_ip(),
+		.port = htons(POSTOFFICE_PORT)
+	};
+	int state;
+	void *ptp_listen_socket = ptp_listen_v4(&addr, (const char*)saddr, sport, &state);
+	if (ptp_listen_socket == NULL){
+		printk("%s: failed creating postoffice ptp listen socket, %d\n", __func__, state);
+		return NET_NO_SPACE;
+	}
+
+	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
+	if (internal == NULL){
+		printk("%s: out of heap memory when creating ptp listen socket\n", __func__);
+		ptp_listen_close(ptp_listen_socket);
+		return NET_NO_SPACE;
+	}
+
+	internal->is_ptp = true;
+	*(void **)&internal->ptp.id = ptp_listen_socket;
+	internal->ptp.laddr = *saddr;
+	internal->ptp.lport = sport;
+	internal->ptp.state = PTP_STATE_LISTEN;
+	internal->ptp.rcv_sb_cc = bufsize;
+
+	sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
+	AdhocSocket **slot = NULL;
+	int i;
+	for(i = 0;i < 255;i++){
+		if (_sockets[i] == NULL){
+			slot = &_sockets[i];
+			break;
+		}
+	}
+
+	if (slot == NULL){
+		sceKernelSignalSema(_socket_mapper_mutex, 1);
+		printk("%s: out of socket slots when creating adhoc ptp listen socket\n", __func__);
+		free(internal);
+		ptp_listen_close(ptp_listen_socket);
+		return NET_NO_SPACE;
+	}
+
+	*slot = internal;
+	sceKernelSignalSema(_socket_mapper_mutex, 1);
+	
+	return i + 1;
+}
+
 /**
  * Adhoc Emulator PTP Passive Socket Creator
  * @param saddr Local MAC (Unused)
@@ -70,6 +120,10 @@ int proNetAdhocPtpListen(const SceNetEtherAddr * saddr, uint16_t sport, uint32_t
 				// Valid Arguments
 				if(bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0 && backlog > 0)
 				{
+					if (_postoffice){
+						return ptp_listen_postoffice(&local_mac, sport, bufsize);
+					}
+
 					// Create Infrastructure Socket
 					int socket = sceNetInetSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 					

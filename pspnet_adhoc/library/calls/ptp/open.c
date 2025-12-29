@@ -17,6 +17,45 @@
 
 #include "../../common.h"
 
+int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, const SceNetEtherAddr *daddr, uint16_t dport, uint32_t bufsize){
+	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
+	if (internal == NULL){
+		printk("%s: ran out of heap memory trying to open ptp socket\n", __func__);
+		return NET_NO_SPACE;
+	}
+
+	internal->is_ptp = true;
+	*(void **)&internal->ptp.id = NULL;
+	internal->ptp.state = PTP_STATE_CLOSED;
+	internal->ptp.laddr = *saddr;
+	internal->ptp.lport = sport;
+	internal->ptp.paddr = *daddr;
+	internal->ptp.pport = dport;
+	internal->ptp.rcv_sb_cc = bufsize;
+
+	sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
+	AdhocSocket **slot = NULL;
+	int i;
+	for(i = 0;i < 255;i++){
+		if(_sockets[i] == NULL){
+			slot = &_sockets[i];
+			break;
+		}
+	}
+
+	if (slot == NULL){
+		sceKernelSignalSema(_socket_mapper_mutex, 1);
+		free(internal);
+		printk("%s: cannot find free socket mapper slot while opening ptp socket\n", __func__);
+		return NET_NO_SPACE;
+	}
+
+	*slot = internal;
+	sceKernelSignalSema(_socket_mapper_mutex, 1);
+
+	return i + 1;
+}
+
 /**
  * Adhoc Emulator PTP Active Socket Creator
  * @param saddr Local MAC (Unused)
@@ -78,6 +117,10 @@ int proNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 				// Valid Arguments
 				if(bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0)
 				{
+					if (_postoffice){
+						return ptp_open_postoffice(&local_mac, sport, daddr, dport, bufsize);
+					}
+
 					// Create Infrastructure Socket
 					int socket = sceNetInetSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 					

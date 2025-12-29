@@ -37,6 +37,10 @@ int _zero = 0;
 
 int rehook_inet();
 
+int _postoffice = 0;
+
+static int postoffice_handle = -1;
+
 /**
  * Adhoc Emulator Socket Library Init-Call
  * @return 0 on success or... ADHOC_ALREADY_INITIALIZED
@@ -47,6 +51,25 @@ int proNetAdhocInit(void)
 	if(!_init)
 	{
 		return_memory();
+
+		// Load postoffice lib
+		if (postoffice_handle < 0){
+			postoffice_handle = sceKernelLoadModule("ms0:/kd/aemu_postoffice.prx", 0, NULL);
+			if (postoffice_handle < 0){
+				postoffice_handle = sceKernelLoadModule("ms0:/PSP/PLUGINS/atpro/aemu_postoffice.prx", 0, NULL);
+			}
+			if (postoffice_handle >= 0){
+				int start_status = sceKernelStartModule(postoffice_handle, 0, NULL, NULL, NULL);
+				if (start_status >= 0){
+					_postoffice = 1;
+					printk("%s: postoffice prx loaded, enabling postoffice mode\n", __func__);
+				}else{
+					printk("%s: failed starting aemu postoffice, 0x%x\n", __func__, postoffice_handle);
+				}
+			}else{
+				printk("%s: failed loading aemu postoffice, 0x%x\n", __func__, postoffice_handle);
+			}
+		}
 
 		// Load port offset
 		_readPortOffsetConfig();

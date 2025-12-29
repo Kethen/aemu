@@ -33,6 +33,7 @@ bool use_worker = true;
 int _port_offset = 0;
 
 SceUID _socket_mapper_mutex = -1;
+SceUID _server_resolve_mutex = -1;
 
 static uint16_t reverse_port(uint16_t port)
 {
@@ -594,6 +595,11 @@ int module_start(SceSize args, void * argp)
 	_socket_mapper_mutex = sceKernelCreateSema("socket mapper mutex", 0, 1, 1, NULL);
 	if (_socket_mapper_mutex < 0){
 		printk("%s: failed creating socket mapper mutex\n", __func__);
+	}
+
+	_server_resolve_mutex = sceKernelCreateSema("server resolve mutex", 0, 1, 1, NULL);
+	if (_server_resolve_mutex < 0){
+		printk("%s: failed creating server resolve mutex\n", __func__);
 	}
 
 	if (use_worker){

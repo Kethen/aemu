@@ -35,4 +35,9 @@ PSP_EXPORT_FUNC_HASH(sceNetAdhocGameModeUpdateReplica)
 PSP_EXPORT_FUNC_HASH(sceNetAdhocGameModeDeleteReplica)
 PSP_EXPORT_END
 
+PSP_EXPORT_START(sceNetAdhocInternal, 0x0011, 0x0001)
+PSP_EXPORT_FUNC_NID(resolve_server_ip, 0x1)
+PSP_EXPORT_END
+
+
 PSP_END_EXPORTS

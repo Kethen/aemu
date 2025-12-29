@@ -70,6 +70,9 @@
 #define ADHOC_F_ALERTFLUSH 0x0200
 #define ADHOC_F_ALERTALL (ADHOC_F_ALERTSEND | ADHOC_F_ALERTRECV | ADHOC_F_ALERTPOLL | ADHOC_F_ALERTCONNECT | ADHOC_F_ALERTACCEPT | ADHOC_F_ALERTFLUSH)
 
+// postoffice port
+#define POSTOFFICE_PORT 27313
+
 // Sockets
 extern AdhocSocket *_sockets[255];
 
@@ -108,9 +111,9 @@ extern SceUID _gamemode_thread_id;
 extern int _gamemode_replica_stop_thread;
 extern SceUID _gamemode_replica_thread_id;
 extern SceUID _socket_mapper_mutex;
-
+extern SceUID _server_resolve_mutex;
 extern int _port_offset;
-
 extern int _is_ppsspp;
+extern int _postoffice;
 
 #endif

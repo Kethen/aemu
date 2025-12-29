@@ -19,6 +19,86 @@
 
 #define NBIO_BCAST 1
 
+static int pdp_send_postoffice_unicast(int idx, const SceNetEtherAddr *daddr, uint16_t dport, const void *data, int len, uint32_t timeout, int nonblock){
+	uint64_t begin = sceKernelGetSystemTimeWide();
+	uint64_t end = begin + timeout;
+
+	if (len > 2048){
+		// okay what's with the giant buffers in games
+		len = 2048;
+	}
+
+	int pdp_send_status;
+	int recovery_cnt = 0;
+	while(1){
+		void *pdp_sock = pdp_postoffice_recover(idx);
+		if (pdp_sock == NULL){
+			if (!nonblock && timeout != 0 && sceKernelGetSystemTimeWide() < end){
+				sceKernelDelayThread(100);
+				continue;
+			}
+			if (!nonblock && timeout == 0){
+				recovery_cnt++;
+				if (recovery_cnt == 100){
+					printk("%s: server might be down, and game wants to perform blocking send, we're stuck until server comes back\n", __func__);
+				}
+				sceKernelDelayThread(100);
+				continue;
+			}
+			// we can do recovery later
+			pdp_send_status = AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK;
+			break;
+		}
+		pdp_send_status = pdp_send(pdp_sock, (const char *)daddr, dport, (char *)data, len, nonblock || timeout != 0);
+		if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
+			// let recovery deal with this
+			pdp_delete(pdp_sock);
+			*(void **)&_sockets[idx]->pdp.id = NULL;
+			sceKernelDelayThread(100);
+			continue;
+		}
+		if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK && !nonblock && timeout != 0 && sceKernelGetSystemTimeWide() < end){
+			sceKernelDelayThread(100);
+			continue;
+		}
+		break;
+	}
+
+	if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK){
+		if (nonblock){
+			return ADHOC_WOULD_BLOCK;
+		}else{
+			return ADHOC_TIMEOUT;
+		}
+	}
+	if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY){
+		// this is critical
+		printk("%s: critical: huge client buf %d what is going on please fix\n", __func__, len);
+	}
+
+	return 0;
+}
+
+static int pdp_send_postoffice(int idx, const SceNetEtherAddr *daddr, uint16_t dport, const void *data, int len, uint32_t timeout, int nonblock){
+	if(!_isBroadcastMAC(daddr)){
+		return pdp_send_postoffice_unicast(idx, daddr, dport, data, len, timeout, nonblock);
+	}
+
+	// Iterate Peers
+	SceNetAdhocctlPeerInfo peers[32];
+	int num_peers = sizeof(peers);
+	int fetch_result = sceNetAdhocctlGetPeerList(&num_peers, peers);
+	if (fetch_result != 0){
+		printk("%s: failed fetching peer list while trying to broadcast, 0x%x\n", __func__, fetch_result);
+	}else{
+		for(int i = 0;i < num_peers / sizeof(SceNetAdhocctlPeerInfo);i++){
+			pdp_send_postoffice_unicast(idx, &peers[i].mac_addr, dport, data, len, 0, 1);
+		}
+	}
+
+	return 0;
+}
+
 /**
  * Adhoc Emulator PDP Send Call
  * @param id Socket File Descriptor
@@ -53,6 +133,10 @@ int proNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 						// Valid Destination Address
 						if(daddr != NULL && !_isZeroMac(daddr)) // matching PPSSPP, which drops zero dst
 						{
+							if (_postoffice){
+								return pdp_send_postoffice(id - 1, daddr, dport, data, len, timeout, flag);
+							}
+
 							// Log Destination
 							#ifdef TRACE
 							printk("Attempting PDP Send to %02X:%02X:%02X:%02X:%02X:%02X on Port %u\n", daddr->data[0], daddr->data[1], daddr->data[2], daddr->data[3], daddr->data[4], daddr->data[5], dport);
@@ -60,7 +144,7 @@ int proNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 							
 							// Schedule Timeout Removal
 							if(flag) timeout = 0;
-							
+
 							// Apply Send Timeout Settings to Socket
 							sceNetInetSetsockopt(socket->id, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 							
@@ -77,7 +161,7 @@ int proNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 								{
 									// Acquire Network Lock
 									_acquireNetworkLock();
-									
+
 									// Send Data
 									int sent = sceNetInetSendto(socket->id, data, len, ((flag != 0) ? (INET_MSG_DONTWAIT) : (0)), (SceNetInetSockaddr *)&target, sizeof(target));
 									

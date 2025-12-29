@@ -17,6 +17,94 @@
 
 #include "../../common.h"
 
+void *pdp_postoffice_recover(int idx){
+	if (*(void **)&_sockets[idx]->pdp.id != NULL){
+		return *(void **)&_sockets[idx]->pdp.id;
+	}
+	struct aemu_post_office_sock_addr addr = {
+		.addr = resolve_server_ip(),
+		.port = htons(POSTOFFICE_PORT)
+	};
+	SceNetEtherAddr local_mac = {0};
+	sceNetGetLocalEtherAddr(&local_mac);
+	int state;
+	*(void **)&_sockets[idx]->pdp.id = pdp_create_v4(&addr, (const char *)&local_mac, _sockets[idx]->pdp.lport, &state);
+	if (state != AEMU_POSTOFFICE_CLIENT_OK){
+		printk("%s: pdp socket recovery failed, %d\n", __func__, state);
+	}
+	return *(void **)&_sockets[idx]->pdp.id;
+}
+
+static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport, void *buf, int *len, uint32_t timeout, int nonblock){
+	uint64_t begin = sceKernelGetSystemTimeWide();
+	uint64_t end = begin + timeout;
+
+	if (*len > 2048){
+		// okay what's with the giant buffers in games
+		*len = 2048;
+	}
+
+	int sport_cpy = 0;
+	int len_cpy = 0;
+	int pdp_recv_status;
+	int recovery_cnt = 0;
+	while(1){
+		void *pdp_sock = pdp_postoffice_recover(idx);
+		if (pdp_sock == NULL){
+			if (!nonblock && timeout != 0 && sceKernelGetSystemTimeWide() < end){
+				sceKernelDelayThread(100);
+				continue;
+			}
+			if (!nonblock && timeout == 0){
+				// we're basically stuck, oh no
+				recovery_cnt++;
+				if (recovery_cnt == 100){
+					printk("%s: server might be down, and game wants to perform blocking recv, we're stuck until server comes back\n", __func__);
+				}
+				sceKernelDelayThread(100);
+				continue;
+			}
+			// we're in timeout/nonblock mode, we can do recovery on next attempt
+			pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK;
+			break;
+		}
+		len_cpy = *len;
+		pdp_recv_status = pdp_recv(pdp_sock, (char *)saddr, &sport_cpy, buf, &len_cpy, nonblock || timeout != 0);
+		if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK && !nonblock && timeout != 0 && sceKernelGetSystemTimeWide() < end){
+			sceKernelDelayThread(100);
+			continue;
+		}
+		if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
+			// let recovery logic handle this
+			pdp_delete(pdp_sock);
+			*(void **)&_sockets[idx]->pdp.id = NULL;
+			sceKernelDelayThread(100);
+			continue;
+		}
+		break;
+	}
+
+	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK){
+		if (nonblock){
+			return ADHOC_WOULD_BLOCK;
+		}else{
+			return ADHOC_TIMEOUT;
+		}
+	}
+	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DATA_TRUNC){
+		return ADHOC_NOT_ENOUGH_SPACE;
+	}
+	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY){
+		// this is critical
+		printk("%s: critical: huge client buf %d what is going on please fix\n", __func__, *len);
+		len_cpy = 0;
+	}
+
+	*len = len_cpy;
+	*sport = sport_cpy;
+	return 0;
+}
+
 /**
  * Adhoc Emulator PDP Receive Call
  * @param id Socket File Descriptor
@@ -42,6 +130,10 @@ int proNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 			// Valid Arguments
 			if(saddr != NULL && sport != NULL && buf != NULL && len != NULL && *len > 0)
 			{
+				if (_postoffice){
+					return pdp_recv_postoffice(id - 1, saddr, sport, buf, len, timeout, flag);
+				}
+
 				#ifndef PDP_DIRTY_MAGIC
 				// Schedule Timeout Removal
 				if(flag) timeout = 0;

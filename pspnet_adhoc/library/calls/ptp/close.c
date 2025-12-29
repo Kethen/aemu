@@ -17,6 +17,23 @@
 
 #include "../../common.h"
 
+static int ptp_close_postoffice(int idx){
+	AdhocSocket *internal = _sockets[idx];
+	void *socket = *(void **)&internal->ptp.id;
+	if (socket != NULL){
+		if (internal->ptp.state == PTP_STATE_ESTABLISHED){
+			ptp_close(socket);
+		}else if (internal->ptp.state == PTP_STATE_LISTEN){
+			ptp_listen_close(socket);
+		}
+	}
+	sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
+	_sockets[idx] = NULL;
+	sceKernelSignalSema(_socket_mapper_mutex, 1);
+	free(internal);
+	return 0;
+}
+
 /**
  * Adhoc Emulator PTP Socket Closer
  * @param id Socket File Descriptor
@@ -31,6 +48,10 @@ int proNetAdhocPtpClose(int id, int flag)
 		// Valid Arguments & Atleast one Socket
 		if(id > 0 && id <= 255 && _sockets[id - 1] != NULL && _sockets[id - 1]->is_ptp)
 		{
+			if (_postoffice){
+				return ptp_close_postoffice(id - 1);
+			}
+
 			// Cast Socket
 			SceNetAdhocPtpStat * socket = &_sockets[id - 1]->ptp;
 			

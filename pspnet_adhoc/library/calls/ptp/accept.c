@@ -17,6 +17,138 @@
 
 #include "../../common.h"
 
+static void *ptp_listen_postoffice_recover(int idx){
+	if (*(void **)&_sockets[idx]->ptp.id != NULL){
+		return *(void **)&_sockets[idx]->ptp.id;
+	}
+
+	
+}
+
+static int ptp_accept_postoffice(int idx, SceNetEtherAddr *addr, uint16_t *port, uint32_t timeout, int nonblock){
+	uint64_t begin = sceKernelGetSystemTimeWide();
+	uint64_t end = begin + timeout;
+
+	SceNetEtherAddr mac;
+	int port_cpy;
+	int state;
+	int recovery_cnt = 0;
+	void *new_ptp_socket = NULL;
+	while(1){
+		void *ptp_listen_socket = ptp_listen_postoffice_recover(idx);
+		if (ptp_listen_socket == NULL){
+			if (!nonblock && timeout != 0 && sceKernelGetSystemTimeWide() < end){
+				sceKernelDelayThread(100);
+				continue;
+			}
+			if (!nonblock && timeout == 0){
+				// we're stuck
+				recovery_cnt++;
+				if (recovery_cnt == 100){
+					printk("%s: server might be down, and game wants to perform blocking accept, we're stuck until server comes back\n", __func__);
+				}
+				sceKernelDelayThread(100);
+				continue;
+			}
+			// nonblock/timeout, we'll try again next attempt
+			state = AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK;
+			break;
+		}
+
+		new_ptp_socket = ptp_accept(ptp_listen_socket, (char *)&mac, &port_cpy, nonblock || timeout != 0, &state);
+		if (state == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK && !nonblock && timeout != 0 && sceKernelGetSystemTimeWide() < end){
+			sceKernelDelayThread(100);
+			continue;
+		}
+		if (state == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD || state == AEMU_POSTOFFICE_CLIENT_SESSION_NETWORK){
+			// let recovery deal with it
+			ptp_listen_close(ptp_listen_socket);
+			*(void **)&_sockets[idx]->ptp.id = NULL;
+			sceKernelDelayThread(100);
+			continue;
+		}
+		break;
+	}
+
+	if (state == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK){
+		if (nonblock){
+			return ADHOC_WOULD_BLOCK;
+		}else{
+			return ADHOC_TIMEOUT;
+		}
+	}
+
+	if (state == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY){
+		// this is mostly critical
+		printk("%s: critical: postoffice ran out of memory while trying to accept new connection\n", __func__);
+		if (nonblock){
+			return ADHOC_WOULD_BLOCK;
+		}else{
+			return ADHOC_TIMEOUT;
+		}
+	}
+
+	if (new_ptp_socket == NULL){
+		// this is critical
+		printk("%s: critical: failed accepting new connection, %d\n", __func__, state);
+		if (nonblock){
+			return ADHOC_WOULD_BLOCK;
+		}else{
+			return ADHOC_TIMEOUT;
+		}
+	}
+
+    // we have a new socket
+	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
+	if (internal == NULL){
+		printk("%s: critical: ran out of heap memory while accepting new connection\n", __func__);
+		ptp_close(new_ptp_socket);
+		if (nonblock){
+			return ADHOC_WOULD_BLOCK;
+		}else{
+			return ADHOC_TIMEOUT;
+		}
+	}
+
+	internal->is_ptp = true;
+	*(void **)&internal->ptp.id = new_ptp_socket;
+	internal->ptp.laddr = _sockets[idx]->ptp.laddr;
+	internal->ptp.lport = _sockets[idx]->ptp.lport;
+	internal->ptp.paddr = mac;
+	internal->ptp.pport = port_cpy;
+	internal->ptp.state = PTP_STATE_ESTABLISHED;
+	internal->ptp.rcv_sb_cc = 0;
+
+	sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
+	AdhocSocket **slot = NULL;
+	int i;
+	for(i = 0;i < 255;i++){
+		if (_sockets[i] == NULL){
+			slot = &_sockets[i];
+			break;
+		}
+	}
+
+	if (slot == NULL){
+		sceKernelSignalSema(_socket_mapper_mutex, 1);
+		ptp_close(new_ptp_socket);
+		free(internal);
+		printk("%s: critical: cannot find an empty mapper slot\n", __func__);
+		if (nonblock){
+			return ADHOC_WOULD_BLOCK;
+		}else{
+			return ADHOC_TIMEOUT;
+		}
+	}
+
+	*slot = internal;
+	sceKernelSignalSema(_socket_mapper_mutex, 1);
+
+	*addr = mac;
+	*port = port_cpy;
+	return i + 1;
+}
+
 /**
  * Adhoc Emulator PTP Connection Acceptor
  * @param id Socket File Descriptor
@@ -44,6 +176,10 @@ int proNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 				//if(addr != NULL && port != NULL)
 				// PPSSPP allows null addr and port for a few games, such as GTA:VCS and Bomberman Panic Bomber
 				{
+					if (_postoffice){
+						return ptp_accept_postoffice(id - 1, addr, port, timeout, flag);
+					}
+
 					// Address Information
 					SceNetInetSockaddrIn peeraddr;
 					memset(&peeraddr, 0, sizeof(peeraddr));
