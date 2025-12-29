@@ -11,6 +11,7 @@ PSPNET_AP_DIALOG_DUMMY = pspnet_ap_dialog_dummy
 PSPNET_MINIUPNC = pspnet_miniupnc
 PSPNET_SHIMS = pspnet_shims
 MIDMEM_LAYOUT = midmem_layout
+PPSSPP_LOADER = ppsspp_loader
 
 CONTRIBUTIONS = contributions
 PROCFW = ../procfw
@@ -93,6 +94,7 @@ all:
 #	@cd $(PSPNET_AP_DIALOG_DUMMY); make $(FLAGS)
 	@cd $(PSPNET_SHIMS); make $(FLAGS)
 #	@cd $(MIDMEM_LAYOUT); make $(FLAGS)
+	@cd $(PPSSPP_LOADER); make $(FLAGS)
 
 clean:
 	@cd $(ATPRO); make clean $(FLAGS)
@@ -108,4 +110,5 @@ clean:
 #	@cd $(PSPNET_AP_DIALOG_DUMMY); make clean $(FLAGS)
 	@cd $(PSPNET_SHIMS); make clean $(FLAGS)
 #	@cd $(MIDMEM_LAYOUT); make clean $(FLAGS)
+	@cd $(PPSSPP_LOADER); make clean $(FLAGS)
 	@rm -rf $(DISTRIBUTE) || true
