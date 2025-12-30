@@ -18,7 +18,7 @@
 #include "../../common.h"
 
 int pdp_delete_postoffice(int idx){
-	void *pdp_socket = *(void **)&_sockets[idx]->pdp.id;
+	void *pdp_socket = _sockets[idx]->postoffice_handle;
 	if (pdp_socket != NULL){
 		pdp_delete(pdp_socket);
 	}

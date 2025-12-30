@@ -69,6 +69,8 @@ typedef struct PtpSocketExt {
 // adhoc socket reference
 typedef struct AdhocSocket{
 	bool is_ptp;
+	// cursed, pdp->id is actually not aligned to 4 in this arrangement, so I'm putting this here
+	void *postoffice_handle;
 	SceNetAdhocPdpStat pdp;
 	SceNetAdhocPtpStat ptp;
 	PtpSocketExt ptp_ext;

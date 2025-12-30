@@ -18,11 +18,23 @@
 #include "../../common.h"
 
 static void *ptp_listen_postoffice_recover(int idx){
-	if (*(void **)&_sockets[idx]->ptp.id != NULL){
-		return *(void **)&_sockets[idx]->ptp.id;
+	AdhocSocket *internal = _sockets[idx];
+	if (internal->postoffice_handle != NULL){
+		return internal->postoffice_handle;
 	}
 
-	
+	struct aemu_post_office_sock_addr addr = {
+		.addr = resolve_server_ip(),
+		.port = htons(POSTOFFICE_PORT)
+	};
+	int state;
+	internal->postoffice_handle = ptp_listen_v4(&addr, (const char*)&internal->ptp.laddr, internal->ptp.lport, &state);
+
+	if (state != AEMU_POSTOFFICE_CLIENT_OK){
+		printk("%s: failed recovering ptp listen socket, %d\n", __func__, state);
+	}
+
+	return internal->postoffice_handle;
 }
 
 static int ptp_accept_postoffice(int idx, SceNetEtherAddr *addr, uint16_t *port, uint32_t timeout, int nonblock){
@@ -63,7 +75,7 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *addr, uint16_t *port,
 		if (state == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD || state == AEMU_POSTOFFICE_CLIENT_SESSION_NETWORK){
 			// let recovery deal with it
 			ptp_listen_close(ptp_listen_socket);
-			*(void **)&_sockets[idx]->ptp.id = NULL;
+			_sockets[idx]->postoffice_handle = NULL;
 			sceKernelDelayThread(100);
 			continue;
 		}
@@ -111,7 +123,7 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *addr, uint16_t *port,
 	}
 
 	internal->is_ptp = true;
-	*(void **)&internal->ptp.id = new_ptp_socket;
+	internal->postoffice_handle = new_ptp_socket;
 	internal->ptp.laddr = _sockets[idx]->ptp.laddr;
 	internal->ptp.lport = _sockets[idx]->ptp.lport;
 	internal->ptp.paddr = mac;

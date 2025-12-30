@@ -28,7 +28,7 @@ static int ptp_send_postoffice(int idx, const void *data, int *len, uint32_t tim
 
 	int send_status;
 	while (1){
-		send_status = ptp_send(*(void **)&_sockets[idx]->ptp.id, (const char *)data, *len, nonblock || timeout != 0);
+		send_status = ptp_send(_sockets[idx]->postoffice_handle, (const char *)data, *len, nonblock || timeout != 0);
 		if (send_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK){
 			if (nonblock){
 				return ADHOC_WOULD_BLOCK;

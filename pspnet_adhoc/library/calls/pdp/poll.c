@@ -19,8 +19,8 @@
 
 static int get_postoffice_fd(int idx){
 	AdhocSocket *internal = _sockets[idx];
+	void *socket = internal->postoffice_handle;
 	if (internal->is_ptp){
-		void *socket = *(void **)&internal->ptp.id;
 		if (socket != NULL){
 			if (internal->ptp.state == PTP_STATE_LISTEN){
 				return ptp_listen_get_native_sock(socket);
@@ -29,7 +29,6 @@ static int get_postoffice_fd(int idx){
 			}
 		}
 	}else{
-		void *socket = *(void **)&internal->pdp.id;
 		if (socket != NULL){
 			return pdp_get_native_sock(socket);
 		}

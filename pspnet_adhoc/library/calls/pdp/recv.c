@@ -18,8 +18,9 @@
 #include "../../common.h"
 
 void *pdp_postoffice_recover(int idx){
-	if (*(void **)&_sockets[idx]->pdp.id != NULL){
-		return *(void **)&_sockets[idx]->pdp.id;
+	AdhocSocket *internal = _sockets[idx];
+	if (internal->postoffice_handle != NULL){
+		return internal->postoffice_handle;
 	}
 	struct aemu_post_office_sock_addr addr = {
 		.addr = resolve_server_ip(),
@@ -28,11 +29,11 @@ void *pdp_postoffice_recover(int idx){
 	SceNetEtherAddr local_mac = {0};
 	sceNetGetLocalEtherAddr(&local_mac);
 	int state;
-	*(void **)&_sockets[idx]->pdp.id = pdp_create_v4(&addr, (const char *)&local_mac, _sockets[idx]->pdp.lport, &state);
+	internal->postoffice_handle = pdp_create_v4(&addr, (const char *)&local_mac, _sockets[idx]->pdp.lport, &state);
 	if (state != AEMU_POSTOFFICE_CLIENT_OK){
 		printk("%s: pdp socket recovery failed, %d\n", __func__, state);
 	}
-	return *(void **)&_sockets[idx]->pdp.id;
+	return internal->postoffice_handle;
 }
 
 static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport, void *buf, int *len, uint32_t timeout, int nonblock){
@@ -77,7 +78,7 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 		if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
 			// let recovery logic handle this
 			pdp_delete(pdp_sock);
-			*(void **)&_sockets[idx]->pdp.id = NULL;
+			_sockets[idx]->postoffice_handle = NULL;
 			sceKernelDelayThread(100);
 			continue;
 		}

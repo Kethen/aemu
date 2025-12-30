@@ -19,7 +19,7 @@
 
 static int ptp_close_postoffice(int idx){
 	AdhocSocket *internal = _sockets[idx];
-	void *socket = *(void **)&internal->ptp.id;
+	void *socket = internal->postoffice_handle;
 	if (socket != NULL){
 		if (internal->ptp.state == PTP_STATE_ESTABLISHED){
 			ptp_close(socket);

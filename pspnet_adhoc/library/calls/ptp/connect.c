@@ -53,7 +53,7 @@ static int ptp_connect_postoffice(int idx, uint32_t timeout, int nonblock){
 	}
 
 	// we got a new socket
-	*(void **)&internal->ptp.id = ptp_socket;
+	internal->postoffice_handle = ptp_socket;
 	internal->ptp.state = PTP_STATE_ESTABLISHED;
 	return 0;
 }

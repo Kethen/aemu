@@ -37,7 +37,7 @@ static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, u
 	}
 
 	internal->is_ptp = true;
-	*(void **)&internal->ptp.id = ptp_listen_socket;
+	internal->postoffice_handle = ptp_listen_socket;
 	internal->ptp.laddr = *saddr;
 	internal->ptp.lport = sport;
 	internal->ptp.state = PTP_STATE_LISTEN;

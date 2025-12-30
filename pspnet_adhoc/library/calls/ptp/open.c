@@ -25,7 +25,7 @@ int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, const SceN
 	}
 
 	internal->is_ptp = true;
-	*(void **)&internal->ptp.id = NULL;
+	internal->postoffice_handle = NULL;
 	internal->ptp.state = PTP_STATE_CLOSED;
 	internal->ptp.laddr = *saddr;
 	internal->ptp.lport = sport;

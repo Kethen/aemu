@@ -119,7 +119,7 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 	}
 
 	internal->is_ptp = false;
-	*(void **)&internal->pdp.id = pdp_sock;
+	internal->postoffice_handle = pdp_sock;
 	internal->pdp.laddr = *saddr;
 	internal->pdp.lport = sport;
 	internal->pdp.rcv_sb_cc = bufsize;

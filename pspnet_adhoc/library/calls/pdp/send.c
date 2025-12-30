@@ -53,7 +53,7 @@ static int pdp_send_postoffice_unicast(int idx, const SceNetEtherAddr *daddr, ui
 		if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
 			// let recovery deal with this
 			pdp_delete(pdp_sock);
-			*(void **)&_sockets[idx]->pdp.id = NULL;
+			_sockets[idx]->postoffice_handle = NULL;
 			sceKernelDelayThread(100);
 			continue;
 		}
