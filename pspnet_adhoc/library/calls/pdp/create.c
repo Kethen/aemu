@@ -84,7 +84,7 @@ uint32_t resolve_server_ip(){
 	server_ip = pending_ip;
 	sceKernelSignalSema(_server_resolve_mutex, 1);
 
-	printk("%s: server ip resolved as 0x%x\n", __func__, pending_ip);
+	printk("%s: server %s resolved as 0x%x\n", __func__, namebuf, pending_ip);
 
 	return server_ip;
 }

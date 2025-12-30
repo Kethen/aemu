@@ -69,7 +69,7 @@ int _zero = 0;
 
 
 // Function Prototypes
-int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip);
+int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id);
 int _readHotspotConfig(void);
 int _findHotspotConfigId(char * ssid);
 const char * _readServerConfig(void);
@@ -146,7 +146,7 @@ int proNetAdhocctlInit(int stacksize, int prio, const SceNetAdhocctlAdhocId * ad
 				return -1;
 			}
 
-			if (_initNetwork(adhoc_id, ip) != 0)
+			if (_initNetwork(adhoc_id) != 0)
 			{
 				printk("%s: failed initializing networking\n", __func__);
 				return -1;
@@ -181,13 +181,16 @@ int proNetAdhocctlInit(int stacksize, int prio, const SceNetAdhocctlAdhocId * ad
 
 void miniupnc_start();
 
+// implemented in pspnet_adhoc
+int resolve_server_ip();
+
 /**
  * Initialize Networking Components for Adhocctl Emulator
  * @param adhoc_id Game Product Code
  * @param server_ip Server IP
  * @return 0 on success or... -1
  */
-int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
+int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 {
 	// WLAN Switch Check
 	int wlan_switch_state = sceWlanGetSwitchState();
@@ -280,55 +283,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 		// sceNetInetSetsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 		
 		// Server IP
-		uint32_t ip = 0;
-
-		int dns_init_status = sceNetResolverInit();
-		if (dns_init_status != 0)
-		{
-			#if 0
-			printk("%s: failed initializing dns resolver on attempt %d, 0x%x\n", __func__, attempt, dns_init_status);
-			// Delete Socket
-			sceNetInetClose(socket);
-			// Close Hotspot Connection
-			sceNetApctlDisconnect();
-			continue;
-			#else
-			printk("%s: failed initializing dns resolver on attempt %d, ignoring for now, probably used infra mode before, 0x%x\n", __func__, attempt, dns_init_status);
-			#endif
-		}
-
-		// Create DNS Resolver
-		unsigned char rbuf[512]; int rid = 0;
-
-		int dns_create_status = sceNetResolverCreate(&rid, rbuf, sizeof(rbuf));
-		if (dns_create_status != 0)
-		{
-			#if 0
-			printk("%s: failed creating dns resolver on attempt %d, 0x%x\n", __func__, attempt, dns_create_status);
-			// Delete Socket
-			sceNetInetClose(socket);
-			// Shutdown DNS Resolver
-			sceNetResolverTerm();
-			// Close Hotspot Connection
-			sceNetApctlDisconnect();
-			continue;
-			#else
-			printk("%s: failed creating dns resolver on attempt %d, ignoring for now, probably used infra mode before, 0x%x\n", __func__, attempt, dns_init_status);
-			#endif
-		}
-
-		// Resolve Domain
-		if(dns_create_status == 0 && sceNetResolverStartNtoA(rid, server_ip, &ip, 500000, 2) != 0)
-		{
-			// Attempt IP Conversion
-			sceNetInetInetAton(server_ip, &ip);
-		}
-			
-		// Delete DNS Resolver
-		sceNetResolverDelete(rid);
-
-		// Shutdown DNS Resolver
-		sceNetResolverTerm();
+		uint32_t ip = resolve_server_ip();
 
 		// Prepare Server Address
 		SceNetInetSockaddrIn addr;
@@ -340,7 +295,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id, const char * server_ip)
 		int connect_status = sceNetInetConnect(socket, (SceNetInetSockaddr *)&addr, sizeof(addr));
 		if (connect_status != 0)
 		{
-			printk("%s: failed connecting to server %s(0x%x) on attempt %d, 0x%x\n", __func__, server_ip, ip, attempt, connect_status);
+			printk("%s: failed connecting to server 0x%x on attempt %d, 0x%x\n", __func__, ip, attempt, connect_status);
 			// Delete Socket
 			sceNetInetClose(socket);
 			// Close Hotspot Connection
