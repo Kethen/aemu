@@ -51,6 +51,9 @@ int proNetAdhocInit(void)
 	if(!_init)
 	{
 		return_memory();
+		if (_is_ppsspp){
+			ppsspp_return_memory();
+		}
 
 		// Load postoffice lib
 		if (postoffice_handle < 0){

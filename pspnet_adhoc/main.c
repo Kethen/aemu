@@ -571,6 +571,26 @@ int rehook_inet();
 
 int _is_ppsspp = 0;
 
+
+static SceUID ppsspp_stolen_mem = -1;
+void ppsspp_steal_memory(){
+	// so that gta don't die
+	if (ppsspp_stolen_mem >= 0){
+		return;
+	}
+	ppsspp_stolen_mem = sceKernelAllocPartitionMemory(2, "ppsspp_mem_layout_manipulation", PSP_SMEM_High, 1024 * 1024 * 5, NULL);
+	if (ppsspp_stolen_mem < 0){
+		printk("%s: failed stealing memory for ppsspp, 0x%x\n", __func__, ppsspp_stolen_mem);
+	}
+}
+
+void ppsspp_return_memory(){
+	if (ppsspp_stolen_mem >= 0){
+		sceKernelFreePartitionMemory(ppsspp_stolen_mem);
+		ppsspp_stolen_mem = -1;
+	}
+}
+
 // Module Start Event
 int module_start(SceSize args, void * argp)
 {
@@ -609,6 +629,7 @@ int module_start(SceSize args, void * argp)
 
 	_is_ppsspp = sceIoDevctl("kemulator:", 0x00000003, NULL, 0, NULL, 0) == 0;
 	if (_is_ppsspp){
+		ppsspp_steal_memory();
 		printk("%s: ppsspp detected\n", __func__);
 	}
 

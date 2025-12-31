@@ -130,4 +130,7 @@ uint16_t htons(uint16_t host);
 
 void *pdp_postoffice_recover(int idx);
 
+void ppsspp_steal_memory();
+void ppsspp_return_memory();
+
 #endif
