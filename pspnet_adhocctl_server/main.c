@@ -216,7 +216,7 @@ int server_loop(int server)
 				}
 				
 				// Login User (Stream)
-				if(loginresult != -1) login_user_stream(loginresult, addr.sin_addr.s_addr);
+				if(loginresult != -1) login_user_stream(loginresult, addr.sin_addr.s_addr, addr.sin_port);
 			} while(loginresult != -1);
 		}
 		

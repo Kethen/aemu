@@ -77,6 +77,8 @@ typedef struct SceNetAdhocctlUserNode {
 	// RX Buffer
 	uint8_t rx[1024];
 	uint32_t rxpos;
+
+	uint16_t port;
 } SceNetAdhocctlUserNode;
 
 // Double-Linked Game List
@@ -135,7 +137,7 @@ extern SceNetAdhocctlGameNode * _db_game;
  * @param fd Socket
  * @param ip IP Address (Network Order)
  */
-void login_user_stream(int fd, uint32_t ip);
+void login_user_stream(int fd, uint32_t ip, uint16_t port);
 
 /**
  * Login User into Database (Login Data)

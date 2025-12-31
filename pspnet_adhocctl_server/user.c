@@ -36,14 +36,14 @@ SceNetAdhocctlGameNode * _db_game = NULL;
  * @param fd Socket
  * @param ip IP Address (Network Order)
  */
-void login_user_stream(int fd, uint32_t ip)
+void login_user_stream(int fd, uint32_t ip, uint16_t port)
 {
 	// Enough Space available
 	if(_db_user_count < SERVER_USER_MAXIMUM)
 	{
 		// Check IP Duplication
 		SceNetAdhocctlUserNode * u = _db_user;
-		while(u != NULL && u->resolver.ip != ip) u = u->next;
+		while(u != NULL && (u->resolver.ip != ip || u->port != port)) u = u->next;
 		
 		// Unique IP Address
 		if(u == NULL)
@@ -62,6 +62,9 @@ void login_user_stream(int fd, uint32_t ip)
 				
 				// Save IP
 				user->resolver.ip = ip;
+
+				// Save port
+				user->port = port;
 				
 				// Link into User List
 				user->next = _db_user;
