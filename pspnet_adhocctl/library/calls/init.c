@@ -663,6 +663,8 @@ int _friendFinder(SceSize args, void * argp)
 					// Notify Event Handlers
 					if (!_in_gamemode)
 					{
+						// add a delay here, in case game checks the friend list immediately after a room switch
+						sceKernelDelayThread(100000);
 						_notifyAdhocctlhandlers(ADHOCCTL_EVENT_CONNECT, 0);
 					}
 					else

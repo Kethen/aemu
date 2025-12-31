@@ -62,7 +62,10 @@ int proNetAdhocctlCreate(const SceNetAdhocctlGroupName * group_name)
 				
 				// Free Network Lock
 				_freeNetworkLock();
-				
+
+				// add a delay like ppsspp does
+				sceKernelDelayThread(10000);
+
 				// Set HUD Connection Status
 				setConnectionStatus(1);
 				
