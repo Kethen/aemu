@@ -17,7 +17,7 @@
 
 #include "../../common.h"
 
-static int get_postoffice_fd(int idx){
+int get_postoffice_fd(int idx){
 	AdhocSocket *internal = _sockets[idx];
 	void *socket = internal->postoffice_handle;
 	if (internal->is_ptp){

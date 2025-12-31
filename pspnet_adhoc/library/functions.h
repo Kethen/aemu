@@ -133,4 +133,6 @@ void *pdp_postoffice_recover(int idx);
 void ppsspp_steal_memory();
 void ppsspp_return_memory();
 
+int get_postoffice_fd(int idx);
+
 #endif
