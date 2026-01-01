@@ -15,7 +15,7 @@ jobs:
     - name: Install server build deps
       run: |
         sudo apt update
-        sudo apt install -y gcc libsqlite3-dev
+        sudo apt install -y gcc libsqlite3-dev podman
 
     - name: Download PSP SDK
       run: |
@@ -36,6 +36,7 @@ jobs:
         make clean
         make CONFIG_660=1
         mv dist dist_660_debug
+        bash build_cygwin.sh
 
     - name: Push package artifact
       uses: actions/upload-artifact@v4
@@ -44,4 +45,5 @@ jobs:
         path: |
            dist_660_release
            dist_660_debug
+           server_win
         if-no-files-found: error

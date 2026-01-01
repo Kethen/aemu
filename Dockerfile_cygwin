@@ -1,0 +1,7 @@
+FROM fedora:43
+
+# referencing https://github.com/palves/cygwin-cross
+
+RUN dnf -y install dnf-plugins-core
+RUN dnf -y copr enable yselkowitz/cygwin
+RUN dnf -y install cygwin64-gcc cygwin64-gcc-c++
