@@ -28,6 +28,8 @@
 #include <user.h>
 #include <status.h>
 
+#include "printf.h"
+
 // Server Status
 int _status = 0;
 
