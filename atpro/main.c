@@ -172,7 +172,7 @@ static int is_vita(){
 
 void steal_memory()
 {
-	const int size = 4 * 1024 * 1024;
+	const int size = 8 * 1024 * 1024;
 
 	if (stolen_memory >= 0)
 	{
@@ -1684,9 +1684,9 @@ static void memlayout_hack(){
 	// memory layout with just r6 loaded: log_memory_info: p2 startaddr 0x8800000 size 25165824 attr 0xf max 17314048 total 17314048
 
 	#if 1
-	// 128 B of netconf param alloc + 4 MB of stolen memory + 50 KB buffer
+	// 128 B of netconf param alloc + 8 MB of stolen memory + 50 KB buffer
 	// note that this is curretly so tight due to how r6 vegas crashes when having just 2MB of extra memory
-	partition_2->size = 24 * 1024 * 1024 + 8 + 128 + 4 * 1024 * 1024 + 50 * 1024;
+	partition_2->size = 24 * 1024 * 1024 + 8 + 128 + 8 * 1024 * 1024 + 50 * 1024;
 	#else
 	// 40 MB is currently the limit on the vita, until all unsafe zones are mapped
 	partition_2->size = 40 * 1024;
