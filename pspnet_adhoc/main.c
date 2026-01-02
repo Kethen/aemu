@@ -369,7 +369,7 @@ int sceNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 int sceNetAdhocPtpSend(int id, const void * data, int * len, uint32_t timeout, int flag)
 {
 	#ifdef TRACE
-	printk("Entering %s\n", __func__);
+	printk("Entering %s buf 0x%x len 0x%x %d timeout %u nonblock %d\n", __func__, data, len, *len, timeout, flag);
 	#endif
 	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)data, (uint32_t)len, timeout, *(uint32_t*)&flag};
 	int result = 0;
@@ -387,7 +387,7 @@ int sceNetAdhocPtpSend(int id, const void * data, int * len, uint32_t timeout, i
 int sceNetAdhocPtpRecv(int id, void * buf, int * len, uint32_t timeout, int flag)
 {
 	#ifdef TRACE
-	printk("Entering %s\n", __func__);
+	printk("Entering %s buf 0x%x len 0x%x %d timeout %u nonblock %d\n", __func__, buf, len, *len, timeout, flag);
 	#endif
 	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)buf, (uint32_t)len, timeout, *(uint32_t*)&flag};
 	int result = 0;
@@ -578,7 +578,7 @@ void ppsspp_steal_memory(){
 	if (ppsspp_stolen_mem >= 0){
 		return;
 	}
-	ppsspp_stolen_mem = sceKernelAllocPartitionMemory(2, "ppsspp_mem_layout_manipulation", PSP_SMEM_High, 1024 * 1024 * 5, NULL);
+	ppsspp_stolen_mem = sceKernelAllocPartitionMemory(2, "ppsspp_mem_layout_manipulation", PSP_SMEM_High, 1024 * 1024 * 8, NULL);
 	if (ppsspp_stolen_mem < 0){
 		printk("%s: failed stealing memory for ppsspp, 0x%x\n", __func__, ppsspp_stolen_mem);
 	}

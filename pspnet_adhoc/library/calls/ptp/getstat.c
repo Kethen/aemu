@@ -71,10 +71,8 @@ int proNetAdhocGetPtpStat(int * buflen, SceNetAdhocPtpStat * buf)
 					}else{
 						int tcp_size = 0;
 						if (_postoffice){
-							int sock = get_postoffice_fd(j);
-							if (sock != -1){
-								// not exactly accurate
-								tcp_size = sceNetInetRecv(sock, peek_buf, peek_buf_size, INET_MSG_DONTWAIT | INET_MSG_PEEK);
+							if (_sockets[j]->postoffice_handle != NULL){
+								tcp_size = ptp_peek_next_size(_sockets[j]->postoffice_handle);
 							}
 						}else{
 							tcp_size = sceNetInetRecv(_sockets[j]->ptp.id, peek_buf, 4096, INET_MSG_DONTWAIT | INET_MSG_PEEK);

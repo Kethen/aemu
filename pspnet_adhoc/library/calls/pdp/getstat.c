@@ -73,11 +73,8 @@ int proNetAdhocGetPdpStat(int * buflen, SceNetAdhocPdpStat * buf)
 					}else{
 						int udp_size = -1;
 						if (_postoffice){
-							int sock = get_postoffice_fd(j);
-							if (sock != -1){
-								// not exactly accurate
-								udp_size = sceNetInetRecv(sock, peek_buf, 4096, INET_MSG_DONTWAIT | INET_MSG_PEEK);
-								udp_size = udp_size - 14;
+							if (_sockets[j]->postoffice_handle != NULL){
+								udp_size = pdp_peek_next_size(_sockets[j]->postoffice_handle);
 							}
 						}else{
 							udp_size = sceNetInetRecv(_sockets[j]->pdp.id, peek_buf, 4096, INET_MSG_DONTWAIT | INET_MSG_PEEK);
