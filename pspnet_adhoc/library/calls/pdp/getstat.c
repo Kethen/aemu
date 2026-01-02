@@ -71,7 +71,17 @@ int proNetAdhocGetPdpStat(int * buflen, SceNetAdhocPdpStat * buf)
 					if (peek_buf == NULL){
 						printk("%s: cannot allocate buffer to check current buffered data size\n", __func__);
 					}else{
-						int udp_size = sceNetInetRecv(_sockets[j]->pdp.id, peek_buf, 4096, INET_MSG_DONTWAIT | INET_MSG_PEEK);
+						int udp_size = -1;
+						if (_postoffice){
+							int sock = get_postoffice_fd(j);
+							if (sock != -1){
+								// not exactly accurate
+								udp_size = sceNetInetRecv(sock, peek_buf, 4096, INET_MSG_DONTWAIT | INET_MSG_PEEK);
+								udp_size = udp_size - 14;
+							}
+						}else{
+							udp_size = sceNetInetRecv(_sockets[j]->pdp.id, peek_buf, 4096, INET_MSG_DONTWAIT | INET_MSG_PEEK);
+						}
 						//printk("%s: udp size %d\n", __func__, udp_size);
 						if (udp_size <= 0){
 							buf[i].rcv_sb_cc = 0;
