@@ -64,7 +64,8 @@ int proNetAdhocGetPtpStat(int * buflen, SceNetAdhocPtpStat * buf)
 					buf[i].id = j + 1;
 
 					// Peek tcp size, as PPSSPP does in https://github.com/hrydgard/ppsspp/commit/4881f4f0bd0110af5cceeba8dc70f90d0e8d0978
-					uint8_t *peek_buf = malloc(4096);
+					const int peek_buf_size = 50 * 1024;
+					uint8_t *peek_buf = malloc(peek_buf_size);
 					if (peek_buf == NULL){
 						printk("%s: cannot allocate buffer to check current buffered data size\n", __func__);
 					}else{
@@ -73,7 +74,7 @@ int proNetAdhocGetPtpStat(int * buflen, SceNetAdhocPtpStat * buf)
 							int sock = get_postoffice_fd(j);
 							if (sock != -1){
 								// not exactly accurate
-								tcp_size = sceNetInetRecv(sock, peek_buf, 4096, INET_MSG_DONTWAIT | INET_MSG_PEEK);
+								tcp_size = sceNetInetRecv(sock, peek_buf, peek_buf_size, INET_MSG_DONTWAIT | INET_MSG_PEEK);
 							}
 						}else{
 							tcp_size = sceNetInetRecv(_sockets[j]->ptp.id, peek_buf, 4096, INET_MSG_DONTWAIT | INET_MSG_PEEK);

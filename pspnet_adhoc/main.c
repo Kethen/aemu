@@ -27,7 +27,7 @@
 
 #define MODULENAME "sceNetAdhoc_Library"
 PSP_MODULE_INFO(MODULENAME, PSP_MODULE_USER + 6, 1, 4);
-PSP_HEAP_SIZE_KB(100);
+PSP_HEAP_SIZE_KB(500);
 bool use_worker = true;
 
 int _port_offset = 0;
