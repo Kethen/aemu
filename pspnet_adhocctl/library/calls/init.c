@@ -284,6 +284,11 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 		
 		// Server IP
 		uint32_t ip = resolve_server_ip();
+		if (ip == 0xFFFFFFFF){
+			printk("%s: failed resolving server ip address on attempt %d\n", __func__, attempt);
+			sceNetApctlDisconnect();
+			continue;
+		}
 
 		// Prepare Server Address
 		SceNetInetSockaddrIn addr;

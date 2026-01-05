@@ -31,7 +31,7 @@ uint32_t resolve_server_ip(){
 	if (dns_init_status != 0){
 		sceKernelSignalSema(_server_resolve_mutex, 1);
 		printk("%s: failed initializing dns resolver\n", __func__, dns_init_status);
-		return -1;
+		return 0xFFFFFFFF;
 	}
 
 	unsigned char rbuf[512]; int rid = 0;
@@ -40,7 +40,7 @@ uint32_t resolve_server_ip(){
 		sceNetResolverTerm();
 		sceKernelSignalSema(_server_resolve_mutex, 1);
 		printk("%s: failed creating dns resolver instance\n", __func__);
-		return -1;
+		return 0xFFFFFFFF;
 	}
 
 	int fd = sceIoOpen("ms0:/seplugins/server.txt", PSP_O_RDONLY, 0777);
@@ -52,7 +52,7 @@ uint32_t resolve_server_ip(){
 		sceNetResolverTerm();
 		sceKernelSignalSema(_server_resolve_mutex, 1);
 		printk("%s: failed opening server.txt for reading, 0x%x\n", __func__, fd);
-		return -1;
+		return 0xFFFFFFFF;
 	}
 	char namebuf[128] = {0};
 	int read_status = sceIoRead(fd, namebuf, 127);
@@ -62,7 +62,7 @@ uint32_t resolve_server_ip(){
 		sceNetResolverTerm();
 		sceKernelSignalSema(_server_resolve_mutex, 1);
 		printk("%s: failed reading server.txt, 0x%x\n", __func__, read_status);
-		return -1;
+		return 0xFFFFFFFF;
 	}
 	for(int i = 0;i < 127;i++){
 		if (namebuf[i] == '\0'){
@@ -78,11 +78,23 @@ uint32_t resolve_server_ip(){
 	sceNetResolverDelete(rid);
 	sceNetResolverTerm();
 	if (resolve_status){
-		sceNetInetInetAton(namebuf, &pending_ip);
+		printk("%s: failed resolving %s as donamin name, trying as ip address\n", __func__, namebuf);
+		int aton_status = sceNetInetInetAton(namebuf, &pending_ip);
+		if (aton_status == 0){
+			printk("%s: %s is not a valid ip address either\n", __func__, namebuf);
+			pending_ip = 0xFFFFFFFF;
+		}
 	}
 
-	server_ip = pending_ip;
+	if (pending_ip != 0xFFFFFFFF){
+		server_ip = pending_ip;
+	}
 	sceKernelSignalSema(_server_resolve_mutex, 1);
+
+	if (pending_ip == 0xFFFFFFFF){
+		printk("%s: dns resolve failed\n", __func__);
+		return 0xFFFFFFFF;
+	}
 
 	printk("%s: server %s resolved as 0x%x\n", __func__, namebuf, pending_ip);
 
