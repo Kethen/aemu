@@ -184,6 +184,20 @@ void miniupnc_start();
 // implemented in pspnet_adhoc
 int resolve_server_ip();
 
+static void apctl_disconnect_and_wait_till_disconnected(){
+	sceNetApctlDisconnect();
+	int state = 4;
+	while(state == 4){
+		sceKernelDelayThread(100000);
+		int get_result = sceNetApctlGetState(&state);
+		if (get_result != 0){
+			printk("%s: failed getting apctl state, 0x%x\n", __func__, get_result);
+			break;
+		}
+	}
+	printk("%s: returning on state %d\n", __func__, state);
+}
+
 /**
  * Initialize Networking Components for Adhocctl Emulator
  * @param adhoc_id Game Product Code
@@ -260,7 +274,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 		{
 			printk("%s: failed connecting to ap on attempt %d, state %d\n", __func__, attempt, state);
 			// Close Hotspot Connection
-			sceNetApctlDisconnect();
+			apctl_disconnect_and_wait_till_disconnected();
 			continue;
 		}
 
@@ -270,7 +284,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 		{
 			printk("%s: failed creating internet socket on attempt %d, 0x%x\n", __func__, attempt, socket);
 			// Close Hotspot Connection
-			sceNetApctlDisconnect();
+			apctl_disconnect_and_wait_till_disconnected();
 			continue;
 		}
 
@@ -286,7 +300,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 		uint32_t ip = resolve_server_ip();
 		if (ip == 0xFFFFFFFF){
 			printk("%s: failed resolving server ip address on attempt %d\n", __func__, attempt);
-			sceNetApctlDisconnect();
+			apctl_disconnect_and_wait_till_disconnected();
 			continue;
 		}
 
@@ -297,6 +311,9 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 		addr.sin_addr = ip;
 		addr.sin_port = sceNetHtons(ADHOCCTL_METAPORT);
 
+		// PSVita 1000 seems to have issues connecting right after adhocctl
+		sceKernelDelayThread(100000 * attempt);
+
 		int connect_status = sceNetInetConnect(socket, (SceNetInetSockaddr *)&addr, sizeof(addr));
 		if (connect_status != 0)
 		{
@@ -304,7 +321,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 			// Delete Socket
 			sceNetInetClose(socket);
 			// Close Hotspot Connection
-			sceNetApctlDisconnect();
+			apctl_disconnect_and_wait_till_disconnected();
 			continue;
 		}
 		
