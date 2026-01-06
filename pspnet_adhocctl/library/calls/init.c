@@ -295,7 +295,10 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 		// Apply Receive Timeout Settings to Socket
 		// uint32_t timeout = ADHOCCTL_RECV_TIMEOUT;
 		// sceNetInetSetsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-		
+
+		// PSVita 1000 seems to have issues connecting right after adhocctl
+		sceKernelDelayThread(100000 * attempt);
+
 		// Server IP
 		uint32_t ip = resolve_server_ip();
 		if (ip == 0xFFFFFFFF){
@@ -310,9 +313,6 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 		addr.sin_family = AF_INET;
 		addr.sin_addr = ip;
 		addr.sin_port = sceNetHtons(ADHOCCTL_METAPORT);
-
-		// PSVita 1000 seems to have issues connecting right after adhocctl
-		sceKernelDelayThread(100000 * attempt);
 
 		int connect_status = sceNetInetConnect(socket, (SceNetInetSockaddr *)&addr, sizeof(addr));
 		if (connect_status != 0)
