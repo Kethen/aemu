@@ -118,7 +118,9 @@ void update_status(void)
 					SceNetAdhocctlUserNode * user = group->player; for(; user != NULL; user = user->group_next)
 					{
 						// Output User Tag + Username
-						fprintf(log, "\t\t\t<user>%s</user>\n", strcpyxml(displayname, (const char *)user->resolver.name.data, sizeof(displayname)));
+						char mac_address[20] = {0};
+						sprintf(mac_address, "%02x:%02x:%02x:%02x:%02x:%02x", (unsigned int)user->resolver.mac.data[0], (unsigned int)user->resolver.mac.data[1], (unsigned int)user->resolver.mac.data[2], (unsigned int)user->resolver.mac.data[3], (unsigned int)user->resolver.mac.data[4], (unsigned int)user->resolver.mac.data[5]);
+						fprintf(log, "\t\t\t<user mac_address=\"%s\">%s</user>\n", mac_address, strcpyxml(displayname, (const char *)user->resolver.name.data, sizeof(displayname)));
 					}
 					
 					// Output Closing Group Tag
