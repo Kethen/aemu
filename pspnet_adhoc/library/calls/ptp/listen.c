@@ -18,26 +18,15 @@
 #include "../../common.h"
 
 static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, uint32_t bufsize){
-	struct aemu_post_office_sock_addr addr = {
-		.addr = resolve_server_ip(),
-		.port = htons(POSTOFFICE_PORT)
-	};
-	int state;
-	void *ptp_listen_socket = ptp_listen_v4(&addr, (const char*)saddr, sport, &state);
-	if (ptp_listen_socket == NULL){
-		printk("%s: failed creating postoffice ptp listen socket, %d\n", __func__, state);
-		return NET_NO_SPACE;
-	}
-
+	// server connect delegated to accept
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 	if (internal == NULL){
 		printk("%s: out of heap memory when creating ptp listen socket\n", __func__);
-		ptp_listen_close(ptp_listen_socket);
 		return NET_NO_SPACE;
 	}
 
 	internal->is_ptp = true;
-	internal->postoffice_handle = ptp_listen_socket;
+	internal->postoffice_handle = NULL;
 	internal->ptp.laddr = *saddr;
 	internal->ptp.lport = sport;
 	internal->ptp.state = PTP_STATE_LISTEN;
@@ -58,7 +47,6 @@ static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, u
 		sceKernelSignalSema(_socket_mapper_mutex, 1);
 		printk("%s: out of socket slots when creating adhoc ptp listen socket\n", __func__);
 		free(internal);
-		ptp_listen_close(ptp_listen_socket);
 		return NET_NO_SPACE;
 	}
 
