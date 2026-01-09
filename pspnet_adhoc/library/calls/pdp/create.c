@@ -111,27 +111,16 @@ uint16_t htons(uint16_t host){
 }
 
 static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bufsize){
-	struct aemu_post_office_sock_addr addr = {
-		.addr = resolve_server_ip(),
-		.port = htons(POSTOFFICE_PORT)
-	};
-
-	int state = 0;
-	void *pdp_sock = pdp_create_v4(&addr, (const char *)saddr, sport, &state);
-	if (pdp_sock == NULL){
-		printk("%s: failed creating post office pdp socket, %d\n", __func__, state);
-		return NET_NO_SPACE;
-	}
+	// actual connection process delegated to recv/send recovery
 
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 	if (internal == NULL){
 		printk("%s: failed allocating space for pdp socket entry\n", __func__);
-		pdp_delete(pdp_sock);
 		return NET_NO_SPACE;
 	}
 
 	internal->is_ptp = false;
-	internal->postoffice_handle = pdp_sock;
+	internal->postoffice_handle = NULL;
 	internal->pdp.laddr = *saddr;
 	internal->pdp.lport = sport;
 	internal->pdp.rcv_sb_cc = bufsize;
@@ -150,7 +139,6 @@ static int pdp_create_postoffice(const SceNetEtherAddr *saddr, int sport, int bu
 		sceKernelSignalSema(_socket_mapper_mutex, 1);
 		printk("%s: failed finding a free slot to keep track of the socket\n", __func__);
 		free(internal);
-		pdp_delete(pdp_sock);
 		return NET_NO_SPACE;
 	}
 	*free_slot = internal;
