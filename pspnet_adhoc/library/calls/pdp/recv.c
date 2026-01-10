@@ -66,7 +66,7 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 				continue;
 			}
 			// we're in timeout/nonblock mode, we can do recovery on next attempt
-			pdp_recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK;
+			pdp_recv_status = AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK;
 			break;
 		}
 		len_cpy = *len;
