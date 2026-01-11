@@ -19,16 +19,20 @@
 
 int get_postoffice_fd(int idx){
 	AdhocSocket *internal = _sockets[idx];
-	void *socket = internal->postoffice_handle;
 	if (internal->is_ptp){
-		if (socket != NULL){
-			if (internal->ptp.state == PTP_STATE_LISTEN){
+		if (internal->ptp.state == PTP_STATE_LISTEN){
+			void *socket = ptp_listen_postoffice_recover(idx);
+			if (socket != NULL){
 				return ptp_listen_get_native_sock(socket);
-			}else if (internal->ptp.state == PTP_STATE_ESTABLISHED){
+			}
+		}else if (internal->ptp.state == PTP_STATE_ESTABLISHED){
+			void *socket = internal->postoffice_handle;
+			if (socket != NULL){
 				return ptp_get_native_sock(socket);
 			}
 		}
 	}else{
+		void *socket = pdp_postoffice_recover(idx);
 		if (socket != NULL){
 			return pdp_get_native_sock(socket);
 		}

@@ -17,7 +17,7 @@
 
 #include "../../common.h"
 
-static void *ptp_listen_postoffice_recover(int idx){
+void *ptp_listen_postoffice_recover(int idx){
 	AdhocSocket *internal = _sockets[idx];
 	if (internal->postoffice_handle != NULL){
 		return internal->postoffice_handle;

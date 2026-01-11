@@ -129,6 +129,7 @@ uint32_t resolve_server_ip();
 uint16_t htons(uint16_t host);
 
 void *pdp_postoffice_recover(int idx);
+void *ptp_listen_postoffice_recover(int idx);
 
 void ppsspp_steal_memory();
 void ppsspp_return_memory();
