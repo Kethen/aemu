@@ -60,6 +60,7 @@
 #define PTP_STATE_CLOSED 0
 #define PTP_STATE_LISTEN 1
 #define PTP_STATE_ESTABLISHED 4
+#define PTP_STATE_SYN_SENT 2
 
 // Alert Flags
 #define ADHOC_F_ALERTSEND 0x0010

@@ -19,12 +19,19 @@
 
 static int ptp_close_postoffice(int idx){
 	AdhocSocket *internal = _sockets[idx];
+
+	if (internal->connect_thread >= 0){
+		sceKernelWaitThreadEnd(internal->connect_thread, NULL);
+		sceKernelDeleteThread(internal->connect_thread);
+		internal->connect_thread = -1;
+	}
+
 	void *socket = internal->postoffice_handle;
 	if (socket != NULL){
-		if (internal->ptp.state == PTP_STATE_ESTABLISHED){
-			ptp_close(socket);
-		}else if (internal->ptp.state == PTP_STATE_LISTEN){
+		if (internal->ptp.state == PTP_STATE_LISTEN){
 			ptp_listen_close(socket);
+		}else{
+			ptp_close(socket);
 		}
 	}
 	sceKernelWaitSema(_socket_mapper_mutex, 1, 0);

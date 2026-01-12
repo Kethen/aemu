@@ -92,8 +92,14 @@ void _deleteAllPDP(void)
 		// Active Socket
 		if(_sockets[i] != NULL && !_sockets[i]->is_ptp)
 		{
-			// Close Socket
-			sceNetInetClose(_sockets[i]->pdp.id);
+			if (_postoffice){
+				if (_sockets[i]->postoffice_handle != NULL){
+					pdp_delete(_sockets[i]->postoffice_handle);
+				}
+			}else{
+				// Close Socket
+				sceNetInetClose(_sockets[i]->pdp.id);
+			}
 			
 			// Free Memory
 			free(_sockets[i]);
@@ -115,8 +121,22 @@ void _deleteAllPTP(void)
 		// Active Socket
 		if(_sockets[i] != NULL && _sockets[i]->is_ptp)
 		{
-			// Close Socket
-			sceNetInetClose(_sockets[i]->ptp.id);
+			if (_postoffice){
+				if (_sockets[i]->connect_thread >= 0){
+					sceKernelWaitThreadEnd(_sockets[i]->connect_thread, NULL);
+					sceKernelDeleteThread(_sockets[i]->connect_thread);
+				}
+				if (_sockets[i]->postoffice_handle != NULL){
+					if (_sockets[i]->ptp.state == PTP_STATE_LISTEN){
+						ptp_listen_close(_sockets[i]->postoffice_handle);
+					}else{
+						ptp_close(_sockets[i]->postoffice_handle);
+					}
+				}
+			}else{
+				// Close Socket
+				sceNetInetClose(_sockets[i]->ptp.id);
+			}
 			
 			// Free Memory
 			free(_sockets[i]);

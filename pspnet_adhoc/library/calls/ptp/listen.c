@@ -32,6 +32,7 @@ static int ptp_listen_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, u
 	internal->ptp.state = PTP_STATE_LISTEN;
 	internal->ptp.rcv_sb_cc = bufsize;
 	internal->ptp.snd_sb_cc = 0;
+	internal->connect_thread = -1;
 
 	sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
 	AdhocSocket **slot = NULL;

@@ -17,39 +17,87 @@
 
 #include "../../common.h"
 
-static int ptp_connect_postoffice(int idx, uint32_t timeout, int nonblock){
-	uint64_t begin = sceKernelGetSystemTimeWide();
-	uint64_t end = begin + timeout;
+static int ptp_connect_postoffice_thread_func(SceSize args, void *argp){
+	int idx = *(int *)argp;
+	AdhocSocket *internal = _sockets[idx];
 
 	struct aemu_post_office_sock_addr addr = {
 		.addr = resolve_server_ip(),
 		.port = htons(POSTOFFICE_PORT)
 	};
 
-	AdhocSocket *internal = _sockets[idx];
-	void *ptp_socket = NULL;
+	int state;
+	void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->ptp.laddr, internal->ptp.lport, (const char *)&internal->ptp.paddr, internal->ptp.pport, &state);
+	if (ptp_socket == NULL){
+		printk("%s: failed connecting to ptp socket on id %d, %d\n", __func__, idx + 1, state);
+		internal->ptp.state = PTP_STATE_CLOSED;
+		return 0;
+	}
+	internal->postoffice_handle = ptp_socket;
+	internal->ptp.state = PTP_STATE_ESTABLISHED;
+	printk("%s: id %d connected\n", __func__, idx + 1);
+	return 0;
+}
 
-	while(1){
-		int state;
-		// TODO actually nonblock mode, this might cause game stutter without
-		ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->ptp.laddr, internal->ptp.lport, (const char *)&internal->ptp.paddr, internal->ptp.pport, &state);
-		if (ptp_socket == NULL){
-			printk("%s: failed connecting to ptp socket, %d\n", __func__, state);
-			if (nonblock){
-				return ADHOC_CONNECTION_REFUSED;
-			}else{
-				if (timeout == 0){
-					return ADHOC_CONNECTION_REFUSED;
-				}else{
-					if (sceKernelGetSystemTimeWide() < end){
-						sceKernelDelayThread(100);
-						continue;
-					}
-					return ADHOC_TIMEOUT;
-				}
+static int ptp_connect_postoffice(int idx, uint32_t timeout, int nonblock){
+	struct aemu_post_office_sock_addr addr = {
+		.addr = resolve_server_ip(),
+		.port = htons(POSTOFFICE_PORT)
+	};
+
+	AdhocSocket *internal = _sockets[idx];
+
+	// we need to actually connect in background for games that want to connect to itself
+	if (nonblock){
+		if (internal->ptp.state == PTP_STATE_CLOSED){
+			if (internal->connect_thread >= 0){
+				sceKernelWaitThreadEnd(internal->connect_thread, NULL);
+				sceKernelDeleteThread(internal->connect_thread);
+				internal->connect_thread = -1;
 			}
+
+			internal->connect_thread = sceKernelCreateThread("ptp nonblock connect thread", ptp_connect_postoffice_thread_func, 100, 0x4000, 0, NULL);
+			if (internal->connect_thread < 0){
+				printk("%s: failed creating connect thread, 0x%x\n", __func__, internal->connect_thread);
+				internal->ptp.state = PTP_STATE_CLOSED;
+				return ADHOC_WOULD_BLOCK;
+			}
+			int start_result = sceKernelStartThread(internal->connect_thread, sizeof(idx), &idx);
+			if (start_result < 0){
+				printk("%s: failed starting connect thread, 0x%x\n", __func__, start_result);
+				internal->ptp.state = PTP_STATE_CLOSED;
+				return ADHOC_WOULD_BLOCK;
+			}
+
+			internal->ptp.state = PTP_STATE_SYN_SENT;
+			return ADHOC_WOULD_BLOCK;
 		}
-		break;
+		if (internal->ptp.state == PTP_STATE_ESTABLISHED){
+			return 0;
+		}
+		// PTP_STATE_SYN_SENT
+		return ADHOC_WOULD_BLOCK;
+	}
+
+	if (timeout != 0){
+		uint64_t end = sceKernelGetSystemTimeWide() + timeout;
+		do{
+			int connect_result = ptp_connect_postoffice(idx, 0, 1);
+			if (connect_result == 0){
+				return 0;
+			}
+		}while(sceKernelGetSystemTimeWide() < end);
+		return ADHOC_TIMEOUT;
+	}
+
+	// block mode
+	int state;
+	internal->ptp.state = PTP_STATE_SYN_SENT;
+	void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->ptp.laddr, internal->ptp.lport, (const char *)&internal->ptp.paddr, internal->ptp.pport, &state);
+	if (ptp_socket == NULL){
+		printk("%s: failed connecting to ptp socket, %d\n", __func__, state);
+		internal->ptp.state = PTP_STATE_CLOSED;
+		return ADHOC_CONNECTION_REFUSED;
 	}
 
 	// we got a new socket
@@ -81,14 +129,14 @@ int proNetAdhocPtpConnect(int id, uint32_t timeout, int flag)
 			{
 				return 0;
 			}
-			
+
+			if (_postoffice){
+				return ptp_connect_postoffice(id - 1, timeout, flag);
+			}
+
 			// Valid Client Socket
 			if(socket->state == 0)
 			{
-				if (_postoffice){
-					return ptp_connect_postoffice(id - 1, timeout, flag);
-				}
-
 				// Target Address
 				SceNetInetSockaddrIn sin;
 				memset(&sin, 0, sizeof(sin));
