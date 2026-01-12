@@ -65,6 +65,8 @@ static int ptp_connect_postoffice(int idx, uint32_t timeout, int nonblock){
 			int start_result = sceKernelStartThread(internal->connect_thread, sizeof(idx), &idx);
 			if (start_result < 0){
 				printk("%s: failed starting connect thread, 0x%x\n", __func__, start_result);
+				sceKernelDeleteThread(internal->connect_thread);
+				internal->connect_thread = -1;
 				internal->ptp.state = PTP_STATE_CLOSED;
 				return ADHOC_WOULD_BLOCK;
 			}
