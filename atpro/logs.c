@@ -24,8 +24,12 @@
 #include <stdarg.h>
 #include <string.h>
 
+#define DEBUG_ORIG DEBUG
+
 #define DEBUG 1
 #include "logs.h"
+
+#define DEBUG DEBUG_ORIG
 
 struct pthread_mlock_t {
 	volatile unsigned long l;
@@ -329,7 +333,7 @@ static void printk_output(int printed_len)
 	kout = sceKernelStdout();
 	sceIoWrite(kout, printk_buf, printed_len);
 
-	#if 1
+	#if DEBUG
 	fd = printk_open_output();
 
 	if (fd >= 0) {
