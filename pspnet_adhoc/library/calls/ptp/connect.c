@@ -88,6 +88,8 @@ static int ptp_connect_postoffice(int idx, uint32_t timeout, int nonblock){
 			if (connect_result == 0){
 				return 0;
 			}
+			// yield in case of closed loop
+			sceKernelDelayThread(0);
 		}while(sceKernelGetSystemTimeWide() < end);
 		return ADHOC_TIMEOUT;
 	}
