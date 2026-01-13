@@ -24,12 +24,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define DEBUG_ORIG DEBUG
-
-#define DEBUG 1
-#include "logs.h"
-
-#define DEBUG DEBUG_ORIG
+//#include "logs.h"
 
 struct pthread_mlock_t {
 	volatile unsigned long l;
@@ -351,37 +346,36 @@ static void printk_output(int printed_len)
 	sceKernelDelayThread(10000);
 }
 
-int printk(char *fmt, ...)
+int is_cpu_intr_enable(void)
 {
-	va_list args;
-	int printed_len;
-	u32 k1;
+	int ret;
 
-	if ( 0 )
-		return 0;
+	asm volatile ("mfic	%0, $0\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			"nop\n"
+			: "=r"(ret)
+			);
 
-	k1 = pspSdkSetK1(0);
-
-	if (0 == is_cpu_intr_enable()) {
-		// interrupt disabled, let's do the work quickly before the watchdog bites
-		va_start(args, fmt);
-		printed_len = vsnprintf(printk_buf, sizeof(printk_buf), fmt, args);
-		va_end(args);
-		printed_len--;
-		append_to_memory_log(printed_len);
-	} else {
-		printk_lock();
-		va_start(args, fmt);
-		printed_len = vsnprintf(printk_buf, sizeof(printk_buf), fmt, args);
-		va_end(args);
-		printed_len--;
-		printk_output(printed_len);
-		printk_unlock();
-	}
-
-	pspSdkSetK1(k1);
-
-	return printed_len;
+	return ret;
 }
 
 static unsigned long my_InterlockedExchange(unsigned long volatile *dst, unsigned long exchange)
@@ -433,6 +427,39 @@ void printk_lock(void)
 void printk_unlock(void)
 {
 	psp_mutex_unlock(&lock);
+}
+
+int printk(char *fmt, ...)
+{
+	va_list args;
+	int printed_len;
+	u32 k1;
+
+	if ( 0 )
+		return 0;
+
+	k1 = pspSdkSetK1(0);
+
+	if (0 == is_cpu_intr_enable()) {
+		// interrupt disabled, let's do the work quickly before the watchdog bites
+		va_start(args, fmt);
+		printed_len = vsnprintf(printk_buf, sizeof(printk_buf), fmt, args);
+		va_end(args);
+		printed_len--;
+		append_to_memory_log(printed_len);
+	} else {
+		printk_lock();
+		va_start(args, fmt);
+		printed_len = vsnprintf(printk_buf, sizeof(printk_buf), fmt, args);
+		va_end(args);
+		printed_len--;
+		printk_output(printed_len);
+		printk_unlock();
+	}
+
+	pspSdkSetK1(k1);
+
+	return printed_len;
 }
 
 int printk_init(const char *output)
@@ -550,36 +577,4 @@ void hexdump(void *addr, int size)
 	}
 
 	printk("\n");
-}
-
-int is_cpu_intr_enable(void)
-{
-	int ret;
-
-	asm volatile ("mfic	%0, $0\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			"nop\n"
-			: "=r"(ret)
-			);
-
-	return ret;
 }
