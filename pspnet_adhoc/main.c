@@ -40,12 +40,7 @@ static uint16_t reverse_port(uint16_t port)
 	return port - _port_offset;
 }
 
-static uint16_t offset_destination_port(uint16_t port)
-{
-	return port + _port_offset;
-}
-
-static uint16_t offset_source_port(uint16_t port)
+static uint16_t offset_port(uint16_t port)
 {
 	// follow ppsspp
 	if (port == 0)
@@ -181,12 +176,12 @@ int sceNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
-	uint32_t args[] = {(uint32_t)saddr, (uint32_t)offset_source_port(sport), *(uint32_t*)&bufsize, *(uint32_t*)&flag};
+	uint32_t args[] = {(uint32_t)saddr, (uint32_t)offset_port(sport), *(uint32_t*)&bufsize, *(uint32_t*)&flag};
 	int result = 0;
 	if (use_worker && USE_WORKER_PDP){
 		result = work_using_worker(PDP_CREATE, sizeof(args) / sizeof(args[0]), args);
 	}else{
-		result = proNetAdhocPdpCreate(saddr, offset_source_port(sport), bufsize, flag);
+		result = proNetAdhocPdpCreate(saddr, offset_port(sport), bufsize, flag);
 	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
@@ -200,12 +195,12 @@ int sceNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, co
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
-	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)daddr, (uint32_t)offset_destination_port(dport), (uint32_t)data, *(uint32_t*)&len, timeout, *(uint32_t*)&flag};
+	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)daddr, (uint32_t)offset_port(dport), (uint32_t)data, *(uint32_t*)&len, timeout, *(uint32_t*)&flag};
 	int result = 0;
 	if (use_worker && USE_WORKER_PDP){
 		result = work_using_worker(PDP_SEND, sizeof(args) / sizeof(args[0]), args);
 	}else{
-		result = proNetAdhocPdpSend(id, daddr, offset_destination_port(dport), data, len, timeout, flag);
+		result = proNetAdhocPdpSend(id, daddr, offset_port(dport), data, len, timeout, flag);
 	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
@@ -238,17 +233,24 @@ int sceNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
-	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)saddr, (uint32_t)sport, (uint32_t)buf, (uint32_t)len, timeout, *(uint32_t*)&flag};
+	SceNetEtherAddr saddr_capture;
+	uint16_t sport_capture;
+	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)&saddr_capture, (uint32_t)&sport_capture, (uint32_t)buf, (uint32_t)len, timeout, *(uint32_t*)&flag};
 	int result = 0;
 	if (use_worker && USE_WORKER_PDP){
 		result = work_using_worker(PDP_RECV, sizeof(args) / sizeof(args[0]), args);
 	}else{
-		result = proNetAdhocPdpRecv(id, saddr, sport, buf, len, timeout, flag);
+		result = proNetAdhocPdpRecv(id, &saddr_capture, &sport_capture, buf, len, timeout, flag);
 	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
-	*sport = reverse_port(*sport);
+	if (sport != NULL){
+		*sport = reverse_port(sport_capture);
+	}
+	if (saddr != NULL){
+		*saddr = saddr_capture;
+	}
 	//printk("%s: received pdp on socket %d port %u, 0x%x\n", __func__, id, *sport, result);
 	return result;
 }
@@ -283,12 +285,12 @@ int sceNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
-	uint32_t args[] = {(uint32_t)saddr, (uint32_t)offset_source_port(sport), (uint32_t)daddr, (uint32_t)offset_destination_port(dport), bufsize, rexmt_int, *(uint32_t*)&rexmt_cnt, *(uint32_t*)&flag};
+	uint32_t args[] = {(uint32_t)saddr, (uint32_t)offset_port(sport), (uint32_t)daddr, (uint32_t)offset_port(dport), bufsize, rexmt_int, *(uint32_t*)&rexmt_cnt, *(uint32_t*)&flag};
 	int result = 0;
 	if (use_worker && USE_WORKER_PTP){
 		result = work_using_worker(PTP_OPEN, sizeof(args) / sizeof(args[0]), args);
 	}else{
-		result = proNetAdhocPtpOpen(saddr, offset_source_port(sport), daddr, offset_destination_port(dport), bufsize, rexmt_int, rexmt_cnt, flag);
+		result = proNetAdhocPtpOpen(saddr, offset_port(sport), daddr, offset_port(dport), bufsize, rexmt_int, rexmt_cnt, flag);
 	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
@@ -321,12 +323,12 @@ int sceNetAdhocPtpListen(const SceNetEtherAddr * saddr, uint16_t sport, uint32_t
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
-	uint32_t args[] = {(uint32_t)saddr, (uint32_t)offset_source_port(sport), bufsize, rexmt_int, *(uint32_t*)&rexmt_cnt, *(uint32_t*)&backlog, *(uint32_t*)&flag};
+	uint32_t args[] = {(uint32_t)saddr, (uint32_t)offset_port(sport), bufsize, rexmt_int, *(uint32_t*)&rexmt_cnt, *(uint32_t*)&backlog, *(uint32_t*)&flag};
 	int result = 0;
 	if (use_worker && USE_WORKER_PTP){
 		result = work_using_worker(PTP_LISTEN, sizeof(args) / sizeof(args[0]), args);
 	}else{
-		result = proNetAdhocPtpListen(saddr, offset_source_port(sport), bufsize, rexmt_int, rexmt_cnt, backlog, flag);
+		result = proNetAdhocPtpListen(saddr, offset_port(sport), bufsize, rexmt_int, rexmt_cnt, backlog, flag);
 	}
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
@@ -352,11 +354,11 @@ int sceNetAdhocPtpAccept(int id, SceNetEtherAddr * addr, uint16_t * port, uint32
 	}
 	if (addr != NULL)
 	{
-		memcpy(addr, &addr_capture, sizeof(SceNetEtherAddr));
+		*addr = addr_capture;
 	}
 	if (port != NULL)
 	{
-		*port = port_capture;
+		*port = reverse_port(port_capture);
 	}
 
 	#ifdef TRACE
