@@ -456,7 +456,8 @@ static int timeout_missing_peers_on_adhocctl(SceNetAdhocMatchingContext *context
 		int get_peer_info_status = sceNetAdhocctlGetPeerInfo((void *)&item->mac, sizeof(peer), (void *)peer);
 		if (get_peer_info_status != 0)
 		{
-			//printk("%s: peer missing on adhocctl, 0x%x\n", __func__, get_peer_info_status);
+			printk("%s: peer %02x:%02x:%02x:%02x:%02x:%02x missing on adhocctl, 0x%x\n", __func__, (uint32_t)item->mac.data[0], (uint32_t)item->mac.data[1], (uint32_t)item->mac.data[2], (uint32_t)item->mac.data[3], (uint32_t)item->mac.data[4], (uint32_t)item->mac.data[5]);
+			printk("%s: sceNetAdhocctlGetPeerInfo status 0x%x\n", __func__, get_peer_info_status);
 			// 5 seconds
 			if (sceKernelGetSystemTimeWide() - item->last_seen_on_adhocctl > 5000000)
 			{
@@ -1477,9 +1478,11 @@ void _handleTimeout(SceNetAdhocMatchingContext * context)
 	{
 		// Get Next Pointer (to avoid crash on memory freeing)
 		SceNetAdhocMatchingMemberInternal * next = peer->next;
-		
+
+		uint64_t now = sceKernelGetSystemTimeWide();
+
 		// Timeout!
-		if((sceKernelGetSystemTimeWide() - peer->lastping) >= context->timeout || peer->lastping == 0)
+		if((now - peer->lastping) >= context->timeout || peer->lastping == 0)
 		{
 			// Spawn Timeout Event
 			// sync logic with PPSSPP
@@ -1497,6 +1500,9 @@ void _handleTimeout(SceNetAdhocMatchingContext * context)
 			// Don't timeout self if in list
 			if(!_isMacMatch(&local_mac, &peer->mac))
 			{
+				printk("%s: timing out %02x:%02x:%02x:%02x:%02x:%02x\n", __func__, (uint32_t)peer->mac.data[0], (uint32_t)peer->mac.data[1], (uint32_t)peer->mac.data[2], (uint32_t)peer->mac.data[3], (uint32_t)peer->mac.data[4], (uint32_t)peer->mac.data[5]);
+				printk("%s: now %u lastping %u timeout %u\n", __func__, (uint32_t)now, (uint32_t)peer->lastping, (uint32_t)context->timeout);
+
 				// PPSSPP send messages here
 				if (context->mode != ADHOC_MATCHING_MODE_PARENT)
 				{

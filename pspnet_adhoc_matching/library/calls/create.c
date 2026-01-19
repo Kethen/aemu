@@ -99,6 +99,8 @@ int proNetAdhocMatchingCreate(int mode, int maxnum, uint16_t port, int rxbuflen,
 								// how PPSSPP calculates this
 								context->timeout = (((uint64_t)keepalive_int) + ((uint64_t)rexmt_int)) * ((uint64_t)init_count);
 								context->timeout += 500000;
+								// we need a bit more on real devices
+								context->timeout += 1000000;
 								context->handler = handler;
 								
 								// Fill in Selfpeer
