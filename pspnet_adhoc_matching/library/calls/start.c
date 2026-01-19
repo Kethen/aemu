@@ -458,8 +458,8 @@ static int timeout_missing_peers_on_adhocctl(SceNetAdhocMatchingContext *context
 		{
 			printk("%s: peer %02x:%02x:%02x:%02x:%02x:%02x missing on adhocctl, 0x%x\n", __func__, (uint32_t)item->mac.data[0], (uint32_t)item->mac.data[1], (uint32_t)item->mac.data[2], (uint32_t)item->mac.data[3], (uint32_t)item->mac.data[4], (uint32_t)item->mac.data[5]);
 			printk("%s: sceNetAdhocctlGetPeerInfo status 0x%x\n", __func__, get_peer_info_status);
-			// 5 seconds
-			if (sceKernelGetSystemTimeWide() - item->last_seen_on_adhocctl > 5000000)
+			// 10 seconds
+			if (sceKernelGetSystemTimeWide() - item->last_seen_on_adhocctl > 10000000)
 			{
 				//item->lastping = 0;
 				// simulate a bye packet
@@ -500,8 +500,8 @@ int _matchingInputThread(SceSize args, void * argp)
 		// Hello Message Sending Context with unoccupied Slots
 		if((context->mode == ADHOC_MATCHING_MODE_PARENT && _countChildren(context) < (context->maxpeers - 1)) || (context->mode == ADHOC_MATCHING_MODE_P2P && _findP2P(context) == NULL))
 		{
-			// Hello Message Broadcast necessary because of Hello Interval
-			if((sceKernelGetSystemTimeWide() - lasthello) >= context->hello_int)
+			// Hello Message Broadcast necessary because of Hello Interval, PPSSPP don't send hellos when hello_int is 0
+			if(context->hello_int > 0 && sceKernelGetSystemTimeWide() - lasthello >= context->hello_int)
 			{
 				// Broadcast Hello Message
 				_broadcastHelloMessage(context);
@@ -511,8 +511,8 @@ int _matchingInputThread(SceSize args, void * argp)
 			}
 		}
 		
-		// Ping Required
-		if((sceKernelGetSystemTimeWide() - lastping) >= context->keepalive_int)
+		// Ping Required, on PPSSPP, ping is not sent when keepalive_int is 0
+		if(context->keepalive_int > 0 && sceKernelGetSystemTimeWide() - lastping >= context->keepalive_int)
 		{
 			// Broadcast Ping Message
 			_broadcastPingMessage(context);
@@ -1473,6 +1473,11 @@ void _broadcastHelloMessage(SceNetAdhocMatchingContext * context)
  */
 void _handleTimeout(SceNetAdhocMatchingContext * context)
 {
+	if (context->keepalive_int == 0){
+		// on PPSSPP, timeout does not happen when keepalive_int is 0
+		return;
+	}
+
 	// Iterate Peer List
 	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; while(peer != NULL)
 	{

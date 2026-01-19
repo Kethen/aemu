@@ -90,8 +90,9 @@ int proNetAdhocMatchingCreate(int mode, int maxnum, uint16_t port, int rxbuflen,
 								context->socket = socket;
 								context->rxbuflen = rxbuflen;
 								context->hello_int = hello_int;
-								context->keepalive_int = 500000;
-								//context->keepalive_int = keepalive_int;
+								//context->keepalive_int = 500000;
+								// how PPSSPP decides this
+								context->keepalive_int = keepalive_int == -1 ? 2000000 : keepalive_int;
 								context->resendcounter = init_count;
 								context->keepalivecounter = 100;
 								//context->keepalivecounter = init_count;
