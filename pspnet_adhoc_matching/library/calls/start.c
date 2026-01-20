@@ -456,7 +456,7 @@ static int timeout_missing_peers_on_adhocctl(SceNetAdhocMatchingContext *context
 		int get_peer_info_status = sceNetAdhocctlGetPeerInfo((void *)&item->mac, sizeof(peer), (void *)peer);
 		if (get_peer_info_status != 0)
 		{
-			printk("%s: peer %02x:%02x:%02x:%02x:%02x:%02x missing on adhocctl, 0x%x\n", __func__, (uint32_t)item->mac.data[0], (uint32_t)item->mac.data[1], (uint32_t)item->mac.data[2], (uint32_t)item->mac.data[3], (uint32_t)item->mac.data[4], (uint32_t)item->mac.data[5]);
+			printk("%s: peer %02x:%02x:%02x:%02x:%02x:%02x missing on adhocctl\n", __func__, (uint32_t)item->mac.data[0], (uint32_t)item->mac.data[1], (uint32_t)item->mac.data[2], (uint32_t)item->mac.data[3], (uint32_t)item->mac.data[4], (uint32_t)item->mac.data[5]);
 			printk("%s: sceNetAdhocctlGetPeerInfo status 0x%x\n", __func__, get_peer_info_status);
 			// 10 seconds
 			if (sceKernelGetSystemTimeWide() - item->last_seen_on_adhocctl > 10000000)
@@ -511,8 +511,9 @@ int _matchingInputThread(SceSize args, void * argp)
 			}
 		}
 		
-		// Ping Required, on PPSSPP, ping is not sent when keepalive_int is 0
-		if(context->keepalive_int > 0 && sceKernelGetSystemTimeWide() - lastping >= context->keepalive_int)
+		// Ping Required, on PPSSPP, ping is not sent when keepalive_int is 0, here we do it anyway, otherwise we get kicked by PPSSPP..........
+		//if(context->keepalive_int > 0 && sceKernelGetSystemTimeWide() - lastping >= context->keepalive_int)
+		if(sceKernelGetSystemTimeWide() - lastping >= 500000)
 		{
 			// Broadcast Ping Message
 			_broadcastPingMessage(context);
@@ -1431,6 +1432,8 @@ void _postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcou
  */
 void _broadcastPingMessage(SceNetAdhocMatchingContext * context)
 {
+	printk("%s: broadcasting ping\n", __func__);
+
 	// Ping Opcode
 	uint8_t ping = ADHOC_MATCHING_PACKET_PING;
 	
@@ -1450,6 +1453,8 @@ void _broadcastHelloMessage(SceNetAdhocMatchingContext * context)
 	// Allocated Hello Message Buffer
 	if(hello != NULL)
 	{
+		printk("%s: broadcasting hello\n", __func__);
+
 		// Hello Opcode
 		hello[0] = ADHOC_MATCHING_PACKET_HELLO;
 		

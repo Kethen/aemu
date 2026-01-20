@@ -110,7 +110,9 @@ int proNetAdhocMatchingCreate(int mode, int maxnum, uint16_t port, int rxbuflen,
 								// Link Context
 								context->next = _contexts;
 								_contexts = context;
-								
+
+								printk("%s: created context with hello_int %d keepalive_int %d timeout %u\n", __func__, context->hello_int, context->keepalive_int, (uint32_t)context->timeout);
+
 								// Return Matching ID
 								RETURN_UNLOCK(context->id);
 							}
