@@ -1163,17 +1163,17 @@ void _actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 {
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal * peer = _findPeer(context, sendermac);
-	
+
+	// Extract Child MAC
+	SceNetEtherAddr mac;
+	memcpy(&mac, context->rxbuf + 1, sizeof(SceNetEtherAddr));
+
 	// Valid Circumstances
 	if(peer != NULL && context->mode == ADHOC_MATCHING_MODE_CHILD && peer == _findParent(context))
 	{
 		// Complete Packet available
 		if(length >= (1 + sizeof(SceNetEtherAddr)))
 		{
-			// Extract Child MAC
-			SceNetEtherAddr mac;
-			memcpy(&mac, context->rxbuf + 1, sizeof(SceNetEtherAddr));
-			
 			// Allocate Memory (If this fails... we are fucked.)
 			SceNetAdhocMatchingMemberInternal * sibling = (SceNetAdhocMatchingMemberInternal *)_malloc(sizeof(SceNetAdhocMatchingMemberInternal));
 			
@@ -1196,11 +1196,17 @@ void _actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 				// Link Peer
 				sibling->next = context->peerlist;
 				context->peerlist = sibling;
-				
+
+				printk("%s: created peer from the birth of %02x:%02x:%02x:%02x:%02x:%02x\n", __func__, (uint32_t)mac.data[0], (uint32_t)mac.data[1], (uint32_t)mac.data[2], (uint32_t)mac.data[3], (uint32_t)mac.data[4], (uint32_t)mac.data[5]);
+
 				// Spawn Established Event
 				_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
 			}
 		}
+	}else{
+		printk("%s: rejected birth packet from %02x:%02x:%02x:%02x:%02x:%02x\n", __func__, (uint32_t)sendermac->data[0], (uint32_t)sendermac->data[1], (uint32_t)sendermac->data[2], (uint32_t)sendermac->data[3], (uint32_t)sendermac->data[4], (uint32_t)sendermac->data[5]);
+		printk("%s: peer %p\n", __func__, peer);
+		printk("%s: new born %02x:%02x:%02x:%02x:%02x:%02x\n", __func__, (uint32_t)mac.data[0], (uint32_t)mac.data[1], (uint32_t)mac.data[2], (uint32_t)mac.data[3], (uint32_t)mac.data[4], (uint32_t)mac.data[5]);
 	}
 }
 
@@ -1229,7 +1235,7 @@ void _actOnDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 			SceNetAdhocMatchingMemberInternal * deadkid = _findPeer(context, &mac);
 			
 			// Valid Sibling
-			if(deadkid->state == ADHOC_MATCHING_PEER_CHILD)
+			if(deadkid != NULL && deadkid->state == ADHOC_MATCHING_PEER_CHILD)
 			{
 				// Spawn Leave Event
 				_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_LEAVE, &mac, 0, NULL);
@@ -1259,12 +1265,10 @@ void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 		printk("%s: we are sending bye to ourself, please debug this\n", __func__);
 		return;
 	}
-	#ifdef DEBUG
 	else
 	{
 		printk("%s: bye from %x:%x:%x:%x:%x:%x\n", __func__, sendermac->data[0], sendermac->data[1], sendermac->data[2], sendermac->data[3], sendermac->data[4], sendermac->data[5]);
 	}
-	#endif
 
 	// We know this guy
 	if(peer != NULL)
@@ -1514,7 +1518,7 @@ void _handleTimeout(SceNetAdhocMatchingContext * context)
 				printk("%s: now %u lastping %u timeout %u\n", __func__, (uint32_t)now, (uint32_t)peer->lastping, (uint32_t)context->timeout);
 
 				// PPSSPP send messages here
-				if (context->mode != ADHOC_MATCHING_MODE_PARENT)
+				if (context->mode == ADHOC_MATCHING_MODE_PARENT)
 				{
 					_sendDeathPacket(context, &peer->mac);
 				}
@@ -1776,6 +1780,9 @@ void _sendBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 			// Send only to children
 			if(peer->state == ADHOC_MATCHING_PEER_CHILD)
 			{
+				printk("%s: sending birth of %02x:%02x:%02x:%02x:%02x:%02x\n", __func__, (uint32_t)mac->data[0], (uint32_t)mac->data[1], (uint32_t)mac->data[2], (uint32_t)mac->data[3], (uint32_t)mac->data[4], (uint32_t)mac->data[5]);
+				printk("%s: to %02x:%02x:%02x:%02x:%02x:%02x\n", __func__, (uint32_t)peer->mac.data[0], (uint32_t)peer->mac.data[1], (uint32_t)peer->mac.data[2], (uint32_t)peer->mac.data[3], (uint32_t)peer->mac.data[4], (uint32_t)peer->mac.data[5]);
+
 				// Send Packet
 				sceNetAdhocPdpSend(context->socket, &peer->mac, context->port, packet, sizeof(packet), 0, ADHOC_F_NONBLOCK);
 			}
@@ -1829,7 +1836,7 @@ void _sendDeathPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 		}
 
 		// Delete peer
-		_deletePeer(context, peer);
+		_deletePeer(context, deadkid);
 	}
 }
 
