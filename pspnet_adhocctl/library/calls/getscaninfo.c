@@ -68,7 +68,8 @@ int proNetAdhocctlGetScanInfo(int * buflen, SceNetAdhocctlScanInfo * buf)
 						// Exchange Adhoc Channel
 						sceUtilityGetSystemParamInt(PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL, &buf[discovered].channel);
 
-						printk("%s: setting channel %d for group %s (0x%x next 0x%x)\n", __func__, buf[discovered].channel, &buf[discovered].group_name, group, group->next);
+						create_adhocctl_name_buf(group_name_buf, buf[discovered].group_name.data);
+						printk("%s: setting channel %d for group %s (0x%x next 0x%x)\n", __func__, buf[discovered].channel, group_name_buf, group, group->next);
 
 						// Fake Channel Number 1 on Automatic Channel
 						if(buf[discovered].channel == 0) buf[discovered].channel = 1;

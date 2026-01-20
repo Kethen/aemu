@@ -881,9 +881,8 @@ int _friendFinder(SceSize args, void * argp)
 					// Allocate Structure Data
 					SceNetAdhocctlScanInfo *group = (SceNetAdhocctlScanInfo *)malloc(sizeof(SceNetAdhocctlScanInfo));
 
-					#ifdef DEBUG
-					printk("%s: incoming Group Information from group %s\n", __func__, packet->group);
-					#endif
+					create_adhocctl_name_buf(group_name_buf, packet->group.data)
+					printk("%s: incoming Group Information from group %s\n", __func__, group_name_buf);
 
 					// Allocated Structure Data
 					if(group != NULL)

@@ -89,14 +89,17 @@ int proUtilityNetconfUpdate(int speed)
 		}
 	}
 
+	#ifdef DEBUG
+	create_adhocctl_name_buf(group_name_buf, _netconf_adhoc_param.group_name.data);
 	if (join_status == 0)
 	{
-		printk("%s: joined network %s, state %s\n", __func__, &_netconf_adhoc_param.group_name, get_adhocctl_state_name(_thread_status));
+		printk("%s: joined network %s, state %s\n", __func__, group_name_buf, get_adhocctl_state_name(_thread_status));
 	}
 	else
 	{
-		printk("%s: failed joining network %s, 0x%x, state %s\n", __func__, &_netconf_adhoc_param.group_name, join_status, get_adhocctl_state_name(_thread_status));
+		printk("%s: failed joining network %s, 0x%x, state %s\n", __func__, group_name_buf, join_status, get_adhocctl_state_name(_thread_status));
 	}
+	#endif
 
 	_netconf_status = UTILITY_NETCONF_STATUS_FINISHED;
 

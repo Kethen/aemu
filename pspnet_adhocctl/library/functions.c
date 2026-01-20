@@ -166,6 +166,8 @@ int search_and_join(const SceNetAdhocctlGroupName *group_name, int timeout_usec)
 	int begin = sceKernelGetSystemTimeLow();
 	int found = 0;
 
+	create_adhocctl_name_buf(search_group_name_buf, group_name->data);
+
 	while (sceKernelGetSystemTimeLow() - begin < timeout_usec)
 	{
 		// Trigger scanning
@@ -185,7 +187,8 @@ int search_and_join(const SceNetAdhocctlGroupName *group_name, int timeout_usec)
 		found = 0;
 		while(group != NULL)
 		{
-			printk("%s: group 0x%x group name %s, looking for %s\n", __func__, group, &group->group_name, group_name);
+			create_adhocctl_name_buf(group_name_buf, group->group_name.data);
+			printk("%s: group 0x%x group name %s, looking for %s\n", __func__, group, group_name_buf, search_group_name_buf);
 			if (memcmp(&group->group_name, group_name, sizeof(SceNetAdhocctlGroupName)) == 0)
 			{
 				found = 1;
@@ -204,16 +207,16 @@ int search_and_join(const SceNetAdhocctlGroupName *group_name, int timeout_usec)
 	// Either way we join the group and hope for the best
 	int join_result = proNetAdhocctlCreate(group_name);
 
+	#ifdef DEBUG
 	if (found)
 	{
-		printk("%s: network %s found\n", __func__, group_name);
-		// 3 seconds padding
-		//sceKernelDelayThread(3000000);
+		printk("%s: network %s found\n", __func__, search_group_name_buf);
 	}
 	else
 	{
-		printk("%s: network %s not found\n", __func__, group_name);
+		printk("%s: network %s not found\n", __func__, search_group_name_buf);
 	}
+	#endif
 
 	return join_result;
 }
