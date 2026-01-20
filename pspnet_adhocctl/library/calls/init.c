@@ -95,9 +95,25 @@ int set_gp_value(int gp_value)
 }
 #pragma GCC pop_options
 
+static const char *get_adhocctl_event_name(int event){
+	switch(event){
+		case ADHOCCTL_EVENT_ERROR:
+			return "ADHOCCTL_EVENT_ERROR";
+		case ADHOCCTL_EVENT_CONNECT:
+			return "ADHOCCTL_EVENT_CONNECT";
+		case ADHOCCTL_EVENT_DISCONNECT:
+			return "ADHOCCTL_EVENT_DISCONNECT";
+		case ADHOCCTL_EVENT_SCAN:
+			return "ADHOCCTL_EVENT_SCAN";
+		case ADHOCCTL_EVENT_GAMEMODE:
+			return "ADHOCCTL_EVENT_GAMEMODE";
+	}
+	return "unknown adhoc event";
+}
+
 void _notifyAdhocctlhandlers(int event, int error_code)
 {
-	printk("%s: event 0x%x 0x%x\n", __func__, event, error_code);
+	printk("%s: event 0x%x(%s) 0x%x\n", __func__, event, get_adhocctl_event_name(event), error_code);
 	int i = 0; for(; i < ADHOCCTL_MAX_HANDLER; i++)
 	{
 		// Active Handler
@@ -686,6 +702,7 @@ int _friendFinder(SceSize args, void * argp)
 					if (!_in_gamemode)
 					{
 						// add a delay here, in case game checks the friend list immediately after a room switch
+						// this delay has to be smaller than the delay of ADHOCCTL_EVENT_CONNECT wait in netconf update
 						sceKernelDelayThread(100000);
 						_notifyAdhocctlhandlers(ADHOCCTL_EVENT_CONNECT, 0);
 					}

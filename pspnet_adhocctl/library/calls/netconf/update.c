@@ -17,6 +17,20 @@
 
 #include "../../common.h"
 
+static const char *get_adhocctl_state_name(int state){
+	switch(state){
+		case ADHOCCTL_STATE_DISCONNECTED:
+			return "ADHOCCTL_STATE_DISCONNECTED";
+		case ADHOCCTL_STATE_CONNECTED:
+			return "ADHOCCTL_STATE_CONNECTED";
+		case ADHOCCTL_STATE_SCANNING:
+			return "ADHOCCTL_STATE_SCANNING";
+		case ADHOCCTL_STATE_GAMEMODE:
+			return "ADHOCCTL_STATE_GAMEMODE";
+	}
+	return "unknown state";
+}
+
 /**
  * Set Library in Motion
  * @return 0 on success or... -1
@@ -63,23 +77,25 @@ int proUtilityNetconfUpdate(int speed)
 	else
 	{
 		join_status = proNetAdhocctlCreate(&_netconf_adhoc_param.group_name);
+	}
 
-		if (join_status >= 0){
-			// wait for 5 seconds or till we have been connected
-			uint64_t begin = sceKernelGetSystemTimeWide();
-			while(_thread_status != ADHOCCTL_STATE_CONNECTED && sceKernelGetSystemTimeWide() - begin < 5000000){
-				sceKernelDelayThread(1000);
-			}
+	if (join_status >= 0){
+		// wait for 5 seconds or till we have been connected
+		uint64_t begin = sceKernelGetSystemTimeWide();
+		while(_thread_status != ADHOCCTL_STATE_CONNECTED && sceKernelGetSystemTimeWide() - begin < 5000000){
+			// there is currently a delay in the adhocctl thread, that delays the connected event, in hopes that games would only check peer list after peers are populated
+			// we are trying to transition netconf state AFTER the event here, some games get confused if this is done before the event is fired
+			sceKernelDelayThread(110000);
 		}
 	}
 
 	if (join_status == 0)
 	{
-		printk("%s: joined network %s\n", __func__, &_netconf_adhoc_param.group_name);
+		printk("%s: joined network %s, state %s\n", __func__, &_netconf_adhoc_param.group_name, get_adhocctl_state_name(_thread_status));
 	}
 	else
 	{
-		printk("%s: failed joining network %s, 0x%x\n", __func__, &_netconf_adhoc_param.group_name, join_status);
+		printk("%s: failed joining network %s, 0x%x, state %s\n", __func__, &_netconf_adhoc_param.group_name, join_status, get_adhocctl_state_name(_thread_status));
 	}
 
 	_netconf_status = UTILITY_NETCONF_STATUS_FINISHED;
