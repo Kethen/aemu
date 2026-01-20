@@ -458,8 +458,8 @@ static int timeout_missing_peers_on_adhocctl(SceNetAdhocMatchingContext *context
 		{
 			printk("%s: peer %02x:%02x:%02x:%02x:%02x:%02x missing on adhocctl\n", __func__, (uint32_t)item->mac.data[0], (uint32_t)item->mac.data[1], (uint32_t)item->mac.data[2], (uint32_t)item->mac.data[3], (uint32_t)item->mac.data[4], (uint32_t)item->mac.data[5]);
 			printk("%s: sceNetAdhocctlGetPeerInfo status 0x%x\n", __func__, get_peer_info_status);
-			// 10 seconds
-			if (sceKernelGetSystemTimeWide() - item->last_seen_on_adhocctl > 10000000)
+			// 3 seconds
+			if (sceKernelGetSystemTimeWide() - item->last_seen_on_adhocctl > 3000000)
 			{
 				//item->lastping = 0;
 				// simulate a bye packet
@@ -1499,7 +1499,7 @@ void _handleTimeout(SceNetAdhocMatchingContext * context)
 		uint64_t now = sceKernelGetSystemTimeWide();
 
 		// Timeout!
-		if((now - peer->lastping) >= context->timeout || peer->lastping == 0)
+		if((now > peer->lastping && now - peer->lastping >= context->timeout) || peer->lastping == 0)
 		{
 			// Spawn Timeout Event
 			// sync logic with PPSSPP
