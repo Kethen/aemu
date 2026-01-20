@@ -469,6 +469,8 @@ static int timeout_missing_peers_on_adhocctl(SceNetAdhocMatchingContext *context
 		else
 		{
 			item->last_seen_on_adhocctl = sceKernelGetSystemTimeWide();
+			// PPSSPP syncs adhocctl pings with lastping
+			item->lastping = item->last_seen_on_adhocctl;
 		}
 	}
 	sceKernelUnlockLwMutex(&members_lock, 1);
@@ -1200,7 +1202,8 @@ void _actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 				printk("%s: created peer from the birth of %02x:%02x:%02x:%02x:%02x:%02x\n", __func__, (uint32_t)mac.data[0], (uint32_t)mac.data[1], (uint32_t)mac.data[2], (uint32_t)mac.data[3], (uint32_t)mac.data[4], (uint32_t)mac.data[5]);
 
 				// Spawn Established Event
-				_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
+				// no established on birth on PPSSPP
+				//_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
 			}
 		}
 	}else{
