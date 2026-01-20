@@ -1,0 +1,4 @@
+[submodule "aemu_postoffice"]
+	path = aemu_postoffice
+	url = https://github.com/Kethen/aemu_postoffice
+	branch = aemu

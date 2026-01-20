@@ -15,3 +15,8 @@ make clean
 make CONFIG_660=1
 rm -rf dist_660_debug
 mv dist dist_660_debug
+
+cd aemu_postoffice/client
+bash build_psp.sh
+cp aemu_postoffice.prx ../../dist_660_debug/kd
+cp aemu_postoffice.prx ../../dist_660_release/kd
