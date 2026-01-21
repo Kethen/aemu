@@ -1,6 +1,5 @@
 all:
-	mv ppsspp_loader.prx ../dist/kd/ppsspp_loader.prx
-	cp plugin.ini ../dist/kd/plugin.ini
+	echo pass
 
 TARGET = ppsspp_loader
 
