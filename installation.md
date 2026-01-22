@@ -42,6 +42,7 @@ ms0:/seplugins/atpro.prx 1
 game, ms0:/seplugins/atpro.prx, on
 ```
 7. Open `ms0:/seplugins/hotspot.txt`, and write the "SSID" of your hotspot into the file. This will make the plugin use the infrastructure mode profile you have created earlier.
+8. Remove `ms0:/kd/pspnet_miniupnc.prx` if exists
 
 ### <a id="psvita"/>PSVita
 
@@ -74,6 +75,8 @@ ms0:/seplugins/atpro.prx 1
 ```
 game, ms0:/seplugins/atpro.prx, on
 ```
+8. Remove `ux0:/pspemu/kd/pspnet_miniupnc.prx` if exists
+
 
 ### <a id="psp-go"/>PSP Go:
 
@@ -117,6 +120,7 @@ game, ef0:/seplugins/atpro.prx, on
 ```
 7. Open `ms0:/seplugins/hotspot.txt`, and write the "SSID" of your hotspot into the file. This will make the plugin use the infrastructure mode profile you have created earlier.
 8. Open `ef0:/seplugins/hotspot.txt`, and write the "SSID" of your hotspot into the file. This will make the plugin use the infrastructure mode profile you have created earlier.
+9. Remove `ms0:/kd/pspnet_miniupnc.prx` and `ef0:/kd/pspnet_miniupnc.prx` if exists
 
 ### <a id="advanced-configurations"/>Advanced configurations:
 
