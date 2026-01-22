@@ -7,8 +7,9 @@
 - [PSP Go](#psp-go)
 - [Advanced configurations](#advanced-configurations)
 - [Troubleshooting](#troubleshooting)
+- [Crossplaying with PPSSPP](#crossplaying-with-ppsspp)
 
-### <a id="psp-2000-3000"/>PSP 2000/3000:
+### <a id="psp-2000-3000"/>PSP 2000/3000
 
 0. Make sure you have installed the newest CFW, 6.61 pro-c is still somewhat supported, but future releases might require 6.61 ARK-4
 1. In XMB -> "Settings" -> "Network Settings", configure your "Infrastructure Mode" connection, make sure to note down the "SSID" of your hotspot, and test the connection with the "Test Connection" feature under the triangle button context menu to make sure that it is working. Avoid using special characters in the SSID of your hotspot.
@@ -78,7 +79,7 @@ game, ms0:/seplugins/atpro.prx, on
 8. Remove `ux0:/pspemu/kd/pspnet_miniupnc.prx` if exists
 
 
-### <a id="psp-go"/>PSP Go:
+### <a id="psp-go"/>PSP Go
 
 0. Make sure you have installed the newest CFW, 6.61 pro-c is still somewhat supported, but future releases might require 6.61 ARK-4
 1. In XMB -> "Settings" -> "Network Settings", configure your "Infrastructure Mode" connection, make sure to note down the "SSID" of your hotspot, and test the connection with the "Test Connection" feature under the triangle button context menu to make sure that it is working. Avoid using special characters in the SSID of your hotspot.
@@ -122,7 +123,7 @@ game, ef0:/seplugins/atpro.prx, on
 8. Open `ef0:/seplugins/hotspot.txt`, and write the "SSID" of your hotspot into the file. This will make the plugin use the infrastructure mode profile you have created earlier.
 9. Remove `ms0:/kd/pspnet_miniupnc.prx` and `ef0:/kd/pspnet_miniupnc.prx` if exists
 
-### <a id="advanced-configurations"/>Advanced configurations:
+### <a id="advanced-configurations"/>Advanced configurations
 
 - `ms0:/seplugins/server.txt` / `ef0:/seplugins/server.txt` / `ux0:/pspemu/seplugins/server.txt` can be changed if you chose to use an adhoc server other than `socom.cc`. Here is a list of currently available servers
 
@@ -137,8 +138,12 @@ game, ef0:/seplugins/atpro.prx, on
 - On PSVita, https://github.com/Kethen/pspemu_inet_multithread can be used on top to make some games run faster during adhoc multiplayer
 - **DO NOT DO THIS IF YOU DON'T KNOW WHAT CLASSIC P2P MODE MEANS**, classic P2P mode can be enabled by renaming `seplugins/aemu_postoffice.prx` to `seplugins/aemu_postoffice.prx.bak`
 
-### <a id="Troubleshooting" />Troubleshooting:
+### <a id="Troubleshooting" />Troubleshooting
 
 - Note that not all games currently work. Try a different game to see if it's an installation issue or game specific issue.
 - Install `kd` and `seplugins` from `dist_660_debug` instead, then run your game again. `ms0:/atpro.log` / `ef0:/atpro.log` / `ux0:/pspemu/atpro.log` will contain debug information that might help solving your issues.
 
+### <a id="crossplaying-with-ppsspp" /> Crossplaying with PPSSPP
+
+1. Download latest PPSSPP from https://www.ppsspp.org/devbuilds/ , or 1.20+ when released
+2. Follow the ["Multiplayer With A Public Server on the Internet (aemu_postoffice relay on version 1.20+)" section here](https://github.com/hrydgard/ppsspp/wiki/How-to-play-multiplayer-games-with-PPSSPP#multiplayer-with-a-public-server-on-the-internet-aemu-postoffice) to configure your PPSSPP
