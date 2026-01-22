@@ -51,14 +51,14 @@ game, ms0:/seplugins/atpro.prx, on
 1. Go to Settings -> "Network" -> "Wi-Fi Settings" and connect to your Wi-Fi hotspot, use Go to Settings -> "Network" -> "Internet Connection Test" to make sure you have working internet connection on the PSVita
 2. Go to Settings -> "Power Save Settings" and disable "Use Wi-Fi in Power Save Mode"
 3. (Adrenaline) In XMB -> "Settings" -> "Power Save Settings", set "WLAN Power Save" to "off"
-4. (Adrenaline) Press select in XMB ->RECOVERY MENU, and change these settings
+4. (Adrenaline) Press select in XMB -> RECOVERY MENU, and change these settings
 
 | Name | Set to |
 | -- | -- |
 | CPU Speed in UMD/ISO | 333/166 |
 | Advanced -> Force High Memory Layout | Disabled |
 
-5. (ARK Standalone) Press triangle -> CFW Settings, and change these settings
+4. (ARK Standalone) Press triangle in Custom Launcher -> CFW Settings, and change these settings
 
 | Name | Set to |
 | -- | -- |
@@ -67,17 +67,16 @@ game, ms0:/seplugins/atpro.prx, on
 | Memory Stick Speedup | Off |
 | Inferno Cache | Off |
 
-6. Copy folder `kd` and `seplugins` inside `dist_660_release` to the root of your PSP memory stick, assuming you did not change that in adrenaline, that would be `ux0:/pspemu`.
-7. (PRO cfw) add the following line to the text file `ux0:/pspemu/seplugins/game.txt` **if it does not already exist**
+5. Copy folder `kd` and `seplugins` inside `dist_660_release` to the root of your PSP memory stick, assuming you did not change that in adrenaline, that would be `ux0:/pspemu`.
+6. (PRO cfw) add the following line to the text file `ux0:/pspemu/seplugins/game.txt` **if it does not already exist**
 ```
 ms0:/seplugins/atpro.prx 1
 ```
-7. (ARK Standalone) add the following line to the text file `ux0:/pspemu/seplugins/plugins.txt` **if it does not already exist**
+6. (ARK Standalone) add the following line to the text file `ux0:/pspemu/seplugins/plugins.txt` **if it does not already exist**
 ```
 game, ms0:/seplugins/atpro.prx, on
 ```
-8. Remove `ux0:/pspemu/kd/pspnet_miniupnc.prx` if exists
-
+7. Remove `ux0:/pspemu/kd/pspnet_miniupnc.prx` if exists
 
 ### <a id="psp-go"/>PSP Go
 
