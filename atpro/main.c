@@ -178,8 +178,9 @@ void steal_memory()
 {
 	int size = 8 * 1024 * 1024;
 
-	if(is_go()){
-		printk("%s: steal a bit more partition 2 memory for pspgo\n", __func__);
+	//if(is_go()){
+		//printk("%s: steal a bit more partition 2 memory for pspgo\n", __func__);
+		{
 		size += 3 * 1024 * 1024;
 	}
 
@@ -1696,8 +1697,9 @@ static void memlayout_hack(){
 	// 128 B of netconf param alloc + 8 MB of stolen memory + 50 KB buffer
 	// note that this is curretly so tight due to how r6 vegas crashes when having just 2MB of extra memory
 	partition_2->size = 24 * 1024 * 1024 + 8 + 128 + 8 * 1024 * 1024 + 50 * 1024;
-	if(is_go()){
-		printk("%s: add a bit more partition 2 size for pspgo\n", __func__);
+	//if(is_go()){
+		//printk("%s: add a bit more partition 2 size for pspgo\n", __func__);
+		{
 		partition_2->size += 3 * 1024 * 1024;
 	}
 	#else
