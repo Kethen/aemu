@@ -599,6 +599,7 @@ int module_start(SceSize args, void * argp)
 	printk(MODULENAME " start!\n");
 
 	int rehook_result = rehook_inet();
+	#if 0
 	if (rehook_result == 0){
 		printk("%s: vita speedup detected, disabling workers\n", __func__);
 		use_worker = false;
@@ -606,6 +607,9 @@ int module_start(SceSize args, void * argp)
 		printk("%s: vita speedup not detected, enabling workers\n", __func__);
 		use_worker = true;
 	}
+	#else
+	use_worker = true;
+	#endif
 
 	init_littlec();
 	int mutex_create_status = sceKernelCreateLwMutex(&_gamemode_lock, "adhoc_gamemode_mutex", PSP_LW_MUTEX_ATTR_RECURSIVE, 0, NULL);
