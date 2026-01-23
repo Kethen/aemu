@@ -141,6 +141,7 @@ game, ef0:/seplugins/atpro.prx, on
 ### <a id="Troubleshooting" />Troubleshooting
 
 - Note that not all games currently work. Try a different game to see if it's an installation issue or game specific issue.
+- Some plugins might conflict with aemu, disable all other plugins and try again.
 - Install `kd` and `seplugins` from `dist_660_debug` instead, then run your game again. `ms0:/atpro.log` / `ef0:/atpro.log` / `ux0:/pspemu/atpro.log` will contain debug information that might help solving your issues.
 
 ### <a id="crossplaying-with-ppsspp" /> Crossplaying with PPSSPP
