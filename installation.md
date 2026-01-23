@@ -134,6 +134,7 @@ game, ef0:/seplugins/atpro.prx, on
 | psi-hate.com | PSP Online https://discord.com/invite/wxeGVkM | Minnesota USA | For players looking to play any games |
 
 - `ms0:/seplugins/port_offset.txt` / `ef0:/seplugins/port_offset.txt` / `ux0:/pspemu/seplugins/port_offset.txt` can be changed if you wish to change your port offset, mirrors the port offset option in PPSSPP
+- `ms0:/seplugins/nickname.txt` / `ef0:/seplugins/nickname.txt` / `ux0:/pspemu/seplugins/nickname.txt` can be added to override your system nickname, mostly useful for PSVita ARK Standalone if games don't work with your nickname generated from PSVita PSN
 - On PSVita, https://github.com/Kethen/pspemu_inet_multithread can be used on top to make some games run faster during adhoc multiplayer
 - **DO NOT DO THIS IF YOU DON'T KNOW WHAT CLASSIC P2P MODE MEANS**, classic P2P mode can be enabled by renaming `seplugins/aemu_postoffice.prx` to `seplugins/aemu_postoffice.prx.bak`
 
