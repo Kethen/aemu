@@ -68,7 +68,7 @@ game, ms0:/seplugins/atpro.prx, on
 | Inferno Cache | Off |
 
 5. Copy folder `kd` and `seplugins` inside `dist_660_release` to the root of your PSP memory stick, assuming you did not change that in adrenaline, that would be `ux0:/pspemu`.
-6. (PRO cfw) add the following line to the text file `ux0:/pspemu/seplugins/game.txt` **if it does not already exist**
+6. (Adrenaline) add the following line to the text file `ux0:/pspemu/seplugins/game.txt` **if it does not already exist**
 ```
 ms0:/seplugins/atpro.prx 1
 ```
