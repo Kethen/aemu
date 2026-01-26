@@ -85,16 +85,24 @@ static int pdp_send_postoffice(int idx, const SceNetEtherAddr *daddr, uint16_t d
 	}
 
 	// Iterate Peers
-	SceNetAdhocctlPeerInfo peers[32];
-	int num_peers = sizeof(peers);
-	int fetch_result = sceNetAdhocctlGetPeerList(&num_peers, peers);
-	if (fetch_result != 0){
-		printk("%s: failed fetching peer list while trying to broadcast, 0x%x\n", __func__, fetch_result);
+	_acquirePeerLock();
+	if(!_is_ppsspp){
+		for(SceNetAdhocctlPeerInfoEmu * peer = _getInternalPeerList(); peer != NULL; peer = peer->next){
+			pdp_send_postoffice_unicast(idx, &peer->mac_addr, dport, data, len, 0, 1);
+		}
 	}else{
-		for(int i = 0;i < num_peers / sizeof(SceNetAdhocctlPeerInfo);i++){
-			pdp_send_postoffice_unicast(idx, &peers[i].mac_addr, dport, data, len, 0, 1);
+		SceNetAdhocctlPeerInfo peers[32];
+		int num_peers = sizeof(peers);
+		int fetch_result = sceNetAdhocctlGetPeerList(&num_peers, peers);
+		if (fetch_result != 0){
+			printk("%s: failed fetching peer list while trying to broadcast, 0x%x\n", __func__, fetch_result);
+		}else{
+			for(int i = 0;i < num_peers / sizeof(SceNetAdhocctlPeerInfo);i++){
+				pdp_send_postoffice_unicast(idx, &peers[i].mac_addr, dport, data, len, 0, 1);
+			}
 		}
 	}
+	_freePeerLock();
 
 	return 0;
 }

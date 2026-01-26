@@ -44,9 +44,6 @@ int proNetAdhocctlDisconnect(void)
 			
 			// Prepare Packet
 			uint8_t opcode = OPCODE_DISCONNECT;
-			
-			// Acquire Network Lock
-			_acquireNetworkLock();
 
 			#if 1
 			// grace period for matching
@@ -60,6 +57,9 @@ int proNetAdhocctlDisconnect(void)
 				sceKernelDelayThread(delay);
 			}
 			#endif
+
+			// Acquire Network Lock
+			_acquireNetworkLock();
 
 			// Send Disconnect Request Packet
 			sceNetInetSend(_metasocket, &opcode, 1, INET_MSG_DONTWAIT);
