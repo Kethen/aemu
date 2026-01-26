@@ -474,7 +474,7 @@ int sceNetAdhocGameModeCreateMaster(const void * ptr, uint32_t size)
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
-	printk("%s: gamemode master creation on 0x%x with size %u, 0x%x/%d\n", __func__, ptr, size, result, result);
+	printk("%s: gamemode master creation on 0x%x with size %u tid %d, 0x%x/%d\n", __func__, ptr, size, sceKernelGetThreadId(), result, result);
 	return result;
 }
 
@@ -493,7 +493,7 @@ int sceNetAdhocGameModeCreateReplica(const SceNetEtherAddr * src, void * ptr, ui
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
-	printk("%s: gamemode replica creation on 0x%x with size %u, 0x%x/%d\n", __func__, ptr, size, result, result);
+	printk("%s: gamemode replica creation on 0x%x with size %u tid %d, 0x%x/%d\n", __func__, ptr, size, sceKernelGetThreadId(), result, result);
 	return result;
 }
 

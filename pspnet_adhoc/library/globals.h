@@ -111,6 +111,8 @@ extern int _gamemode_stop_thread;
 extern SceUID _gamemode_thread_id;
 extern int _gamemode_replica_stop_thread;
 extern SceUID _gamemode_replica_thread_id;
+extern int _gamemode_num_peers;
+extern int _gamemode_all_received;
 extern SceUID _socket_mapper_mutex;
 extern SceUID _server_resolve_mutex;
 extern int _port_offset;

@@ -293,5 +293,12 @@ int proNetAdhocGameModeCreateReplica(const SceNetEtherAddr * src, void * ptr, ui
 	}
 	#endif
 
+	if (_gamemode_socket_users - 1 == _gamemode_num_peers){
+		// PPSSPP blocks here
+		while(!_gamemode_all_received){
+			sceKernelDelayThread(1000);
+		}
+	}
+
 	return next_empty_slot + 1;
 }

@@ -42,6 +42,8 @@ SceUID _gamemode_socket = -1;
 int _gamemode_socket_users = 0;
 SceUID _gamemode_thread_id = -1;
 int _gamemode_stop_thread = 0;
+int _gamemode_num_peers = 0;
+int _gamemode_all_received = 0;
 
 static int gamemode_master_thread(SceSize args, void *argp)
 {
@@ -49,6 +51,8 @@ static int gamemode_master_thread(SceSize args, void *argp)
 	sceKernelDelayThread(GAMEMODE_INIT_DELAY_USEC);
 
 	SceNetAdhocctlGameModeInfo last_gamemode_info = {0};
+
+	uint64_t begin = sceKernelGetSystemTimeWide();
 
 	while(!_gamemode_stop_thread)
 	{
@@ -81,6 +85,29 @@ static int gamemode_master_thread(SceSize args, void *argp)
 			if (_gamemode.data_updated)
 			{
 				_gamemode.data_updated = 0;
+			}
+		}
+
+		if (!_gamemode_all_received){
+			if (sceKernelGetSystemTimeWide() - begin < 10000000){
+				int received = 0;
+				for(int i = 0;i < sizeof(_gamemode_replicas) / sizeof(_gamemode_replicas[0]);i++){
+					if (_gamemode_replicas[i] != NULL && _gamemode_replicas[i]->data_updated){
+						received++;
+					}
+				}
+				if (received < _gamemode_num_peers){
+					printk("%s: waiting for other masters, %d out of %d ready\n", __func__, received, _gamemode_num_peers);
+					sceKernelUnlockLwMutex(&_gamemode_lock, 1);
+					sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC);
+					_gamemode.data_updated = 1;
+					continue;
+				}
+				printk("%s: all %d out of %d masters ready\n", __func__, received, _gamemode_num_peers);
+				_gamemode_all_received = 1;
+			}else{
+				printk("%s: progressing without waiting for other masters\n", __func__);
+				_gamemode_all_received = 1;
 			}
 		}
 
@@ -179,6 +206,8 @@ int proNetAdhocGameModeCreateMaster(const void * ptr, uint32_t size)
 	//sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 1);
 
 	_gamemode_stop_thread = 0;
+	_gamemode_num_peers = gamemode_info.num - 1;
+	_gamemode_all_received = 0;
 	int thread_start_status = sceKernelStartThread(_gamemode_thread_id, 0, NULL);
 	if (thread_start_status < 0)
 	{
