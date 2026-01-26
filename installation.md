@@ -48,7 +48,7 @@ game, ms0:/seplugins/atpro.prx, on
 ### <a id="psvita"/>PSVita
 
 0. Make sure you are on 6.61 Adrenaline or ARK standalone CFW
-1. Go to Settings -> "Network" -> "Wi-Fi Settings" and connect to your Wi-Fi hotspot, use Go to Settings -> "Network" -> "Internet Connection Test" to make sure you have working internet connection on the PSVita
+1. Go to Settings -> "Network" -> "Wi-Fi Settings" and connect to your Wi-Fi hotspot, use Settings -> "Network" -> "Internet Connection Test" to make sure you have working internet connection on the PSVita
 2. Go to Settings -> "Power Save Settings" and disable "Use Wi-Fi in Power Save Mode"
 3. (Adrenaline) In XMB -> "Settings" -> "Power Save Settings", set "WLAN Power Save" to "off"
 4. (Adrenaline) Press select in XMB -> RECOVERY MENU, and change these settings
