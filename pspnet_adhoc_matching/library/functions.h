@@ -29,7 +29,8 @@ void * _malloc(uint32_t size);
  * Free Buffer
  * @param buffer To-be-freed Buffer
  */
-void _free(void * buffer);
+#define _free(b) __free(b, __func__)
+void __free(void * buffer, const char *caller);
 
 /**
  * Get Free Heap Size

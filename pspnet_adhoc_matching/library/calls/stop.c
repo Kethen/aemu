@@ -69,7 +69,8 @@ int proNetAdhocMatchingStop(int id)
 				while(context->event_thid != 0) sceKernelDelayThread(10000);
 				
 				// Free Hello Data Memory
-				_free(context->hello);
+				if (context->hello != NULL)
+					_free(context->hello);
 				
 				// Erase Hello Data Info
 				context->hellolen = 0;

@@ -34,8 +34,12 @@ void * _malloc(uint32_t size)
  * Free Buffer
  * @param buffer To-be-freed Buffer
  */
-void _free(void * buffer)
+void __free(void * buffer, const char *caller)
 {
+	if (buffer == NULL){
+		printk("%s: function %s tries to free NULL...\n", __func__, caller);
+		return;
+	}
 	free(buffer);
 }
 
@@ -347,16 +351,17 @@ void _sendGenericMessage(SceNetAdhocMatchingContext * context, int stack, SceNet
 }
 
 /**
- * Recursive Stack Cleaner
+ * Flat Stack Cleaner
  * @param node Current Thread Message Node
  */
-void _clearStackRecursive(ThreadMessage * node)
+void _clearStackFlat(ThreadMessage * node)
 {
-	// Not End of List
-	if(node != NULL) _clearStackRecursive(node->next);
-	
-	// Free Last Existing Node of List (NULL is handled in _free)
-	_free(node);
+	ThreadMessage *cur = node;
+	while(cur != NULL){
+		ThreadMessage *next = cur->next;
+		_free(cur);
+		cur = next;
+	}
 }
 
 /**
@@ -369,8 +374,8 @@ void _clearStack(SceNetAdhocMatchingContext * context, int stack)
 	// Clear Event Stack
 	if(stack == ADHOC_MATCHING_EVENT_STACK)
 	{
-		// Free Memory Recursively
-		_clearStackRecursive(context->event_stack);
+		// Free Memory
+		_clearStackFlat(context->event_stack);
 		
 		// Destroy Reference
 		context->event_stack = NULL;
@@ -379,8 +384,8 @@ void _clearStack(SceNetAdhocMatchingContext * context, int stack)
 	// Clear IO Stack
 	else
 	{
-		// Free Memory Recursively
-		_clearStackRecursive(context->input_stack);
+		// Free Memory
+		_clearStackFlat(context->input_stack);
 		
 		// Destroy Reference
 		context->input_stack = NULL;

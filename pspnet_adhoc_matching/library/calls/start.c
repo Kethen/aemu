@@ -144,7 +144,8 @@ int proNetAdhocMatchingStart(int id, int event_th_prio, int event_th_stack, int 
 					else
 					{
 						// Free Hello Data Buffer
-						_free(context->hello);
+						if (context->hello != NULL)
+							_free(context->hello);
 						
 						// Delete Hello Data Information
 						context->hellolen = 0;
@@ -1454,6 +1455,10 @@ void _broadcastPingMessage(SceNetAdhocMatchingContext * context)
  */
 void _broadcastHelloMessage(SceNetAdhocMatchingContext * context)
 {
+	if (context->hello == NULL){
+		return;
+	}
+
 	// Allocate Hello Message Buffer
 	uint8_t * hello = (uint8_t *)_malloc(5 + context->hellolen);
 	
