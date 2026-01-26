@@ -74,7 +74,7 @@ int sceNetAdhocMatchingCreate(int mode, int maxnum, uint16_t port, int rxbuflen,
 	originalHandler = handler;
 	int result = proNetAdhocMatchingCreate(mode, maxnum, port, rxbuflen, hello_int, keepalive_int, init_count, rexmt_int, handler/*replacementHandler*/);
 	//#ifdef TRACE
-	printk("Leaving %s with %08X\n", __func__, result);
+	printk("Leaving %s maxnum %d port %u rxbuflen %d hello_int %u keepalive_int %u init_count %d rexmt_int %u handler 0x%x with %08X\n", __func__, maxnum, port, rxbuflen, hello_int, keepalive_int, init_count, rexmt_int, handler, result);
 	//#endif
 	return result;
 }

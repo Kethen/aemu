@@ -186,14 +186,14 @@ int sceNetAdhocPdpCreate(const SceNetEtherAddr * saddr, uint16_t sport, int bufs
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
-	printk("%s: pdp creation on port %u, 0x%x/%d\n", __func__, sport, result, result);
+	printk("%s: pdp creation on port %u bufsize %d, 0x%x/%d\n", __func__, sport, bufsize, result, result);
 	return result;
 }
 
 int sceNetAdhocPdpSend(int id, const SceNetEtherAddr * daddr, uint16_t dport, const void * data, int len, uint32_t timeout, int flag)
 {
 	#ifdef TRACE
-	printk("Entering %s\n", __func__);
+	printk("Entering %s data 0x%x len %d\n", __func__, data, len);
 	#endif
 	uint32_t args[] = {*(uint32_t*)&id, (uint32_t)daddr, (uint32_t)offset_port(dport), (uint32_t)data, *(uint32_t*)&len, timeout, *(uint32_t*)&flag};
 	int result = 0;
@@ -231,7 +231,7 @@ int sceNetAdhocPdpDelete(int id, int flag)
 int sceNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void * buf, int * len, uint32_t timeout, int flag)
 {
 	#ifdef TRACE
-	printk("Entering %s\n", __func__);
+	printk("Entering %s buf 0x%x len 0x%x %d\n", __func__, buf, len, *len);
 	#endif
 	SceNetEtherAddr saddr_capture;
 	uint16_t sport_capture;
@@ -251,7 +251,7 @@ int sceNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 	if (saddr != NULL){
 		*saddr = saddr_capture;
 	}
-	//printk("%s: received pdp on socket %d port %u, 0x%x\n", __func__, id, *sport, result);
+	//printk("%s: received pdp on socket %d port %u len %d, 0x%x\n", __func__, id, *sport, *len, result);
 	return result;
 }
 
