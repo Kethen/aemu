@@ -143,8 +143,10 @@ void _notifyAdhocctlhandlers(int event, int error_code);
 
 #ifdef DEBUG
 #define create_adhocctl_name_buf(new_buf, from) \
-	char *new_buf[sizeof(from) + 1] = {0}; \
-	memcpy(new_buf, from, sizeof(from));
+	char new_buf[sizeof(from) + 1] = {0}; \
+	if (from != NULL){ \
+		memcpy(new_buf, from, sizeof(from)); \
+	}
 #else
 #define create_adhocctl_name_buf(...)
 #endif
