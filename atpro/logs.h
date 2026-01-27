@@ -39,6 +39,9 @@ void printk_unlock(void);
 #define printk_unlock()
 #endif
 
+// for debugging release mode only issues
+int printk2(char *fmt, ...)__attribute__((format (printf, 1, 2)));
+
 // Unimplemented Stub Log
 #define THROW_UNIMPLEMENTED(func) printk("UNIMPLEMENTED: %s\n", func)
 

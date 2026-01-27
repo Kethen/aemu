@@ -657,12 +657,18 @@ int _friendFinder(SceSize args, void * argp)
 		// 10 seconds timeout for joining gamemode
 		if (_thread_status == ADHOCCTL_STATE_CONNECTED &&
 			_in_gamemode == -1 &&
+			_gamemode_join_timestamp != 0 &&
 			sceKernelGetSystemTimeWide() - _gamemode_join_timestamp > 10000000
 		)
 		{
 			// Trigger disconnect
 			printk("%s: gamemode joining timed out\n", __func__);
+			for (int i = 0;i < _num_actual_gamemode_peers;i++)
+			{
+				printk("%s: member %x:%x:%x:%x:%x:%x\n", __func__, _actual_gamemode_peers[i].data[0], _actual_gamemode_peers[i].data[1], _actual_gamemode_peers[i].data[2], _actual_gamemode_peers[i].data[3], _actual_gamemode_peers[i].data[4], _actual_gamemode_peers[i].data[5]);
+			}
 			_notifyAdhocctlhandlers(ADHOCCTL_EVENT_ERROR, ERROR_NET_ADHOC_TIMEOUT);
+			_in_gamemode = 0;
 			//proNetAdhocctlExitGameMode();
 		}
 

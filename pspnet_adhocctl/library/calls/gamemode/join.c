@@ -43,6 +43,15 @@ int proNetAdhocctlJoinEnterGameMode(const SceNetAdhocctlGroupName * group_name, 
 	_joining_gamemode = 1;
 	_num_gamemode_peers = 0;
 	_gamemode_notified = 0;
+	_gamemode_join_timestamp = 0;
+
+	// insert host and self now
+	_maccpy(&_gamemode_host, gc);
+	_maccpy(&_actual_gamemode_peers[0], &_gamemode_host);
+	sceNetGetLocalEtherAddr(&(_actual_gamemode_peers[1]));
+	_num_actual_gamemode_peers = 2;
+	_gamemode_host_arrived = 0;
+	_gamemode_self_arrived = 0;
 
 	// join the adhoc network by group name
 	//int join_status = proNetAdhocctlCreate(group_name);
@@ -52,13 +61,6 @@ int proNetAdhocctlJoinEnterGameMode(const SceNetAdhocctlGroupName * group_name, 
 		_in_gamemode = 0;
 		return join_status;
 	}
-
-	_maccpy(&_gamemode_host, gc);
-	_maccpy(&_actual_gamemode_peers[0], &_gamemode_host);
-	sceNetGetLocalEtherAddr(&(_actual_gamemode_peers[1]));
-	_num_actual_gamemode_peers = 2;
-	_gamemode_host_arrived = 0;
-	_gamemode_self_arrived = 0;
 
 	_gamemode_join_timestamp = sceKernelGetSystemTimeWide();
 

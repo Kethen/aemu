@@ -64,9 +64,19 @@ int proNetAdhocctlCreateEnterGameMode(const SceNetAdhocctlGroupName * group_name
 	_joining_gamemode = 0;
 	_gamemode_notified = 0;
 
+	// let friend finder know that we're not really joining yet
+	_gamemode_join_timestamp = 0;
+
 	// save member list
 	memcpy(_gamemode_peers, members, sizeof(SceNetEtherAddr) * num);
 	_num_gamemode_peers = num;
+
+	// insert self(host) now before connecting
+	sceNetGetLocalEtherAddr(&_gamemode_host);
+	_maccpy(&_actual_gamemode_peers[0], &_gamemode_host);
+	_num_actual_gamemode_peers = 1;
+	_gamemode_host_arrived = 0;
+	_gamemode_self_arrived = 0;
 
 	// join the adhoc network by group name
 	int join_status = proNetAdhocctlCreate(group_name);
@@ -76,12 +86,7 @@ int proNetAdhocctlCreateEnterGameMode(const SceNetAdhocctlGroupName * group_name
 		return join_status;
 	}
 
-	sceNetGetLocalEtherAddr(&_gamemode_host);
-	_maccpy(&_actual_gamemode_peers[0], &_gamemode_host);
-	_num_actual_gamemode_peers = 1;
-	_gamemode_host_arrived = 0;
-	_gamemode_self_arrived = 0;
-
+	// let friend finder know that we are now joining
 	_gamemode_join_timestamp = sceKernelGetSystemTimeWide();
 
 	#if 1
@@ -103,6 +108,8 @@ void _appendGamemodePeer(SceNetEtherAddr *peer)
 	}
 	_maccpy(&_actual_gamemode_peers[_num_actual_gamemode_peers], peer);
 	_num_actual_gamemode_peers++;
+	printk("%s: peer %x:%x:%x:%x:%x:%x appended to gamemode\n", __func__, (uint32_t)peer->data[0], (uint32_t)peer->data[1], (uint32_t)peer->data[2], (uint32_t)peer->data[3], (uint32_t)peer->data[4], (uint32_t)peer->data[5]);
+	printk("%s: num peers %d\n", __func__, _num_actual_gamemode_peers);
 }
 
 void _insertGamemodePeer(SceNetEtherAddr *peer)
