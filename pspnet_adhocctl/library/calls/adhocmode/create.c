@@ -36,6 +36,11 @@ int proNetAdhocctlCreate(const SceNetAdhocctlGroupName * group_name)
 			// Disconnected State
 			if(_thread_status == ADHOCCTL_STATE_DISCONNECTED)
 			{
+				// wait for previous disconnect notify to clear
+				while (_disconnect_timestamp != 0){
+					sceKernelDelayThread(1000);
+				}
+
 				// Set Network Name
 				if(group_name != NULL) _parameter.group_name = *group_name;
 				
