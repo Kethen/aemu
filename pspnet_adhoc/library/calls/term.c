@@ -59,8 +59,9 @@ int proNetAdhocTerm(void)
 		// Delete Gamemode Buffer
 		_deleteAllGMB();
 		
+		// can't even re-init in some games
 		// Terminate Internet Library
-		sceNetInetTerm();
+		//sceNetInetTerm();
 		
 		// Unload Internet Modules (Just keep it in memory... unloading crashes?!)
 		// if(_manage_modules != 0) sceUtilityUnloadModule(PSP_MODULE_NET_INET);

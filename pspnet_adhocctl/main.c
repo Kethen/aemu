@@ -98,7 +98,7 @@ int sceNetAdhocctlTerm(void)
 	#endif
 	int result = proNetAdhocctlTerm();
 	//#ifdef TRACE
-	printk("Leaving %s with %08X\n", __func__, result);
+	printk("Leaving %s with %08X tid 0x%x\n", __func__, result, sceKernelGetThreadId());
 	//#endif
 	return result;
 }
@@ -240,6 +240,20 @@ int sceNetAdhocctlDelHandler(int id)
 	return result;
 }
 
+static const char *adhocctl_state_name(int state){
+	switch(state){
+		case ADHOCCTL_STATE_DISCONNECTED:
+			return "ADHOCCTL_STATE_DISCONNECTED";
+		case ADHOCCTL_STATE_CONNECTED:
+			return "ADHOCCTL_STATE_CONNECTED";
+		case ADHOCCTL_STATE_SCANNING:
+			return "ADHOCCTL_STATE_SCANNING";
+		case ADHOCCTL_STATE_GAMEMODE:
+			return "ADHOCCTL_STATE_GAMEMODE";
+	};
+	return "unknown";
+}
+
 int sceNetAdhocctlGetState(int * state)
 {
 	#ifdef TRACE
@@ -247,7 +261,7 @@ int sceNetAdhocctlGetState(int * state)
 	#endif
 	int result = proNetAdhocctlGetState(state);
 	#ifdef TRACE
-	printk("Leaving %s with %08x %d\n", __func__, result, *state);
+	printk("Leaving %s with %08x %s\n", __func__, result, adhocctl_state_name(*state));
 	#endif
 	return result;
 }

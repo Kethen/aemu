@@ -88,7 +88,7 @@ int proNetAdhocctlGetScanInfo(int * buflen, SceNetAdhocctlScanInfo * buf)
 					// Fix Last Element
 					if(discovered > 0) buf[discovered - 1].next = NULL;
 				}
-				
+
 				// Fix Size
 				*buflen = discovered * sizeof(SceNetAdhocctlScanInfo);
 			}

@@ -93,9 +93,9 @@ int sceNetAdhocInit(void)
 	}else{
 		result = proNetAdhocInit();
 	}
-	#ifdef TRACE
+	//#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#endif
 
 	return result;
 }
@@ -111,9 +111,9 @@ int sceNetAdhocTerm(void)
 	}else{
 		result = proNetAdhocTerm();
 	}
-	#ifdef TRACE
-	printk("Leaving %s with %08X\n", __func__, result);
-	#endif
+	//#ifdef TRACE
+	printk("Leaving %s with %08X tid 0x%x\n", __func__, result, sceKernelGetThreadId());
+	//#endif
 	return result;
 }
 
