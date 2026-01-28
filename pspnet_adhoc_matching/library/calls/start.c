@@ -1455,10 +1455,6 @@ void _broadcastPingMessage(SceNetAdhocMatchingContext * context)
  */
 void _broadcastHelloMessage(SceNetAdhocMatchingContext * context)
 {
-	if (context->hello == NULL){
-		return;
-	}
-
 	// Allocate Hello Message Buffer
 	uint8_t * hello = (uint8_t *)_malloc(5 + context->hellolen);
 	
@@ -1469,12 +1465,17 @@ void _broadcastHelloMessage(SceNetAdhocMatchingContext * context)
 
 		// Hello Opcode
 		hello[0] = ADHOC_MATCHING_PACKET_HELLO;
-		
+
 		// Hello Data Length (have to memcpy this to avoid cpu alignment crash)
 		memcpy(hello + 1, &context->hellolen, sizeof(context->hellolen));
 		
 		// Copy Hello Data
-		if(context->hellolen > 0) memcpy(hello + 5, context->hello, context->hellolen);
+		if(context->hellolen > 0 && context->hello != NULL)
+			memcpy(hello + 5, context->hello, context->hellolen);
+		else if (context->hellolen != 0){
+			printk("%s: we have hello len of %d, but not hello data..?\n", __func__, context->hellolen);
+			memset(hello + 5, 0, context->hellolen);
+		}
 		
 		// Send Broadcast
 		sceNetAdhocPdpSend(context->socket, (SceNetEtherAddr *)_broadcast, context->port, hello, 5 + context->hellolen, 0, ADHOC_F_NONBLOCK);
