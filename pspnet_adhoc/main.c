@@ -130,7 +130,7 @@ int sceNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 		result = proNetAdhocPollSocket(sds, nsds, timeout, flags);
 	}
 	#ifdef TRACE
-	printk("Leaving %s with %08X\n", __func__, result);
+	printk("Leaving %s with %08X, nonblocking %d\n", __func__, result, flags);
 	#endif
 	return result;
 }

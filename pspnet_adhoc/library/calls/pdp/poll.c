@@ -100,12 +100,15 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 
 					// check for WRNORM for connect events
 					if (sds[i].events & ADHOC_EV_CONNECT && _sockets[sds[i].id - 1]->is_ptp && _sockets[sds[i].id - 1]->ptp.state != PTP_STATE_LISTEN && !_sockets[sds[i].id - 1]->ptp_ext.connect_event_fired){
+						//printk("%s: game is looking for connect events on socket %d\n", __func__, sds[i].id);
 						isds[i].events |= INET_POLLWRNORM;
 					}
 
 					// check for IN for accept events
 					if (sds[i].events & ADHOC_EV_ACCEPT && _sockets[sds[i].id - 1]->is_ptp && _sockets[sds[i].id - 1]->ptp.state == PTP_STATE_LISTEN){
+						//printk("%s: game is looking for accept events on socket %d\n", __func__, sds[i].id);
 						isds[i].events |= INET_POLLIN;
+						isds[i].events |= INET_POLLRDNORM;
 					}
 
 					//printk("%s: adhoc sock 0x%x inet sock 0x%x events 0x%x\n", __func__, sds[i].id, isds[i].fd, isds[i].events);
@@ -159,8 +162,9 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 					for(i = 0; i < nsds; i++)
 					{
 						// In event, gotta hope that listen sockets actually emits In events on the PSP
-						if (isds[i].revents & INET_POLLIN){
+						if (isds[i].revents & INET_POLLIN || isds[i].revents & INET_POLLRDNORM){
 							if (sds[i].events & ADHOC_EV_ACCEPT && _sockets[sds[i].id - 1]->is_ptp && _sockets[sds[i].id - 1]->ptp.state == PTP_STATE_LISTEN){
+								//printk("%s: game is getting an accept event on socket %d\n", __func__, sds[i].id);
 								sds[i].revents |= ADHOC_EV_ACCEPT;
 							}
 						}
@@ -178,6 +182,7 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 								sds[i].revents |= ADHOC_EV_RECV;
 							}
 							if (sds[i].events & ADHOC_EV_CONNECT && _sockets[sds[i].id - 1]->is_ptp && _sockets[sds[i].id - 1]->ptp.state != PTP_STATE_LISTEN && !_sockets[sds[i].id - 1]->ptp_ext.connect_event_fired){
+								//printk("%s: game is getting a connect event on socket %d\n", __func__, sds[i].id);
 								sds[i].revents |= ADHOC_EV_CONNECT;
 								_sockets[sds[i].id - 1]->ptp_ext.connect_event_fired = true;
 							}
@@ -194,18 +199,17 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 				
 				// Free Memory
 				free(isds);
-				
-				// Blocking Mode (Nonblocking Mode returns 0, even on Success)
-				if(!flags)
-				{
-					// Success
-					if(affectedsockets > 0) return affectedsockets;
-					
-					// Timeout
+
+				// Gran Turismo definitely don't expect 0 on nonblocked, not sure why it was returing 0 before
+				// It is also unknown whether this can return ADHOC_TIMEOUT, PPSSPP currently don't
+				/*
+				if (affectedsockets == 0 && !flags){
 					return ADHOC_TIMEOUT;
 				}
+				*/
+				return affectedsockets;
 			}
-			
+
 			// No Events generated
 			return 0;
 		}
