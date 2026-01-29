@@ -593,6 +593,25 @@ void ppsspp_return_memory(){
 	}
 }
 
+int sceKernelVolatileMemTryLock(int unk, void **base_addr, int *allocated_size);
+int sceKernelVolatileMemUnlock(int unk);
+
+static int check_mem_lock_status(SceSize arg, void *argp){
+	while(1){
+		void *base_addr = 0;
+		int allocated_size = 0;
+		int lock_result = sceKernelVolatileMemTryLock(0, &base_addr, &allocated_size);
+
+		if (lock_result != 0){
+			printk("%s: failed locking volatile memory, 0x%x\n", __func__, lock_result);
+		}else{
+			printk("%s: successfully locked memory 0x%x size %d\n", __func__, base_addr, allocated_size);
+			sceKernelVolatileMemUnlock(0);
+		}
+		sceKernelDelayThread(5000000);
+	}
+}
+
 // Module Start Event
 int module_start(SceSize args, void * argp)
 {
@@ -638,6 +657,13 @@ int module_start(SceSize args, void * argp)
 		ppsspp_steal_memory();
 		printk("%s: ppsspp detected\n", __func__);
 	}
+
+	#if 0
+	#ifdef DEBUG
+	int thid = sceKernelCreateThread("volatile mem lock check", check_mem_lock_status, 16, 8192, 0, NULL);
+	sceKernelStartThread(thid, 0, NULL);
+	#endif
+	#endif
 
 	return 0;
 }

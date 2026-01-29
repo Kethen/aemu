@@ -22,6 +22,37 @@ static void _deleteAllGMB_Internal(SceNetAdhocGameModeBufferStat * node);
 
 int sceNetAdhocMatchingTerm();
 
+// I wonder if there's a more generic way to detect this quirk, or what exactly I did wrong
+// In most games, apctl dhcp has issues if I don't first term sceNetInet then re-init during second connect
+// Gran Turismo doesn't have that issues, instead if gets stuck during the second sceNetInetInit
+void get_game_code(char *buf, int len);
+static int should_term_inet(){
+	if (_is_ppsspp){
+		return 1;
+	}
+
+	char name_buf[20] = {0};
+	get_game_code(name_buf, sizeof(name_buf));
+
+	printk("%s: gamecode is %s\n", __func__, name_buf);
+
+	static const char *no_term_codes[] = {
+		// Gran Turismo
+		"UCES01245",
+		"UCUS98632",
+		"UCAS40265",
+		"UCJS10100"
+	};
+
+	for(int i = 0;i < sizeof(no_term_codes) / sizeof(no_term_codes[0]);i++){
+		if (strcmp(no_term_codes[i], name_buf) == 0){
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
 /**
  * Adhoc Emulator Socket Library Term-Call
  * @return 0 on success or... ADHOC_BUSY
@@ -59,9 +90,13 @@ int proNetAdhocTerm(void)
 		// Delete Gamemode Buffer
 		_deleteAllGMB();
 		
-		// can't even re-init in some games
 		// Terminate Internet Library
-		//sceNetInetTerm();
+		if (should_term_inet()){
+			int inet_term_result = sceNetInetTerm();
+			printk("%s: sceNetInetTerm result 0x%x\n", __func__, inet_term_result);
+		}else{
+			printk("%s: sceNetInetTerm disabled on this game\n", __func__);
+		}
 		
 		// Unload Internet Modules (Just keep it in memory... unloading crashes?!)
 		// if(_manage_modules != 0) sceUtilityUnloadModule(PSP_MODULE_NET_INET);

@@ -1150,6 +1150,11 @@ const char * getGameCode(void)
 	return SysMemGameCodeGetter() + 0x44;
 }
 
+void get_game_code(char *buf, int len){
+	memset(buf, 0, len);
+	strncpy(buf, getGameCode(), len - 1);
+}
+
 // Callback Deny Function
 int cbdeny(int cbid)
 {

@@ -151,4 +151,6 @@ void _notifyAdhocctlhandlers(int event, int error_code);
 #define create_adhocctl_name_buf(...)
 #endif
 
+void apctl_disconnect_and_wait_till_disconnected();
+
 #endif

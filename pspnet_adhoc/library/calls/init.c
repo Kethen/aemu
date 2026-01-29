@@ -77,33 +77,24 @@ int proNetAdhocInit(void)
 		// Load port offset
 		_readPortOffsetConfig();
 
-		static int internet_modules_loaded = 0;
-
 		int result = 0;
-		if (!internet_modules_loaded){
-			// Load Internet Modules
-			result = sceUtilityLoadModule(PSP_MODULE_NET_INET);
-			printk("%s: loading internet modules, 0x%x\n", __func__, result);
 
-			// Enable Manual Infrastructure Module Control
-			_manage_modules = 1;
+		// Load Internet Modules
+		result = sceUtilityLoadModule(PSP_MODULE_NET_INET);
+		printk("%s: loading internet modules, 0x%x\n", __func__, result);
 
-			// Initialize Internet Library
-			result = sceNetInetInit();
-			if (result != 0){
-				printk("%s: failed to initialize internet lib, 0x%x\n", __func__, result);
-			}else{
-				internet_modules_loaded = 1;
-			}
-		}else{
-			result = 0;
-		}
+		// Enable Manual Infrastructure Module Control
+		_manage_modules = 1;
+
+		// Initialize Internet Library
+		result = sceNetInetInit();
+		printk("%s: initializing internet lib, 0x%x\n", __func__, result);
 
 		// redo inet hooks
 		rehook_inet();
 
 		// Initialized Internet Library
-		if(result == 0)
+		//if(result == 0)
 		{
 			// Clear Translator Memory
 			memset(&_sockets, 0, sizeof(_sockets));

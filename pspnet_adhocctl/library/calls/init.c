@@ -200,7 +200,7 @@ void miniupnc_start();
 // implemented in pspnet_adhoc
 int resolve_server_ip();
 
-static void apctl_disconnect_and_wait_till_disconnected(){
+void apctl_disconnect_and_wait_till_disconnected(){
 	sceNetApctlDisconnect();
 	int state = 4;
 	while(state == 4){
@@ -231,8 +231,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 	}
 
 	int apctl_init_status = sceNetApctlInit(0x1800, 0x30);
-	if (apctl_init_status != 0)
-	{
+	if (apctl_init_status != 0){
 		printk("%s: sceNetApctlInit failed, 0x%x\n", __func__, apctl_init_status);
 		return -1;
 	}
