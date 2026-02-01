@@ -665,28 +665,33 @@ static int get_fd_path(SceUID fd, char *path){
 typedef SceUID (*load_module_by_id_func)(SceUID fd, int flags, SceKernelLMOption *option);
 load_module_by_id_func load_module_by_id_orig = NULL;
 
+struct known_func{
+	const char *module_name;
+	const char *library_name;
+	uint32_t nid;
+};
+
+static struct known_func known_open_funcs[] = {
+	{.module_name = "mhp3patch", .library_name = "mhp3kernel", .nid = 0x45ACEAF2}, // codestation's monster hunter patch loader
+	{.module_name = "divapatch", .library_name = "divakernel", .nid = 0xDA93ACA2}, // codestation's diva patch loader
+	{.module_name = "nploader", .library_name = "nploader", .nid = 0x333A34AE}, // nploader
+	{.module_name = "stargate", .library_name = "stargate", .nid = 0x7C8EFE7D}, // procfw stargate
+	{.module_name = "sceIOFileManager", .library_name = "IoFileMgrForUser", .nid = 0x109F50BC}, // normal sceIoOpen
+};
+
+struct known_func known_close_funcs[] = {
+	{.module_name = "mhp3patch", .library_name = "mhp3kernel", .nid = 0x35FFD283}, // codestation's monster hunter patch loader
+	{.module_name = "divapatch", .library_name = "divakernel", .nid = 0xCAC4B65D}, // codestation's diva patch loader
+	{.module_name = "sceIOFileManager", .library_name = "IoFileMgrForUser", .nid = 0x810C4BC3}, // normal sceIoClose
+};
+
 typedef SceUID (*open_func)(const char *path, int flags, SceMode mode);
 open_func open_orig = NULL;
 SceUID open_file(const char *path, int flags, SceMode mode){
-	if (open_orig == NULL){
-		// first try nploader
-		open_orig = (void *)sctrlHENFindFunction("nploader", "nploader", 0x333A34AE);
+	for(int i = 0;open_orig == NULL && i < sizeof(known_open_funcs) / sizeof(known_open_funcs[0]);i++){
+		open_orig = (void *)sctrlHENFindFunction(known_open_funcs[i].module_name, known_open_funcs[i].library_name, known_open_funcs[i].nid);
 		if (open_orig != NULL){
-			printk("%s: using nploader sceIoOpen\n", __func__);
-		}
-
-		if (open_orig == NULL){
-			// try procfw stargate
-			open_orig = (void *)sctrlHENFindFunction("stargate", "stargate", 0x7C8EFE7D);
-			if (open_orig != NULL){
-				printk("%s: using procfw stargate sceIoOpen\n", __func__);
-			}
-		}
-
-		if (open_orig == NULL){
-			// fallback to normal impl
-			open_orig = (void *)sctrlHENFindFunction("sceIOFileManager", "IoFileMgrForUser", 0x109F50BC);
-			printk("%s: using normal sceIoOpen\n", __func__);
+			printk("%s: using %s %s 0x%x for sceIoOpen\n", __func__, known_open_funcs[i].module_name, known_open_funcs[i].library_name, known_open_funcs[i].nid);
 		}
 	}
 
@@ -789,8 +794,15 @@ SceUID open_file(const char *path, int flags, SceMode mode){
 }
 
 typedef int (*close_func)(SceUID fd);
-close_func close_orig = sceIoClose;
+close_func close_orig = NULL;
 int close_file(SceUID fd){
+	for(int i = 0;close_orig == NULL && i < sizeof(known_close_funcs) / sizeof(known_close_funcs[0]);i++){
+		close_orig = (void *)sctrlHENFindFunction(known_close_funcs[i].module_name, known_close_funcs[i].library_name, known_close_funcs[i].nid);
+		if (close_orig != NULL){
+			printk("%s: using %s %s 0x%x for sceIoClose\n", __func__, known_close_funcs[i].module_name, known_close_funcs[i].library_name, known_close_funcs[i].nid);
+		}
+	}
+
 	remove_fd_path_map_entry(fd);
 	return close_orig(fd);
 }
