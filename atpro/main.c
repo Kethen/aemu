@@ -672,16 +672,20 @@ struct known_func{
 };
 
 static struct known_func known_open_funcs[] = {
-	{.module_name = "mhp3patch", .library_name = "mhp3kernel", .nid = 0x45ACEAF2}, // codestation's monster hunter patch loader
-	{.module_name = "divapatch", .library_name = "divakernel", .nid = 0xDA93ACA2}, // codestation's diva patch loader
+	//{.module_name = "mhp3patch", .library_name = "mhp3kernel", .nid = 0x45ACEAF2}, // codestation's monster hunter patch loader
+	{.module_name = "mhp3patch", .library_name = "mhp3kernel", .nid = 0x0},
+	//{.module_name = "divapatch", .library_name = "divakernel", .nid = 0xDA93ACA2}, // codestation's diva patch loader
+	{.module_name = "divapatch", .library_name = "divakernel", .nid = 0x0},
 	{.module_name = "nploader", .library_name = "nploader", .nid = 0x333A34AE}, // nploader
 	{.module_name = "stargate", .library_name = "stargate", .nid = 0x7C8EFE7D}, // procfw stargate
 	{.module_name = "sceIOFileManager", .library_name = "IoFileMgrForUser", .nid = 0x109F50BC}, // normal sceIoOpen
 };
 
 struct known_func known_close_funcs[] = {
-	{.module_name = "mhp3patch", .library_name = "mhp3kernel", .nid = 0x35FFD283}, // codestation's monster hunter patch loader
-	{.module_name = "divapatch", .library_name = "divakernel", .nid = 0xCAC4B65D}, // codestation's diva patch loader
+	//{.module_name = "mhp3patch", .library_name = "mhp3kernel", .nid = 0x35FFD283}, // codestation's monster hunter patch loader
+	{.module_name = "mhp3patch", .library_name = "mhp3kernel", .nid = 0x0},
+	//{.module_name = "divapatch", .library_name = "divakernel", .nid = 0xCAC4B65D}, // codestation's diva patch loader
+	{.module_name = "divapatch", .library_name = "divakernel", .nid = 0x0},
 	{.module_name = "sceIOFileManager", .library_name = "IoFileMgrForUser", .nid = 0x810C4BC3}, // normal sceIoClose
 };
 
@@ -1772,6 +1776,42 @@ int online_patcher(SceModule2 * module)
 			//netconf_adhoc_override = allocate_partition_memory(sizeof(struct pspUtilityNetconfAdhoc));
 			netconf_override = allocate_partition_memory(128);
 			netconf_adhoc_override = (void *)(((uint32_t)netconf_override) + 72);
+
+			if (strcmp(module->modname, "MonsterHunterPortable3rd") == 0){
+				//{.module_name = "mhp3patch", .library_name = "mhp3kernel", .nid = 0x45ACEAF2}, // codestation's monster hunter patch loader
+				for (int i = 0;i < sizeof(known_open_funcs) / sizeof(known_open_funcs[0]);i++){
+					if (strcmp(known_open_funcs[i].module_name, "mhp3patch") == 0){
+						known_open_funcs[i].nid = 0x45ACEAF2;
+						break;
+					}
+				}
+
+				//{.module_name = "mhp3patch", .library_name = "mhp3kernel", .nid = 0x35FFD283}, // codestation's monster hunter patch loader
+				for (int i = 0;i < sizeof(known_close_funcs) / sizeof(known_close_funcs[0]);i++){
+					if (strcmp(known_close_funcs[i].module_name, "mhp3patch") == 0){
+						known_close_funcs[i].nid = 0x35FFD283;
+						break;
+					}
+				}
+			}
+
+			if (strcmp(module->modname, "PdvApp") == 0){
+				//{.module_name = "divapatch", .library_name = "divakernel", .nid = 0xDA93ACA2}, // codestation's diva patch loader
+				for (int i = 0;i < sizeof(known_open_funcs) / sizeof(known_open_funcs[0]);i++){
+					if (strcmp(known_open_funcs[i].module_name, "divapatch") == 0){
+						known_open_funcs[i].nid = 0xDA93ACA2;
+						break;
+					}
+				}
+
+				//{.module_name = "divapatch", .library_name = "divakernel", .nid = 0xCAC4B65D}, // codestation's diva patch loader
+				for (int i = 0;i < sizeof(known_close_funcs) / sizeof(known_close_funcs[0]);i++){
+					if (strcmp(known_close_funcs[i].module_name, "divapatch") == 0){
+						known_close_funcs[i].nid = 0xCAC4B65D;
+						break;
+					}
+				}
+			}
 		}
 
 		log_memory_info();
