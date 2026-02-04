@@ -18,14 +18,20 @@
 #include "../../common.h"
 
 int pdp_delete_postoffice(int idx){
-	void *pdp_socket = _sockets[idx]->postoffice_handle;
-	if (pdp_socket != NULL){
-		pdp_delete(pdp_socket);
-	}
+	AdhocSocket *internal = _sockets[idx];
+
+	// don't yield to another thread trying to recv/send during cleanup
 	sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
-	free(_sockets[idx]);
 	_sockets[idx] = NULL;
 	sceKernelSignalSema(_socket_mapper_mutex, 1);
+
+	void *pdp_socket = _sockets[idx]->postoffice_handle;
+	if (internal->postoffice_handle != NULL){
+		pdp_delete(internal->postoffice_handle);
+	}
+	// postoffice should have aborted other operations at this point, if the other side yielded to us during data operations
+
+	free(internal);
 	return 0;
 }
 

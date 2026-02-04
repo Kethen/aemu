@@ -20,6 +20,11 @@
 static int ptp_close_postoffice(int idx){
 	AdhocSocket *internal = _sockets[idx];
 
+	// stop others from trying to use it while we yield later during cleanup
+	sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
+	_sockets[idx] = NULL;
+	sceKernelSignalSema(_socket_mapper_mutex, 1);
+
 	if (internal->connect_thread >= 0){
 		sceKernelWaitThreadEnd(internal->connect_thread, NULL);
 		sceKernelDeleteThread(internal->connect_thread);
@@ -34,9 +39,8 @@ static int ptp_close_postoffice(int idx){
 			ptp_close(socket);
 		}
 	}
-	sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
-	_sockets[idx] = NULL;
-	sceKernelSignalSema(_socket_mapper_mutex, 1);
+	// postoffice should have aborted other operations at this point, if the other side yielded to us during data operations
+
 	free(internal);
 	return 0;
 }

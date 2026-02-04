@@ -28,11 +28,15 @@ static int pdp_send_postoffice_unicast(int idx, const SceNetEtherAddr *daddr, ui
 		len = 2048;
 	}
 
-	int pdp_send_status;
+	int pdp_send_status = 0;
 	int recovery_cnt = 0;
 	while(1){
 		void *pdp_sock = pdp_postoffice_recover(idx);
 		if (pdp_sock == NULL){
+			if (_sockets[idx] == NULL){
+				// we don't even have a socket anymore, because the game decided to close it on another thread
+				return ADHOC_INVALID_SOCKET_ID;
+			}
 			if (!nonblock && timeout != 0 && sceKernelGetSystemTimeWide() < end){
 				sceKernelDelayThread(100);
 				continue;
