@@ -28,6 +28,11 @@ static int ptp_recv_postoffice(int idx, void *data, int *len, uint32_t timeout, 
 
 	int send_status;
 	while (1){
+		if (_sockets[idx] == NULL){
+			// socket closed on another thread :(
+			return ADHOC_INVALID_SOCKET_ID;
+		}
+
 		send_status = ptp_recv(_sockets[idx]->postoffice_handle, (char *)data, len, nonblock || timeout != 0);
 		if (send_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK){
 			if (nonblock){

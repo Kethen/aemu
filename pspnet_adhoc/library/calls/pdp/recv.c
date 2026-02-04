@@ -19,20 +19,29 @@
 
 void *pdp_postoffice_recover(int idx){
 	AdhocSocket *internal = _sockets[idx];
+
+	if (internal == NULL){
+		printk("%s: not good, the game closed the socket during the operation\n", __func__);
+		return NULL;
+	}
+
 	if (internal->postoffice_handle != NULL){
 		return internal->postoffice_handle;
 	}
+
 	struct aemu_post_office_sock_addr addr = {
 		.addr = resolve_server_ip(),
 		.port = htons(POSTOFFICE_PORT)
 	};
 	SceNetEtherAddr local_mac = {0};
 	sceNetGetLocalEtherAddr(&local_mac);
+
 	int state;
 	internal->postoffice_handle = pdp_create_v4(&addr, (const char *)&local_mac, _sockets[idx]->pdp.lport, &state);
 	if (state != AEMU_POSTOFFICE_CLIENT_OK){
 		printk("%s: pdp socket recovery failed, %d\n", __func__, state);
 	}
+
 	return internal->postoffice_handle;
 }
 
@@ -47,11 +56,17 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 
 	int sport_cpy = 0;
 	int len_cpy = 0;
-	int pdp_recv_status;
+	int pdp_recv_status = 0;
 	int recovery_cnt = 0;
 	while(1){
 		void *pdp_sock = pdp_postoffice_recover(idx);
+
 		if (pdp_sock == NULL){
+			if (_sockets[idx] == NULL){
+				// we don't even have a socket anymore, because the game decided to close it on another thread
+				return ADHOC_INVALID_SOCKET_ID;
+			}
+
 			if (!nonblock && timeout != 0 && sceKernelGetSystemTimeWide() < end){
 				sceKernelDelayThread(100);
 				continue;

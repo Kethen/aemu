@@ -19,6 +19,12 @@
 
 void *ptp_listen_postoffice_recover(int idx){
 	AdhocSocket *internal = _sockets[idx];
+
+	if (internal == NULL){
+		printk("%s: not good, the game closed the socket during the operation\n", __func__);
+		return NULL;
+	}
+
 	if (internal->postoffice_handle != NULL){
 		return internal->postoffice_handle;
 	}
@@ -49,6 +55,11 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *addr, uint16_t *port,
 	while(1){
 		void *ptp_listen_socket = ptp_listen_postoffice_recover(idx);
 		if (ptp_listen_socket == NULL){
+			if (_sockets[idx] == NULL){
+				// we don't even have a socket anymore, because the game decided to close it on another thread
+				return ADHOC_INVALID_SOCKET_ID;
+			}
+
 			if (!nonblock && timeout != 0 && sceKernelGetSystemTimeWide() < end){
 				sceKernelDelayThread(100);
 				continue;
