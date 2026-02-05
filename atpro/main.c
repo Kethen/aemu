@@ -259,9 +259,20 @@ int strncasecmp(const char *lhs, const char *rhs, unsigned int max_len)
 	return strncmp(lhs_buf, rhs_buf, max_len);
 }
 
+// for load these at the very end
+static SceKernelLMOption mod_load_high_option = {
+	.size = sizeof(SceKernelLMOption),
+	.mpidtext = 0,
+	.mpiddata = 0,
+	.flags = 0,
+	.position = PSP_SMEM_High,
+	.access = 0,
+	.creserved = {0, 0}
+};
+
 static int load_start_module(const char *path){
 	uint32_t k1 = pspSdkSetK1(0);
-	int uid = sceKernelLoadModule(path, 0, NULL);
+	int uid = sceKernelLoadModule(path, 0, &mod_load_high_option);
 	pspSdkSetK1(k1);
 	if (uid < 0){
 		printk("%s: failed loading %s, 0x%x\n", __func__, path, uid);
@@ -448,6 +459,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 			{
 				printk("%s: forcing firmware %s\n", __func__, force_fw_modules[i]);
 				sprintf(path, "flash0:/kd/%s", force_fw_modules[i]);
+				option = &mod_load_high_option;
 				break;
 			}
 		}
@@ -480,6 +492,8 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 		int i = 0; for(; i < MODULE_LIST_SIZE; i++) {
 			// Matching Modulename
 			if(strstr(test_path, module_names[i]) != NULL) {
+				option = &mod_load_high_option;
+
 				// Replace Modulename
 				strcpy((char*)path, "ms0:/kd/");
 				strcpy((char*)path + strlen(path), module_names[i]);
