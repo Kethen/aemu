@@ -189,6 +189,10 @@ int proNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 				
 				// Receive Data
 				// Detect oversize packets, as PPSSPP does
+				if (*len > 2048){
+					// okay what's with the giant buffers in games
+					*len = 2048;
+				}
 				void *recv_buf = malloc(*len + 1);
 				int received = 0;
 				if (__builtin_expect(recv_buf != NULL, 1))
