@@ -51,6 +51,7 @@ PSP_EXPORT_FUNC_HASH(alloc_partition_memory)
 PSP_EXPORT_FUNC_HASH(free_partition_memory)
 PSP_EXPORT_FUNC_HASH(alloc_memory_block)
 PSP_EXPORT_FUNC_HASH(free_memory_block)
+PSP_EXPORT_FUNC_HASH(create_thread)
 PSP_EXPORT_FUNC_HASH(is_non_fat)
 PSP_EXPORT_END
 

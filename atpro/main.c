@@ -175,8 +175,8 @@ static int is_go(){
 }
 
 int has_high_mem(){
-	//return 0;
-	return is_vita() || sceKernelGetModel() != 0;
+	return 0;
+	//return is_vita() || sceKernelGetModel() != 0;
 }
 
 void steal_memory()
@@ -1746,6 +1746,13 @@ int free_partition_memory(SceUID id){
 	return ret;
 }
 
+SceUID create_thread(const char *name, void *entry, int priority, int stack_size, int attr, void *option){
+	log_memory_info();
+	SceUID ret = sceKernelCreateThread(name, entry, priority, stack_size, attr, option);
+	printk("%s: name %s entry 0x%x priority %d stack_size %d attr 0x%x option 0x%x, 0x%x\n", __func__, name, entry, priority, stack_size, attr, option, ret);
+	return ret;
+}
+
 SceUID (*alloc_memory_block_orig)(char *name, u32 type, u32 size, uint32_t *opt) = NULL;
 SceUID alloc_memory_block(char *name, u32 type, u32 size, uint32_t *opt){
 	if (alloc_memory_block_orig == NULL){
@@ -1799,6 +1806,7 @@ int online_patcher(SceModule2 * module)
 			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0xB6D61D02, free_partition_memory);
 			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0xFE707FDF, alloc_memory_block);
 			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0x50F61D8A, free_memory_block);
+			hook_import_bynid((SceModule *)module, "ThreadManForUser", 0x446D8DE6, create_thread);
 			hook_import_bynid((SceModule *)module, "scePower", 0xA85880D0, is_non_fat);
 
 			// allocate memory for netconf
