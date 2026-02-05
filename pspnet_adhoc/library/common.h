@@ -46,6 +46,7 @@
 
 // module loading
 #include <pspmodulemgr.h>
+#include <pspsysmem.h>
 
 // dns
 #include <pspnet_resolver.h>

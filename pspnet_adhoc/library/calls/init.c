@@ -57,7 +57,17 @@ int proNetAdhocInit(void)
 
 		// Load postoffice lib
 		if (postoffice_handle < 0){
-			postoffice_handle = sceKernelLoadModule("ms0:/kd/aemu_postoffice.prx", 0, NULL);
+			SceKernelLMOption mod_load_high_option = {
+				.size = sizeof(SceKernelLMOption),
+				.mpidtext = 0,
+				.mpiddata = 0,
+				.flags = 0,
+				.position = PSP_SMEM_High,
+				.access = 0,
+				.creserved = {0, 0}
+			};
+
+			postoffice_handle = sceKernelLoadModule("ms0:/kd/aemu_postoffice.prx", 0, &mod_load_high_option);
 			if (postoffice_handle < 0){
 				postoffice_handle = sceKernelLoadModule("ms0:/PSP/PLUGINS/atpro/aemu_postoffice.prx", 0, NULL);
 			}
