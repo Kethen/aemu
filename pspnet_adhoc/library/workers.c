@@ -137,12 +137,20 @@ static int worker_thread_func(SceSize args, void *argp){
 	}
 }
 
+// exported by atpro
+int has_high_mem();
 int init_workers(){
 	workers_mutex = sceKernelCreateSema("adhoc workers mutex", 0, 1, 1, NULL);
 	if (workers_mutex < 0){
 		printk("%s: failed creating worker mutex, 0x%x\n", __func__, workers_mutex);
 	}
-	for (int i = 0;i < sizeof(workers) / sizeof(workers[0]);i++){
+
+	int num_workers = sizeof(workers) / sizeof(workers[0]);
+	if (!has_high_mem()){
+		num_workers = 4;
+	}
+
+	for (int i = 0;i < num_workers;i++){
 		workers[i].work_sema = sceKernelCreateSema("adhoc worker work sema", 0, 0, 1, NULL);
 		if (workers[i].work_sema < 0){
 			printk("%s: failed creating work sema, 0x%x\n", __func__, workers[i].work_sema);
@@ -154,7 +162,7 @@ int init_workers(){
 			sceKernelDeleteSema(workers[i].work_sema);
 			break;
 		}
-		workers[i].thid = sceKernelCreateThread("adhoc worker", worker_thread_func, 16, 0x4000, 0, NULL);
+		workers[i].thid = sceKernelCreateThread("adhoc worker", worker_thread_func, 16, 0x3000, 0, NULL);
 		if (workers[i].thid < 0){
 			printk("%s: failed creating kernel thread, 0x%x\n", __func__, workers[i].thid);
 			sceKernelDeleteSema(workers[i].work_sema);
