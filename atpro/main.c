@@ -174,15 +174,14 @@ static int is_go(){
 	return sceKernelGetModel() == 4;
 }
 
+int has_high_mem(){
+	return is_vita() || sceKernelGetModel() != 0;
+}
+
 void steal_memory()
 {
 	int size = 8 * 1024 * 1024;
-
-	//if(is_go()){
-		//printk("%s: steal a bit more partition 2 memory for pspgo\n", __func__);
-		{
-		size += 3 * 1024 * 1024;
-	}
+	size += 3 * 1024 * 1024; // PSP go odd memory layout
 
 	if (stolen_memory >= 0)
 	{
@@ -1682,11 +1681,9 @@ typedef struct SysMemPartition {
 	PartitionData *data;
 } SysMemPartition;
 
-
-
 // based on Adrenaline
 static void memlayout_hack(){
-	if(sceKernelGetModel() == 0 && !is_vita()){
+	if(!has_high_mem()){
 		printk("%s: not slim/vita\n", __func__);
 		return;
 	}
@@ -1715,14 +1712,13 @@ static void memlayout_hack(){
 	// memory layout with just r6 loaded: log_memory_info: p2 startaddr 0x8800000 size 25165824 attr 0xf max 17314048 total 17314048
 
 	#if 1
-	// 128 B of netconf param alloc + 8 MB of stolen memory + 50 KB buffer
-	// note that this is curretly so tight due to how r6 vegas crashes when having just 2MB of extra memory
-	partition_2->size = 24 * 1024 * 1024 + 8 + 128 + 8 * 1024 * 1024 + 50 * 1024;
-	//if(is_go()){
-		//printk("%s: add a bit more partition 2 size for pspgo\n", __func__);
-		{
-		partition_2->size += 3 * 1024 * 1024;
-	}
+	// the goal is to have extra memory, but only offer the game roughly vanilla amount of memory after memory is stolen
+	// also be very careful not to hit the 40 MB limit barrier on PSVita, there be dragons beyond 40 MB
+	partition_2->size = 24 * 1024 * 1024; // base
+	partition_2->size += 8 + 128; // 128 B of netconf param alloc
+	partition_2->size += 8 * 1024 * 1024; // stolen
+	partition_2->size += 3 * 1024 * 1024; // PSP go odd memory layout
+	partition_2->size += 50 * 1024; // buffer
 	#else
 	// 40 MB is currently the limit on the vita, until all unsafe zones are mapped
 	partition_2->size = 40 * 1024 * 1024;

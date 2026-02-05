@@ -17,3 +17,4 @@
 	IMPORT_FUNC  "ATPRO",0xC447A405,steal_memory
 	IMPORT_FUNC  "ATPRO",0x62F792ED,return_memory
 	IMPORT_FUNC  "ATPRO",0x1,get_game_code
+	IMPORT_FUNC  "ATPRO",0x2,has_high_mem
