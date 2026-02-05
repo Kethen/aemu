@@ -101,6 +101,12 @@ char * module_build_names[MODULE_LIST_SIZE] = {
 	"sceNetAdhocMatching_Library"
 };
 
+char *extra_load_high_modules[] ={
+	"pspnet_ap_dialog_dummy.prx",
+	"pspnet_adhoc_download.prx",
+	"pspnet_adhoc_discover.prx"
+};
+
 const char *force_fw_modules[] = {
 	"ifhandle.prx",
 	"pspnet.prx",
@@ -175,8 +181,8 @@ static int is_go(){
 }
 
 int has_high_mem(){
-	return 0;
-	//return is_vita() || sceKernelGetModel() != 0;
+	//return 0;
+	return is_vita() || sceKernelGetModel() != 0;
 }
 
 void steal_memory()
@@ -461,6 +467,16 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 			{
 				printk("%s: forcing firmware %s\n", __func__, force_fw_modules[i]);
 				sprintf(path, "flash0:/kd/%s", force_fw_modules[i]);
+				option = &mod_load_high_option;
+				break;
+			}
+		}
+
+		for (int i = 0;i < sizeof(extra_load_high_modules) / sizeof(char *) && onlinemode;i++)
+		{
+			if (strstr(test_path, extra_load_high_modules[i]))
+			{
+				printk("%s: forcing load high %s\n", __func__, extra_load_high_modules[i]);
 				option = &mod_load_high_option;
 				break;
 			}
