@@ -47,6 +47,11 @@ PSP_EXPORT_FUNC_HASH(sceDisplayWaitVblankPatched)
 PSP_EXPORT_FUNC_HASH(sceDisplayWaitVblankCBPatched)
 PSP_EXPORT_FUNC_HASH(sceDisplayWaitVblankStartPatched)
 PSP_EXPORT_FUNC_HASH(sceDisplayWaitVblankStartCBPatched)
+PSP_EXPORT_FUNC_HASH(alloc_partition_memory)
+PSP_EXPORT_FUNC_HASH(free_partition_memory)
+PSP_EXPORT_FUNC_HASH(alloc_memory_block)
+PSP_EXPORT_FUNC_HASH(free_memory_block)
+PSP_EXPORT_FUNC_HASH(is_non_fat)
 PSP_EXPORT_END
 
 PSP_END_EXPORTS

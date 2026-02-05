@@ -175,6 +175,7 @@ static int is_go(){
 }
 
 int has_high_mem(){
+	//return 0;
 	return is_vita() || sceKernelGetModel() != 0;
 }
 
@@ -184,7 +185,8 @@ void steal_memory()
 	size += 3 * 1024 * 1024; // PSP go odd memory layout
 
 	if (!has_high_mem()){
-		size = 1024 * 1024 * 2; // we're boned if the game wants more than this initially
+		//size = 1024 * 1024 * 1.3; // we're boned if the game wants more than this initially
+		return; // can't steal in some cases, some game will just not have enough to load libraries
 	}
 
 	if (stolen_memory >= 0)
@@ -1542,7 +1544,7 @@ void * create_loadmoduleio_stub(void)
 	void * (* gethead)(u32) = (void *)sctrlHENFindFunction("sceSystemMemoryManager", "SysMemUserForUser", 0x9D9A5BA1);
 
 	// Allocate Memory
-	int result = alloc(2, "LoadModuleIOStub", PSP_SMEM_High, 8, 0);
+	int result = wwalloc(2, "LoadModuleIOStub", PSP_SMEM_High, 8, 0);
 	
 	// Allocated Memory
 	if(result >= 0)
@@ -1731,6 +1733,44 @@ static void memlayout_hack(){
 	printk("%s: changed partition layout\n", __func__);
 }
 
+SceUID alloc_partition_memory(int part, const char *name, int type, SceSize size, void *addr){
+	log_memory_info();
+	SceUID ret = sceKernelAllocPartitionMemory(part, name, type, size, addr);
+	printk("%s: part %d name %s type %d size %d addr 0x%x, 0x%x\n", __func__, part, name, type, size, addr, ret);
+	return ret;
+}
+
+int free_partition_memory(SceUID id){
+	int ret = sceKernelFreePartitionMemory(id);
+	printk("%s: freeing 0x%x, 0x%x\n", __func__, id, ret);
+	return ret;
+}
+
+SceUID (*alloc_memory_block_orig)(char *name, u32 type, u32 size, uint32_t *opt) = NULL;
+SceUID alloc_memory_block(char *name, u32 type, u32 size, uint32_t *opt){
+	if (alloc_memory_block_orig == NULL){
+		alloc_memory_block_orig = (void *)sctrlHENFindFunction("sceSystemMemoryManager", "SysMemUserForUser", 0xFE707FDF);
+	}
+
+	log_memory_info();
+
+	SceUID ret = alloc_memory_block_orig(name, type, size, opt);
+
+	printk("%s: name %s type %d size %d, 0x%x\n", __func__, name, type, size, ret);
+	return ret;
+}
+
+int free_memory_block(SceUID id){
+	int ret = sceKernelFreePartitionMemory(id);
+	printk("%s: freeing 0x%x, 0x%x\n", __func__, id, ret);
+	return ret;
+}
+
+int is_non_fat(){
+	printk("%s: lying to the game about the console being a 1000\n", __func__);
+	return 0;
+}
+
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
@@ -1755,6 +1795,11 @@ int online_patcher(SceModule2 * module)
 			hook_import_bynid((SceModule *)module, "IoFileMgrForUser", 0x109F50BC, open_file);
 			hook_import_bynid((SceModule *)module, "IoFileMgrForUser", 0x810C4BC3, close_file);
 			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0xB7F46618, load_module_by_id);
+			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0x237DBD4F, alloc_partition_memory);
+			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0xB6D61D02, free_partition_memory);
+			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0xFE707FDF, alloc_memory_block);
+			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0x50F61D8A, free_memory_block);
+			hook_import_bynid((SceModule *)module, "scePower", 0xA85880D0, is_non_fat);
 
 			// allocate memory for netconf
 			//netconf_override = allocate_partition_memory(sizeof(allocate_partition_memory));
