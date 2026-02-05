@@ -183,40 +183,15 @@ void steal_memory()
 	int size = 8 * 1024 * 1024;
 	size += 3 * 1024 * 1024; // PSP go odd memory layout
 
+	if (!has_high_mem()){
+		size = 1024 * 1024 * 2; // we're boned if the game wants more than this initially
+	}
+
 	if (stolen_memory >= 0)
 	{
 		printk("%s: refuse to steal memory again\n", __func__);
 		return;
 	}
-
-	#if 1
-
-	if(sceKernelGetModel() == 0 && !is_vita()){
-		printk("%s: refuse to steal memroy on psp 1000\n", __func__);
-		return;
-	}
-
-	#else
-
-	// https://github.com/Freakler/CheatDeviceRemastered/blob/fb0b45a254c724a2cef2397237b2d9ada22b37b4/source/utils.c
-	SceUID test_alloc = sceKernelAllocPartitionMemory(2, "highmem probe", PSP_SMEM_High, 1024, NULL);
-
-	if (test_alloc < 0)
-	{
-		printk("%s: cannot probe for memory layout, giving up\n", __func__);
-		return;
-	}
-
-	void *test_head = sceKernelGetBlockHeadAddr(test_alloc);
-	sceKernelFreePartitionMemory(test_alloc);
-
-	if (test_head < 0x0A000000)
-	{
-		printk("%s: Not in high memory layout, 0x%x, releasing %d\n", __func__, test_head, test_alloc);
-		return;
-	}
-
-	#endif
 
 	stolen_memory = sceKernelAllocPartitionMemory(2, "inet apctl load reserve", PSP_SMEM_High, size, NULL);
 	if (stolen_memory >= 0)

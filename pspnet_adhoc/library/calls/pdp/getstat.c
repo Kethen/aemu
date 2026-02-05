@@ -67,26 +67,22 @@ int proNetAdhocGetPdpStat(int * buflen, SceNetAdhocPdpStat * buf)
 					buf[i].next = NULL;
 
 					// Peek udp size, as PPSSPP does in https://github.com/hrydgard/ppsspp/commit/4881f4f0bd0110af5cceeba8dc70f90d0e8d0978
-					uint8_t *peek_buf = malloc(4096);
-					if (peek_buf == NULL){
-						printk("%s: cannot allocate buffer to check current buffered data size\n", __func__);
+					int udp_size = -1;
+					if (_postoffice){
+						void *postoffice_handle = pdp_postoffice_recover(j);
+						if (postoffice_handle != NULL){
+							udp_size = pdp_peek_next_size(postoffice_handle);
+						}
 					}else{
-						int udp_size = -1;
-						if (_postoffice){
-							void *postoffice_handle = pdp_postoffice_recover(j);
-							if (postoffice_handle != NULL){
-								udp_size = pdp_peek_next_size(postoffice_handle);
-							}
-						}else{
-							udp_size = sceNetInetRecv(_sockets[j]->pdp.id, peek_buf, 4096, INET_MSG_DONTWAIT | INET_MSG_PEEK);
-						}
-						//printk("%s: udp size %d\n", __func__, udp_size);
-						if (udp_size <= 0){
-							buf[i].rcv_sb_cc = 0;
-						}else{
-							buf[i].rcv_sb_cc = udp_size;
-						}
-						free(peek_buf);
+						// we don't care about the content in here, we should not need malloc... I hope
+						static uint8_t peek_buf[4096];
+						udp_size = sceNetInetRecv(_sockets[j]->pdp.id, peek_buf, 4096, INET_MSG_DONTWAIT | INET_MSG_PEEK);
+					}
+					//printk("%s: udp size %d\n", __func__, udp_size);
+					if (udp_size <= 0){
+						buf[i].rcv_sb_cc = 0;
+					}else{
+						buf[i].rcv_sb_cc = udp_size;
 					}
 					
 					// Link Previous Element

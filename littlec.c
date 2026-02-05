@@ -10,7 +10,7 @@
 #include "atpro/logs.h"
 
 #define USE_TINYALLOC 1
-#define TINYALLOC_USE_PARTITION_MEM 1
+#define TINYALLOC_USE_PARTITION_MEM 0
 
 #define LOG_MALLOC 0
 #define DEBUG_MALLOC 0
