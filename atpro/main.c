@@ -1783,8 +1783,12 @@ SceUID alloc_memory_block(char *name, u32 type, u32 size, uint32_t *opt){
 	return ret;
 }
 
+int (*free_memory_block_orig)(SceUID id) = NULL;
 int free_memory_block(SceUID id){
-	int ret = sceKernelFreePartitionMemory(id);
+	if (free_memory_block_orig == NULL){
+		free_memory_block_orig = (void *)sctrlHENFindFunction("sceSystemMemoryManager", "SysMemUserForUser", 0x50F61D8A);
+	}
+	int ret = free_memory_block_orig(id);
 	printk("%s: freeing 0x%x, 0x%x\n", __func__, id, ret);
 	return ret;
 }
