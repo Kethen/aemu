@@ -21,6 +21,10 @@ static int ptp_send_postoffice(int idx, const void *data, int *len, uint32_t tim
 	uint64_t begin = sceKernelGetSystemTimeWide();
 	uint64_t end = begin + timeout;
 
+	if (*len > AEMU_POSTOFFICE_PTP_BLOCK_MAX){
+		*len = AEMU_POSTOFFICE_PTP_BLOCK_MAX;
+	}
+
 	int send_status;
 	while (1){
 		if (_sockets[idx] == NULL){
