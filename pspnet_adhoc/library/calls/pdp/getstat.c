@@ -75,8 +75,8 @@ int proNetAdhocGetPdpStat(int * buflen, SceNetAdhocPdpStat * buf)
 						}
 					}else{
 						// we don't care about the content in here, we should not need malloc... I hope
-						static uint8_t peek_buf[4096];
-						udp_size = sceNetInetRecv(_sockets[j]->pdp.id, peek_buf, 4096, INET_MSG_DONTWAIT | INET_MSG_PEEK);
+						static uint8_t peek_buf[10 * 1024];
+						udp_size = sceNetInetRecv(_sockets[j]->pdp.id, peek_buf, sizeof(peek_buf), INET_MSG_DONTWAIT | INET_MSG_PEEK);
 					}
 					//printk("%s: udp size %d\n", __func__, udp_size);
 					if (udp_size <= 0){
