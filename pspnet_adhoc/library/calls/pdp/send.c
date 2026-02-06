@@ -23,11 +23,6 @@ static int pdp_send_postoffice_unicast(int idx, const SceNetEtherAddr *daddr, ui
 	uint64_t begin = sceKernelGetSystemTimeWide();
 	uint64_t end = begin + timeout;
 
-	if (len > 2048){
-		// okay what's with the giant buffers in games
-		len = 2048;
-	}
-
 	int pdp_send_status = 0;
 	int recovery_cnt = 0;
 	while(1){

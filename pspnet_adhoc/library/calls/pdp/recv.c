@@ -49,9 +49,9 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 	uint64_t begin = sceKernelGetSystemTimeWide();
 	uint64_t end = begin + timeout;
 
-	if (*len > 2048){
+	if (*len > AEMU_POSTOFFICE_PDP_BLOCK_MAX){
 		// okay what's with the giant buffers in games
-		*len = 2048;
+		*len = AEMU_POSTOFFICE_PDP_BLOCK_MAX;
 	}
 
 	int sport_cpy = 0;

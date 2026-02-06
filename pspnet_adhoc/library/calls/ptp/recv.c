@@ -21,9 +21,9 @@ static int ptp_recv_postoffice(int idx, void *data, int *len, uint32_t timeout, 
 	uint64_t begin = sceKernelGetSystemTimeWide();
 	uint64_t end = begin + timeout;
 
-	if (*len > 50 * 1024){
+	if (*len > AEMU_POSTOFFICE_PTP_BLOCK_MAX){
 		// okay what's with the giant buffers in games
-		*len = 50 * 1024;
+		*len = AEMU_POSTOFFICE_PTP_BLOCK_MAX;
 	}
 
 	int send_status;

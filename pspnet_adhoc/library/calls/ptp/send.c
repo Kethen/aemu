@@ -21,11 +21,6 @@ static int ptp_send_postoffice(int idx, const void *data, int *len, uint32_t tim
 	uint64_t begin = sceKernelGetSystemTimeWide();
 	uint64_t end = begin + timeout;
 
-	if (*len > 50 * 1024){
-		// okay what's with the giant buffers in games
-		*len = 50 * 1024;
-	}
-
 	int send_status;
 	while (1){
 		if (_sockets[idx] == NULL){
