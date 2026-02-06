@@ -74,7 +74,7 @@
 #include "workers.h"
 
 // aemu postoffice
-#include "postoffice_client.h"
+#include "../../aemu_postoffice/client/postoffice_client.h"
 
 // --- Improved PSPSDK Header ---
 

@@ -38,7 +38,7 @@ imports/sceNetAdhocctlIOLock.o \
 imports/sceNetAdhocctlInternal.o \
 imports/sceNetMiniUPnP.o \
 imports/pspnet_inet_kermit_redirect.o \
-imports/postoffice_client_import.o
+../aemu_postoffice/client/postoffice_client_import.o
 
 #OBJS = main.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
 OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
