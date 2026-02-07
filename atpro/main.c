@@ -1822,11 +1822,13 @@ int online_patcher(SceModule2 * module)
 			hook_import_bynid((SceModule *)module, "IoFileMgrForUser", 0x109F50BC, open_file);
 			hook_import_bynid((SceModule *)module, "IoFileMgrForUser", 0x810C4BC3, close_file);
 			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0xB7F46618, load_module_by_id);
+			#if 0 // not all games are happy with these hooks, only enable them for testing
 			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0x237DBD4F, alloc_partition_memory);
 			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0xB6D61D02, free_partition_memory);
 			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0xFE707FDF, alloc_memory_block);
 			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0x50F61D8A, free_memory_block);
 			hook_import_bynid((SceModule *)module, "ThreadManForUser", 0x446D8DE6, create_thread);
+			#endif
 			hook_import_bynid((SceModule *)module, "scePower", 0xA85880D0, is_non_fat);
 
 			// allocate memory for netconf
