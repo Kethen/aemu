@@ -17,6 +17,18 @@
 
 #include "../common.h"
 
+static const char *get_matching_mode_string(int mode){
+	switch(mode){
+		case ADHOC_MATCHING_MODE_PARENT:
+			return "parent";
+		case ADHOC_MATCHING_MODE_CHILD:
+			return "child";
+		case ADHOC_MATCHING_MODE_P2P:
+			return "p2p";
+	}
+	return "unknown";
+}
+
 /**
  * Select / Accept Matching Target
  * @param id Matching Context ID
@@ -59,6 +71,9 @@ int proNetAdhocMatchingSelectTarget(int id, const SceNetEtherAddr * target, int 
 						// Valid Optional Data Length
 						if((optlen == 0 && opt == NULL) || (optlen > 0 && opt != NULL))
 						{
+							printk("%s: selecting peer %x:%x:%x:%x:%x:%x\n", __func__, (uint32_t)peer->mac.data[0], (uint32_t)peer->mac.data[1], (uint32_t)peer->mac.data[2], (uint32_t)peer->mac.data[3], (uint32_t)peer->mac.data[4], (uint32_t)peer->mac.data[5]);
+							printk("%s: we're in %s mode\n", __func__, get_matching_mode_string(context->mode));
+
 							// Host Mode
 							if(context->mode == ADHOC_MATCHING_MODE_PARENT)
 							{
@@ -104,7 +119,7 @@ int proNetAdhocMatchingSelectTarget(int id, const SceNetEtherAddr * target, int 
 									
 									// Send Join Request to Peer
 									_sendJoinRequest(context, peer, optlen, opt);
-									
+
 									// Return Success
 									UNLOCK_RETURN(0);
 								}
@@ -122,6 +137,9 @@ int proNetAdhocMatchingSelectTarget(int id, const SceNetEtherAddr * target, int 
 								// Join Request Mode
 								if(peer->state == ADHOC_MATCHING_PEER_OFFER)
 								{
+									// block hello events from this point on, kamen rider climax hates that
+									peer->joining = 1;
+
 									// Switch into Join Request Mode
 									peer->state = ADHOC_MATCHING_PEER_OUTGOING_REQUEST;
 									
@@ -135,6 +153,9 @@ int proNetAdhocMatchingSelectTarget(int id, const SceNetEtherAddr * target, int 
 								// Requesting Peer
 								else if(peer->state == ADHOC_MATCHING_PEER_INCOMING_REQUEST)
 								{
+									// block hello events from this point on, kamen rider climax hates that
+									peer->joining = 1;
+
 									// Accept Peer in Group
 									peer->state = ADHOC_MATCHING_PEER_P2P;
 									

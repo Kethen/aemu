@@ -58,6 +58,8 @@ typedef struct SceNetAdhocMatchingMemberInternal {
 	// adhocctl last seen
 	uint64_t last_seen_on_adhocctl;
 
+	// need to eat hello events during p2p joining
+	int joining;
 } SceNetAdhocMatchingMemberInternal;
 
 // Adhoc Matching Handler

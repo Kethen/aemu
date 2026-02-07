@@ -340,9 +340,14 @@ int _matchingEventThread(SceSize args, void * argp)
 				
 				// Grab Optional Data
 				if(msg->optlen > 0) opt = ((void *)msg) + sizeof(ThreadMessage);
-				
+
+				// XXX peer pointer is voided if we yield, this is not properly mutexed! We weren't supposed to look at peers in this thread!
+				// the alternative is to void all hello events once an accept/join request is queued
+				SceNetAdhocMatchingMemberInternal *peer = _findPeer(context, &msg->mac);
+				int joining = peer != NULL ? peer->joining : 0;
+
 				// Log Matching Events
-				printk("%s: Matching Event [ID=%d] [EVENT=%d/%s] optlen %d\n", __func__, context->id, msg->opcode, get_event_name(msg->opcode), msg->optlen);
+				printk("%s: Matching Event [ID=%d] [EVENT=%d/%s] optlen %d joining %d\n", __func__, context->id, msg->opcode, get_event_name(msg->opcode), msg->optlen, joining);
 
 				// align opt for safety
 				void *opt_buffer = _malloc(msg->optlen + 8);
@@ -362,24 +367,37 @@ int _matchingEventThread(SceSize args, void * argp)
 				// Apply gp value obtained earlier, this looks a bit cursed but needed for GTA:VCS
 				int old_gp_value = get_gp_value();
 
-				// Use the gp reg pointer from the thread calling start
-				set_gp_value(context->gp_value);
+				// joining events are blocked on this peer
+				if (msg->opcode != ADHOC_MATCHING_EVENT_HELLO || !joining){
+					// Use the gp reg pointer from the thread calling start
+					set_gp_value(context->gp_value);
 
-				// XXXXXXX Be very careful here, thread local storage is likely weird with changed gp
+					// XXXXXXX Be very careful here, thread local storage is likely weird with changed gp
 
-				if (opt_buffer != NULL)
-				{
-					// Call Event Handler
-					context->handler(context->id, msg->opcode, opt_buffer, msg->optlen, opt_buffer + 8);
+					if (opt_buffer != NULL)
+					{
+						// Call Event Handler
+						context->handler(context->id, msg->opcode, opt_buffer, msg->optlen, opt_buffer + 8);
+					}
+					else
+					{
+						// Call Event Handler
+						context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
+					}
+
+					// Restore gp
+					set_gp_value(old_gp_value);
+
+					#if 0
+					if (msg->opcode == ADHOC_MATCHING_EVENT_ESTABLISHED){
+						// clear joining flag once established event is fired
+						peer = _findPeer(context, &msg->mac);
+						if (peer != NULL){
+							peer->joining = 0;
+						}
+					}
+					#endif
 				}
-				else
-				{
-					// Call Event Handler
-					context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
-				}
-
-				// Restore gp
-				set_gp_value(old_gp_value);
 
 				if (opt_buffer != NULL)
 				{
@@ -452,6 +470,7 @@ static int timeout_missing_peers_on_adhocctl(SceNetAdhocMatchingContext *context
 		{
 			continue;
 		}
+
 		// XXX oh no
 		uint8_t peer[sizeof(struct SceNetAdhocctlPeerInfo) + 4];
 		int get_peer_info_status = sceNetAdhocctlGetPeerInfo((void *)&item->mac, sizeof(peer), (void *)peer);
@@ -464,6 +483,7 @@ static int timeout_missing_peers_on_adhocctl(SceNetAdhocMatchingContext *context
 			{
 				//item->lastping = 0;
 				// simulate a bye packet
+				printk("%s: simulating a bye packet from the missing peer\n", __func__);
 				_actOnByePacket(context, &item->mac, 0);
 			}
 		}
@@ -794,7 +814,7 @@ void _actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 					// This is because the only way a parent can know of a child is via a join request...
 					// If we thus know of a possible child, then we already had a previous join request thus no need for double tapping.
 					if(peer != NULL && context->mode == ADHOC_MATCHING_MODE_PARENT) return;
-					
+
 					// New Peer
 					if(peer == NULL)
 					{
@@ -820,7 +840,12 @@ void _actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 							// Link Peer into List
 							peer->next = context->peerlist;
 							context->peerlist = peer;
-							
+
+							if (context->mode == ADHOC_MATCHING_MODE_P2P){
+								// block hello events from this point on, kamen rider climax hates that
+								peer->joining = 1;
+							}
+
 							// Spawn Request Event
 							_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_REQUEST, sendermac, optlen, opt);
 							
@@ -834,6 +859,11 @@ void _actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 					{
 						// Set Peer State
 						peer->state = ADHOC_MATCHING_PEER_INCOMING_REQUEST;
+
+						if (context->mode == ADHOC_MATCHING_MODE_P2P){
+							// block hello events from this point on, kamen rider climax hates that
+							peer->joining = 1;
+						}
 						
 						// Spawn Request Event
 						_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_REQUEST, sendermac, optlen, opt);
@@ -934,10 +964,15 @@ void _actOnAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 									}
 								}
 							}
-							
+
 							// IMPORTANT! The Event Order here is ok!
 							// Internally the Event Stack appends to the front, so the order will be switched around.
-							
+
+							if (context->mode == ADHOC_MATCHING_MODE_P2P){
+								// block hello events from this point on, kamen rider climax hates that
+								peer->joining = 1;
+							}
+
 							// Spawn Established Event
 							_spawnLocalEvent(context, ADHOC_MATCHING_EVENT_ESTABLISHED, sendermac, 0, NULL);
 							
@@ -988,7 +1023,10 @@ void _actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 				
 				// Extract Optional Data Pointer
 				if(optlen > 0) opt = context->rxbuf + 5;
-				
+
+				// clear hello block on peer
+				peer->joining = 0;
+
 				// Child Mode
 				if(context->mode == ADHOC_MATCHING_MODE_CHILD)
 				{
@@ -1274,6 +1312,13 @@ void _actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 		printk("%s: bye from %x:%x:%x:%x:%x:%x\n", __func__, sendermac->data[0], sendermac->data[1], sendermac->data[2], sendermac->data[3], sendermac->data[4], sendermac->data[5]);
 	}
 
+	#if 0
+	if (peer->state == ADHOC_MATCHING_PEER_P2P && peer->joining){
+		printk("%s: not processing bye from joining p2p peer\n", __func__);
+		return;
+	}
+	#endif
+
 	// We know this guy
 	if(peer != NULL)
 	{
@@ -1507,6 +1552,14 @@ void _handleTimeout(SceNetAdhocMatchingContext * context)
 		// Timeout!
 		if((now > peer->lastping && now - peer->lastping >= context->timeout) || peer->lastping == 0)
 		{
+			#if 1
+			if (peer->joining){
+				//printk("%s: not timing out joining p2p peer\n", __func__);
+				peer = peer->next;
+				continue;
+			}
+			#endif
+
 			// Spawn Timeout Event
 			// sync logic with PPSSPP
 			if(
@@ -1654,7 +1707,7 @@ void _sendJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac
 			
 			// Copy Optional Data
 			if(optlen > 0) memcpy(join + 5, opt, optlen);
-			
+
 			// Send Data
 			sceNetAdhocPdpSend(context->socket, mac, context->port, join, 5 + optlen, 0, ADHOC_F_NONBLOCK);
 
