@@ -342,7 +342,7 @@ int _matchingEventThread(SceSize args, void * argp)
 				if(msg->optlen > 0) opt = ((void *)msg) + sizeof(ThreadMessage);
 				
 				// Log Matching Events
-				printk("%s: Matching Event [ID=%d] [EVENT=%d/%s]\n", __func__, context->id, msg->opcode, get_event_name(msg->opcode));
+				printk("%s: Matching Event [ID=%d] [EVENT=%d/%s] optlen %d\n", __func__, context->id, msg->opcode, get_event_name(msg->opcode), msg->optlen);
 
 				// align opt for safety
 				void *opt_buffer = _malloc(msg->optlen + 8);

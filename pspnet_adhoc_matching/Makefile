@@ -27,7 +27,9 @@ library/calls/getpoolstat.o
 OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
 #OBJS = main.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
 
-CFLAGS = -Os -fno-builtin -G0 -Wall -fno-pic -DHEAP_SIZE=25
+# we need a lot of buffers for this one, because games can make huge opts, and we have a two thread architecture that processes messages
+# an example is dissidia final fantasy (like, 5k hellos and joins)
+CFLAGS = -Os -fno-builtin -G0 -Wall -fno-pic -DHEAP_SIZE=100
 
 ifeq ($(CONFIG_620), 1)
 CFLAGS += -DCONFIG_620=1
