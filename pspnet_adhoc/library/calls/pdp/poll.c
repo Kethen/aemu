@@ -89,6 +89,12 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 				// Translate Polling Flags to Infrastructure
 				for(i = 0; i < nsds; i++)
 				{
+					if (_sockets[sds[i].id - 1] == NULL){
+						// maybe we need to give a specific event when that happens?
+						printk("%s: FIXME game tries to poll non existing socket\n", __func__);
+						continue;
+					}
+
 					// Fill in Infrastructure Socket ID
 					if (_postoffice){
 						isds[i].fd = get_postoffice_fd(sds[i].id - 1);
@@ -170,6 +176,11 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 					// Translate Polling Results to Adhoc
 					for(i = 0; i < nsds; i++)
 					{
+						if (_sockets[sds[i].id - 1] == NULL){
+							printk("%s: FIXME game removed socket during polling\n", __func__);
+							continue;
+						}
+
 						// In event, gotta hope that listen sockets actually emits In events on the PSP
 						if (isds[i].revents & INET_POLLIN || isds[i].revents & INET_POLLRDNORM){
 							if (sds[i].events & ADHOC_EV_ACCEPT && _sockets[sds[i].id - 1]->is_ptp && _sockets[sds[i].id - 1]->ptp.state == PTP_STATE_LISTEN){
