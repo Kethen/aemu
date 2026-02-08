@@ -28,7 +28,14 @@ static uint8_t heap[HEAP_SIZE * 1024];
 static void tinyalloc_allocate_partition_memory()
 {
 	int interrupts = sceKernelCpuSuspendIntr();
+
 	#if TINYALLOC_USE_PARTITION_MEM && HEAP_SIZE
+	if (memblockid >= 0){
+		sceKernelCpuResumeIntrWithSync(interrupts);
+		printk("%s: not allocating heap again\n", __func__);
+		return;
+	}
+
 	static const SceSize size = HEAP_SIZE * 1024;
 	memblockid = sceKernelAllocPartitionMemory(2, "tinyalloc heap", PSP_SMEM_High, size, NULL);
 
