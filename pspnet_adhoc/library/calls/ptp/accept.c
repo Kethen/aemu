@@ -143,6 +143,7 @@ static int ptp_accept_postoffice(int idx, SceNetEtherAddr *addr, uint16_t *port,
 	internal->ptp.rcv_sb_cc = _sockets[idx]->ptp.rcv_sb_cc;
 	internal->ptp.snd_sb_cc = _sockets[idx]->ptp.snd_sb_cc;
 	internal->connect_thread = -1;
+	internal->ptp_ext.establish_timestamp = sceKernelGetSystemTimeWide();
 
 	sceKernelWaitSema(_socket_mapper_mutex, 1, 0);
 	AdhocSocket **slot = NULL;

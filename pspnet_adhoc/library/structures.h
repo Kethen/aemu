@@ -64,6 +64,7 @@ typedef struct SceNetAdhocPtpStat {
 typedef struct PtpSocketExt {
 	int mode;
 	bool connect_event_fired;
+	uint64_t establish_timestamp;
 } PtpSocketExt;
 
 // adhoc socket reference

@@ -38,6 +38,7 @@ int _zero = 0;
 int rehook_inet();
 
 int _postoffice = 0;
+int _vita_speedup = 0;
 
 static int postoffice_handle = -1;
 
@@ -53,6 +54,14 @@ int proNetAdhocInit(void)
 		return_memory();
 		if (_is_ppsspp){
 			ppsspp_return_memory();
+		}
+
+		_vita_speedup = rehook_inet() == 0;
+
+		if (_vita_speedup){
+			printk("%s: vita speedup detected\n", __func__);
+		}else{
+			printk("%s: vita speedup not detected\n", __func__);
 		}
 
 		// Load postoffice lib

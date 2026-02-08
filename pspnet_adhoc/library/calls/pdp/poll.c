@@ -77,8 +77,12 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 			// Allocated Memory
 			if(isds != NULL)
 			{
+				int should_delay_for_vita_speedup = 0;
+
 				// Clear Memory
 				memset(isds, 0, sizeof(SceNetInetPollfd) * nsds);
+
+				uint64_t now = sceKernelGetSystemTimeWide();
 
 				//printk("%s: nsds %d\n", __func__, nsds);
 
@@ -109,6 +113,11 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 						//printk("%s: game is looking for accept events on socket %d\n", __func__, sds[i].id);
 						isds[i].events |= INET_POLLIN;
 						isds[i].events |= INET_POLLRDNORM;
+					}
+
+					if (_vita_speedup && _sockets[sds[i].id - 1]->is_ptp && now - _sockets[sds[i].id - 1]->ptp_ext.establish_timestamp < 10000000){
+						// we slow down polling for 10 seconds so that Gran Turismo don't get confused
+						should_delay_for_vita_speedup = 1;
 					}
 
 					//printk("%s: adhoc sock 0x%x inet sock 0x%x events 0x%x\n", __func__, sds[i].id, isds[i].fd, isds[i].events);
@@ -207,6 +216,11 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 				// Free Memory
 				free(isds);
 
+				if (should_delay_for_vita_speedup){
+					//printk("%s: slowing down for pspemu_inet_multithread\n", __func__);
+					sceKernelDelayThread(20000);
+				}
+
 				// Gran Turismo definitely don't expect 0 on nonblocked, not sure why it was returing 0 before
 				// It is also unknown whether this can return ADHOC_TIMEOUT, PPSSPP currently don't
 				/*
@@ -214,6 +228,7 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 					return ADHOC_TIMEOUT;
 				}
 				*/
+
 				return affectedsockets;
 			}
 

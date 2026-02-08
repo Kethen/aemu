@@ -47,6 +47,8 @@ static int ptp_connect_postoffice(int idx, uint32_t timeout, int nonblock){
 
 	AdhocSocket *internal = _sockets[idx];
 
+	internal->ptp_ext.establish_timestamp = sceKernelGetSystemTimeWide();
+
 	// we need to actually connect in background for games that want to connect to itself
 	if (nonblock){
 		if (internal->ptp.state == PTP_STATE_CLOSED){

@@ -118,5 +118,6 @@ extern SceUID _server_resolve_mutex;
 extern int _port_offset;
 extern int _is_ppsspp;
 extern int _postoffice;
+extern int _vita_speedup;
 
 #endif
