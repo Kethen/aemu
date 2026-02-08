@@ -72,7 +72,16 @@ static int ptp_connect_postoffice(int idx, uint32_t timeout, int nonblock){
 			}
 
 			internal->ptp.state = PTP_STATE_SYN_SENT;
-			return ADHOC_WOULD_BLOCK;
+
+			#if 1
+			// opportunistic fast connect, some games somewhat needs this
+			for(int i = 0;i < 30;i++){
+				if (internal->ptp.state == PTP_STATE_ESTABLISHED){
+					break;
+				}
+				sceKernelDelayThread(10000);
+			}
+			#endif
 		}
 		if (internal->ptp.state == PTP_STATE_ESTABLISHED){
 			return 0;
