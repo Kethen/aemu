@@ -165,6 +165,7 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 						if (isds[i].revents & INET_POLLIN || isds[i].revents & INET_POLLRDNORM){
 							if (sds[i].events & ADHOC_EV_ACCEPT && _sockets[sds[i].id - 1]->is_ptp && _sockets[sds[i].id - 1]->ptp.state == PTP_STATE_LISTEN){
 								//printk("%s: game is getting an accept event on socket %d\n", __func__, sds[i].id);
+								// this is cleared the moment the game has ran accept on postoffice, not sure about p2p mode
 								sds[i].revents |= ADHOC_EV_ACCEPT;
 							}
 						}
@@ -185,6 +186,7 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 								//printk("%s: game is getting a connect event on socket %d\n", __func__, sds[i].id);
 								if (!_postoffice || _sockets[sds[i].id - 1]->postoffice_handle != NULL){
 									sds[i].revents |= ADHOC_EV_CONNECT;
+									// set this after send/recv instead, so that we know the game acted on the event at all
 									//_sockets[sds[i].id - 1]->ptp_ext.connect_event_fired = true;
 								}
 							}

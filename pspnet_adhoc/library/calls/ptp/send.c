@@ -25,6 +25,9 @@ static int ptp_send_postoffice(int idx, const void *data, int *len, uint32_t tim
 		*len = AEMU_POSTOFFICE_PTP_BLOCK_MAX;
 	}
 
+	// don't emit connect event again now the game has used the socket
+	_sockets[idx]->ptp_ext.connect_event_fired = true;
+
 	int send_status;
 	while (1){
 		if (_sockets[idx] == NULL){
