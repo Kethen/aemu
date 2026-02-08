@@ -41,12 +41,16 @@ void replacementHandler(int id, int event, SceNetEtherAddr * peer, int optlen, v
 	return originalHandler(id, event, peer, optlen, opt);
 }
 
+void init_littlec();
+void clean_littlec();
+
 // Stubs
 int sceNetAdhocMatchingInit(uint32_t poolsize)
 {
 	#ifdef TRACE
 	printk("Entering %s\n", __func__);
 	#endif
+	init_littlec();
 	int result = proNetAdhocMatchingInit(poolsize);
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
@@ -235,14 +239,10 @@ int sceNetAdhocMatchingGetPoolStat(SceNetMallocStat * poolstat)
 	return result;
 }
 
-void init_littlec();
-void clean_littlec();
-
 // Module Start Event
 int module_start(SceSize args, void * argp)
 {
 	printk(MODULENAME " start!\n");
-	init_littlec();
 	int mutex_create_status = sceKernelCreateLwMutex(&context_list_lock, "adhoc_matching_ctx_list", PSP_LW_MUTEX_ATTR_RECURSIVE, 0, NULL);
 	if (mutex_create_status != 0)
 	{

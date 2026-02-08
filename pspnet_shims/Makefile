@@ -8,7 +8,7 @@ TARGET = pspnet_shims
 
 OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LIBRARYOBJS) $(IMPORTS)
 
-CFLAGS = -Os -fno-builtin -G0 -Wall -fno-pic -DHEAP_SIZE=0
+CFLAGS = -Os -fno-builtin -G0 -Wall -fno-pic -DHEAP_SIZE=0 -DTINYALLOC_USE_PARTITION_MEM=0
 
 ifeq ($(CONFIG_620), 1)
 CFLAGS += -DCONFIG_620=1
