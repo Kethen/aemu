@@ -26,15 +26,19 @@ static int ptp_recv_postoffice(int idx, void *data, int *len, uint32_t timeout, 
 		*len = AEMU_POSTOFFICE_PTP_BLOCK_MAX;
 	}
 
-	int send_status;
+	int recv_status;
 	while (1){
 		if (_sockets[idx] == NULL){
 			// socket closed on another thread :(
 			return ADHOC_INVALID_SOCKET_ID;
 		}
 
-		send_status = ptp_recv(_sockets[idx]->postoffice_handle, (char *)data, len, nonblock || timeout != 0);
-		if (send_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK){
+		if (_sockets[idx]->postoffice_handle == NULL){
+			recv_status = AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK;
+		}else{
+			recv_status = ptp_recv(_sockets[idx]->postoffice_handle, (char *)data, len, nonblock || timeout != 0);
+		}
+		if (recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK){
 			if (nonblock){
 				return ADHOC_WOULD_BLOCK;
 			}else if (timeout != 0){
@@ -45,10 +49,10 @@ static int ptp_recv_postoffice(int idx, void *data, int *len, uint32_t timeout, 
 				return ADHOC_TIMEOUT;
 			}
 		}
-		if (send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
+		if (recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
 			return ADHOC_DISCONNECTED;
 		}
-		if (send_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY){
+		if (recv_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY){
 			// critical
 			printk("%s: critical: client buffer way too big, %d, please debug this\n", __func__, *len);
 		}

@@ -183,8 +183,10 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 							}
 							if (sds[i].events & ADHOC_EV_CONNECT && _sockets[sds[i].id - 1]->is_ptp && _sockets[sds[i].id - 1]->ptp.state != PTP_STATE_LISTEN && !_sockets[sds[i].id - 1]->ptp_ext.connect_event_fired){
 								//printk("%s: game is getting a connect event on socket %d\n", __func__, sds[i].id);
-								sds[i].revents |= ADHOC_EV_CONNECT;
-								_sockets[sds[i].id - 1]->ptp_ext.connect_event_fired = true;
+								if (!_postoffice || _sockets[sds[i].id - 1]->postoffice_handle != NULL){
+									sds[i].revents |= ADHOC_EV_CONNECT;
+									//_sockets[sds[i].id - 1]->ptp_ext.connect_event_fired = true;
+								}
 							}
 						}
 
