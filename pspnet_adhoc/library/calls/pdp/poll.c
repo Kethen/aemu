@@ -173,6 +173,7 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 						// Send Event
 						if(isds[i].revents & INET_POLLWRNORM){
 							if (sds[i].events & ADHOC_EV_SEND){
+								//printk("%s: game is getting a send event on socket %d\n", __func__, sds[i].id);
 								sds[i].revents |= ADHOC_EV_SEND;
 							}
 						}
@@ -180,11 +181,12 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 						// Receive Event
 						if(isds[i].revents & INET_POLLRDNORM){
 							if (sds[i].events & ADHOC_EV_RECV){
+								//printk("%s: game is getting a recv event on socket %d\n", __func__, sds[i].id);
 								sds[i].revents |= ADHOC_EV_RECV;
 							}
 							if (sds[i].events & ADHOC_EV_CONNECT && _sockets[sds[i].id - 1]->is_ptp && _sockets[sds[i].id - 1]->ptp.state != PTP_STATE_LISTEN && !_sockets[sds[i].id - 1]->ptp_ext.connect_event_fired){
-								//printk("%s: game is getting a connect event on socket %d\n", __func__, sds[i].id);
 								if (!_postoffice || _sockets[sds[i].id - 1]->postoffice_handle != NULL){
+									//printk("%s: game is getting a connect event on socket %d\n", __func__, sds[i].id);
 									sds[i].revents |= ADHOC_EV_CONNECT;
 									// set this after send/recv instead, so that we know the game acted on the event at all
 									//_sockets[sds[i].id - 1]->ptp_ext.connect_event_fired = true;
@@ -194,6 +196,7 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 
 						// HUP event from the other side
 						if (isds[i].revents & INET_POLLHUP){
+							//printk("%s: game is getting a disconnect event on socket %d\n", __func__, sds[i].id);
 							sds[i].revents |= ADHOC_EV_DISCONNECT;
 						}
 
