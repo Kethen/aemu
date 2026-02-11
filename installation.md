@@ -129,7 +129,7 @@ game, ef0:/seplugins/atpro.prx, on
 | Server Address | Community chat for organizing play sessions | Location | Note |
 | -- | -- | -- | -- |
 | socom.cc | Socom Adhoc Server https://discord.com/invite/XtVYDr7 | France | For players looking to play any games |
-| 64.110.29.52 | Madness Gaming Network https://discord.com/invite/kaPScVrPes | Alaska USA | For players looking to play any games, have a good amount of Monster Hunter players, domain name for relay server pending, also provides VPN |
+| psp.mgn.pub | Madness Gaming Network https://discord.com/invite/kaPScVrPes | Alaska USA | For players looking to play any games, has a good amount of Monster Hunter players, also provides VPN |
 | eahub.eu | EA Nation Hub https://discord.com/invite/fwrQHHxrQQ | France | Mostly for Medal of Honor Heros 2 players, but can be used for other games |
 | psi-hate.com | PSP Online https://discord.com/invite/wxeGVkM | Minnesota USA | For players looking to play any games |
 
