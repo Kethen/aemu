@@ -167,7 +167,7 @@ SceUID shim_uid = -1;
 static const char *shim_path = "ms0:/kd/pspnet_shims.prx";
 
 static void *allocate_partition_memory(int size){
-	SceUID uid = sceKernelAllocPartitionMemory(2, "aemu allocation", 4 /* high aligned */, size, (void *)4);
+	SceUID uid = sceKernelAllocPartitionMemory(5, "aemu allocation", 4 /* high aligned */, size, (void *)4);
 
 	if (uid < 0)
 	{
@@ -663,13 +663,34 @@ static int load_start_module(const char *path){
 	return uid;
 }
 
+static void log_memory_info(){
+	#ifdef DEBUG
+	PspSysmemPartitionInfo meminfo = {0};
+	meminfo.size = sizeof(PspSysmemPartitionInfo);
+	for(int i = 1;i < 13;i++){
+		int query_status = sceKernelQueryMemoryPartitionInfo(i, &meminfo);
+		if (query_status == 0){
+			int max_free = sceKernelPartitionMaxFreeMemSize(i);
+			int total_free = sceKernelPartitionTotalFreeMemSize(i);
+			printk("%s: p%d startaddr 0x%x size %d attr 0x%x max %d total %d\n", __func__, i, meminfo.startaddr, meminfo.memsize, meminfo.attr, max_free, total_free);
+		}else{
+			printk("%s: p%d query failed, 0x%x\n", __func__, i, query_status);
+		}
+	}
+	#endif
+}
+
 // best effort, load inet modules ourselves instead of using sce utility
 void load_inet_modules(){
+	log_memory_info();
+	printk("%s: loading inet modules\n", __func__);
+
 	// a list of inet specific modules on top of adhoc
 	static const char *inet_modules[] = {
+		"ms0:/kd/pspnet_shims.prx",
 		"flash0:/kd/pspnet_inet.prx",
 		"flash0:/kd/pspnet_apctl.prx",
-		"flash0:/kd/pspnet_resolver.prx"
+		"flash0:/kd/pspnet_resolver.prx",
 	};
 
 	for (int i = 0;i < sizeof(inet_modules) / sizeof(inet_modules[0]);i++){
@@ -1678,23 +1699,6 @@ void * create_ioclose_stub(void)
 }
 #endif
 
-static void log_memory_info(){
-	#ifdef DEBUG
-	PspSysmemPartitionInfo meminfo = {0};
-	meminfo.size = sizeof(PspSysmemPartitionInfo);
-	for(int i = 1;i < 13;i++){
-		int query_status = sceKernelQueryMemoryPartitionInfo(i, &meminfo);
-		if (query_status == 0){
-			int max_free = sceKernelPartitionMaxFreeMemSize(i);
-			int total_free = sceKernelPartitionTotalFreeMemSize(i);
-			printk("%s: p%d startaddr 0x%x size %d attr 0x%x max %d total %d\n", __func__, i, meminfo.startaddr, meminfo.memsize, meminfo.attr, max_free, total_free);
-		}else{
-			printk("%s: p%d query failed, 0x%x\n", __func__, i, query_status);
-		}
-	}
-	#endif
-}
-
 static void early_memory_stealing()
 {
 	#if 0
@@ -1830,6 +1834,15 @@ SceUID create_thread(const char *name, void *entry, int priority, int stack_size
 	return ret;
 }
 
+
+static struct SceKernelThreadOptParam *thread_p5_stack_opt = NULL;
+SceUID create_thread_p5(const char *name, void *entry, int priority, int stack_size, int attr, void *option){
+	log_memory_info();
+	SceUID ret = sceKernelCreateThread(name, entry, priority, stack_size, attr, thread_p5_stack_opt);
+	printk("%s: name %s entry 0x%x priority %d stack_size %d attr 0x%x option 0x%x, 0x%x\n", __func__, name, entry, priority, stack_size, attr, option, ret);
+	return ret;
+}
+
 SceUID (*alloc_memory_block_orig)(char *name, u32 type, u32 size, uint32_t *opt) = NULL;
 SceUID alloc_memory_block(char *name, u32 type, u32 size, uint32_t *opt){
 	if (alloc_memory_block_orig == NULL){
@@ -1897,6 +1910,11 @@ int online_patcher(SceModule2 * module)
 			//netconf_adhoc_override = allocate_partition_memory(sizeof(struct pspUtilityNetconfAdhoc));
 			netconf_override = allocate_partition_memory(128);
 			netconf_adhoc_override = (void *)(((uint32_t)netconf_override) + 72);
+
+			// allocate memory for p5 thread create
+			thread_p5_stack_opt = allocate_partition_memory(sizeof(struct SceKernelThreadOptParam));
+			thread_p5_stack_opt->size = sizeof(struct SceKernelThreadOptParam);
+			thread_p5_stack_opt->stackMpid = 5;
 
 			if (strcmp(module->modname, "MonsterHunterPortable3rd") == 0){
 				//{.module_name = "mhp3patch", .library_name = "mhp3kernel", .nid = 0x45ACEAF2}, // codestation's monster hunter patch loader
@@ -2119,6 +2137,19 @@ int online_patcher(SceModule2 * module)
 
 			// Inject placeholder nickname is empty
 			hook_import_bynid((SceModule *)module, "sceUtility", 0x34B78343, get_system_param_string);
+
+			static const char *create_thread_p5_list[] = {
+				"sceNetInet_Library",
+				"sceNetApctl_Library",
+				"sceNetResolver_Library",
+			};
+
+			for(int i = 0;i < sizeof(create_thread_p5_list) / sizeof(create_thread_p5_list[0]);i++){
+				if (strcmp(module->modname, create_thread_p5_list[i]) == 0){
+					hook_import_bynid((SceModule *)module, "ThreadManForUser", 0x446D8DE6, create_thread_p5);
+					break;
+				}
+			}
 		}
 	}
 	

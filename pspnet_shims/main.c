@@ -57,8 +57,8 @@ int (*sceNetApctlInit_orig)(int stack_size, int init_priority) = NULL;
 int sceNetApctlInit_patched(int stack_size, int init_priority){
 	// some event handlers are... very big
 	// considering we also force load fw apctl, we need to make this big as well
-	if (stack_size < 0x4000){
-		stack_size = 0x4000;
+	if (stack_size < 0x2000){
+		stack_size = 0x2000;
 		printk("%s: stack size too small, uping stack size to %d\n", __func__, stack_size);
 	}
 
