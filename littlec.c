@@ -25,6 +25,10 @@ static SceUID memblockid = -1;
 static uint8_t heap[HEAP_SIZE * 1024];
 #endif
 
+#ifndef TINYALLOC_HEAP_PARTITION 
+#define TINYALLOC_HEAP_PARTITION 5
+#endif
+
 static void tinyalloc_allocate_partition_memory()
 {
 	int interrupts = sceKernelCpuSuspendIntr();
@@ -37,7 +41,7 @@ static void tinyalloc_allocate_partition_memory()
 	}
 
 	static const SceSize size = HEAP_SIZE * 1024;
-	memblockid = sceKernelAllocPartitionMemory(2, "tinyalloc heap", PSP_SMEM_High, size, NULL);
+	memblockid = sceKernelAllocPartitionMemory(TINYALLOC_HEAP_PARTITION, "tinyalloc heap", PSP_SMEM_High, size, NULL);
 
 	if (memblockid < 0)
 	{

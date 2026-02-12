@@ -64,6 +64,7 @@ int sceNetAdhocMatchingTerm(void)
 	printk("Entering %s\n", __func__);
 	#endif
 	int result = proNetAdhocMatchingTerm();
+	clean_littlec();
 	#ifdef TRACE
 	printk("Leaving %s with %08X\n", __func__, result);
 	#endif
@@ -261,7 +262,6 @@ int module_start(SceSize args, void * argp)
 int module_stop(SceSize args, void * argp)
 {
 	printk(MODULENAME " stop!\n");
-	clean_littlec();
 	sceKernelDeleteLwMutex(&context_list_lock);
 	sceKernelDeleteLwMutex(&members_lock);
 	return 0;
