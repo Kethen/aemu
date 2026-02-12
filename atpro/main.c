@@ -101,10 +101,17 @@ char * module_build_names[MODULE_LIST_SIZE] = {
 	"sceNetAdhocMatching_Library"
 };
 
-char *extra_load_high_modules[] ={
+const char *force_load_high_modules[] ={
+	"pspnet_adhoc.prx",
+	"pspnet_adhocctl.prx",
+	"pspnet_adhoc_matching.prx",
 	"pspnet_ap_dialog_dummy.prx",
 	"pspnet_adhoc_download.prx",
-	"pspnet_adhoc_discover.prx"
+	"pspnet_adhoc_discover.prx",
+	"pspnet_inet.prx",
+	"pspnet_apctl.prx",
+	"pspnet_resolver.prx",
+	"aemu_postoffice.prx"
 };
 
 const char *force_fw_modules[] = {
@@ -113,6 +120,19 @@ const char *force_fw_modules[] = {
 	"pspnet_inet.prx",
 	"pspnet_apctl.prx",
 	"pspnet_resolver.prx",
+};
+
+const char *force_p5_modules[] ={
+	"pspnet_adhoc.prx",
+	"pspnet_adhocctl.prx",
+	"pspnet_adhoc_matching.prx",
+	"pspnet_ap_dialog_dummy.prx",
+	"pspnet_adhoc_download.prx",
+	"pspnet_adhoc_discover.prx",
+	"pspnet_inet.prx",
+	"pspnet_apctl.prx",
+	"pspnet_resolver.prx",
+	"aemu_postoffice.prx"
 };
 
 const char *force_fw_module_names[sizeof(force_fw_modules) / sizeof(force_fw_modules[0])] = {
@@ -181,8 +201,8 @@ static int is_go(){
 }
 
 int has_high_mem(){
-	//return 0;
-	return is_vita() || sceKernelGetModel() != 0;
+	return 0;
+	//return is_vita() || sceKernelGetModel() != 0;
 }
 
 void steal_memory()
@@ -278,40 +298,15 @@ static SceKernelLMOption mod_load_high_option = {
 	.creserved = {0, 0}
 };
 
-static int load_start_module(const char *path){
-	uint32_t k1 = pspSdkSetK1(0);
-	int uid = sceKernelLoadModule(path, 0, &mod_load_high_option);
-	pspSdkSetK1(k1);
-	if (uid < 0){
-		printk("%s: failed loading %s, 0x%x\n", __func__, path, uid);
-		return uid;
-	}
-	#ifdef DEBUG
-	SceKernelModuleInfo info = {0};
-	info.size = sizeof(info);
-	k1 = pspSdkSetK1(0);
-	int query_status = sceKernelQueryModuleInfo(uid, &info);
-	pspSdkSetK1(k1);
-	if (query_status == 0)
-	{
-		printk("%s: %s loaded, text addr 0x%x\n", __func__, path, info.text_addr);
-	}
-	else
-	{
-		printk("%s: failed fetching module info of %s, 0x%x\n", __func__, path, query_status);
-	}
-	#endif
-	int module_start_ret;
-	k1 = pspSdkSetK1(0);
-	int start_status = sceKernelStartModule(uid, 0, NULL, &module_start_ret, NULL);
-	pspSdkSetK1(k1);
-	if (start_status < 0){
-		printk("%s: failed starting %s, 0x%x\n", __func__, path, start_status);
-		sceKernelUnloadModule(uid);
-		return start_status;
-	}
-	return uid;
-}
+static SceKernelLMOption mod_load_p5_option = {
+	.size = sizeof(SceKernelLMOption),
+	.mpidtext = 5,
+	.mpiddata = 5,
+	.flags = 0,
+	.position = PSP_SMEM_High,
+	.access = 0,
+	.creserved = {0, 0}
+};
 
 static const char *no_unload_modules[] = {
 	"sceNet_Service",
@@ -399,6 +394,8 @@ SceUID load_plugin_user(const char * path, int flags, SceKernelLMOption * option
 
 	return load_plugin(path, flags, option, load_plugin_user_orig);
 }
+
+static int load_start_module(const char *path);
 SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, module_loader_func orig)
 {
 	// Force module path case
@@ -472,12 +469,24 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 			}
 		}
 
-		for (int i = 0;i < sizeof(extra_load_high_modules) / sizeof(char *) && onlinemode;i++)
+		#if 0
+		for (int i = 0;i < sizeof(force_load_high_modules) / sizeof(char *) && onlinemode;i++)
 		{
-			if (strstr(test_path, extra_load_high_modules[i]))
+			if (strstr(test_path, force_load_high_modules[i]))
 			{
-				printk("%s: forcing load high %s\n", __func__, extra_load_high_modules[i]);
+				printk("%s: forcing load high %s\n", __func__, force_load_high_modules[i]);
 				option = &mod_load_high_option;
+				break;
+			}
+		}
+		#endif
+
+		for (int i = 0;i < sizeof(force_p5_modules) / sizeof(char *) && onlinemode;i++)
+		{
+			if (strstr(test_path, force_p5_modules[i]))
+			{
+				printk("%s: forcing p5 load %s\n", __func__, force_p5_modules[i]);
+				option = &mod_load_p5_option;
 				break;
 			}
 		}
@@ -510,7 +519,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 		int i = 0; for(; i < MODULE_LIST_SIZE; i++) {
 			// Matching Modulename
 			if(strstr(test_path, module_names[i]) != NULL) {
-				option = &mod_load_high_option;
+				//option = &mod_load_high_option;
 
 				// Replace Modulename
 				strcpy((char*)path, "ms0:/kd/");
@@ -614,6 +623,58 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 	}
 
 	return result;
+}
+
+static int load_start_module(const char *path){
+	uint32_t k1 = pspSdkSetK1(0);
+	int uid = sceKernelLoadModule(path, 0, &mod_load_high_option);
+	//int uid = load_plugin_kernel(path, 0, &mod_load_p5_option);
+	pspSdkSetK1(k1);
+	if (uid < 0){
+		printk("%s: failed loading %s, 0x%x\n", __func__, path, uid);
+		return uid;
+	}
+
+	#ifdef DEBUG
+	SceKernelModuleInfo info = {0};
+	info.size = sizeof(info);
+	k1 = pspSdkSetK1(0);
+	int query_status = sceKernelQueryModuleInfo(uid, &info);
+	pspSdkSetK1(k1);
+	if (query_status == 0)
+	{
+		printk("%s: %s loaded, text addr 0x%x\n", __func__, path, info.text_addr);
+	}
+	else
+	{
+		printk("%s: failed fetching module info of %s, 0x%x\n", __func__, path, query_status);
+	}
+
+	#endif
+	int module_start_ret;
+	k1 = pspSdkSetK1(0);
+	int start_status = sceKernelStartModule(uid, 0, NULL, &module_start_ret, NULL);
+	pspSdkSetK1(k1);
+	if (start_status < 0){
+		printk("%s: failed starting %s, 0x%x\n", __func__, path, start_status);
+		sceKernelUnloadModule(uid);
+		return start_status;
+	}
+	return uid;
+}
+
+// best effort, load inet modules ourselves instead of using sce utility
+void load_inet_modules(){
+	// a list of inet specific modules on top of adhoc
+	static const char *inet_modules[] = {
+		"flash0:/kd/pspnet_inet.prx",
+		"flash0:/kd/pspnet_apctl.prx",
+		"flash0:/kd/pspnet_resolver.prx"
+	};
+
+	for (int i = 0;i < sizeof(inet_modules) / sizeof(inet_modules[0]);i++){
+		load_start_module(inet_modules[i]);
+	}
 }
 
 struct fd_path_map_entry{
@@ -2270,7 +2331,6 @@ s32 sceKernelVolatileMemLockPatched(s32 unk, void **ptr, s32 *size)
 	//printk("%s: 0x%x, 0x%x, 0x%x/%d\n", __func__, unk, ptr, size, *size);
 	*ptr = (void *)0x08400000;
 	*size = 4194304;
-	volatile_locked = 1;
 	return 0;
 	#endif
 }
@@ -2460,12 +2520,18 @@ int module_start(SceSize args, void * argp)
 							scePowerLock(0);
 							printk("Disabled Power Button!\n");
 
-							#if 0
-							// Monitor/disable volatile lock
+							#if 1
+							// Keep volatile lock locked, and return fake results to calls
+							void* base_addr = 0;
+							s32 size = 0;
+							int ret = sceKernelVolatileMemTryLock(0, &base_addr, &size);
+							printk("%s: sceKernelVolatileMemTryLock ret 0x%x base_addr 0x%x size %d\n", __func__, ret, base_addr, size);
 							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemLock), sceKernelVolatileMemLockPatched, sceKernelVolatileMemLockOrig);
 							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemTryLock), sceKernelVolatileMemTryLockPatched, sceKernelVolatileMemTryLockOrig);
 							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemUnlock), sceKernelVolatileMemUnlockPatched, sceKernelVolatileMemUnlockOrig);
+							#endif
 
+							#if 0
 							// Monitor power locks
 							//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerLock), sceKernelPowerLockPatched, sceKernelPowerLockOrig);
 							//HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelPowerUnlock), sceKernelPowerUnlockPatched, sceKernelPowerUnlockOrig);

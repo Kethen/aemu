@@ -42,6 +42,9 @@ int _vita_speedup = 0;
 
 static int postoffice_handle = -1;
 
+// kernel module assisted load
+void load_inet_modules();
+
 /**
  * Adhoc Emulator Socket Library Init-Call
  * @return 0 on success or... ADHOC_ALREADY_INITIALIZED
@@ -99,8 +102,12 @@ int proNetAdhocInit(void)
 		int result = 0;
 
 		// Load Internet Modules
+		#if 0
 		result = sceUtilityLoadModule(PSP_MODULE_NET_INET);
 		printk("%s: loading internet modules, 0x%x\n", __func__, result);
+		#else
+		load_inet_modules();
+		#endif
 
 		// Enable Manual Infrastructure Module Control
 		_manage_modules = 1;
