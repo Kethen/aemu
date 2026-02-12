@@ -29,7 +29,7 @@ OBJS = main.o ../littlec.o ../tinyalloc-master/tinyalloc.o ../memab/ATPRO.o $(LI
 
 # we need a lot of buffers for this one, because games can make huge opts, and we have a two thread architecture that processes messages
 # an example is dissidia final fantasy (like, 5k hellos and joins)
-CFLAGS = -Os -fno-builtin -G0 -Wall -fno-pic -DHEAP_SIZE=100 -DTINYALLOC_USE_PARTITION_MEM=1
+CFLAGS = -Os -fno-builtin -G0 -Wall -fno-pic -DHEAP_SIZE=100 -DTINYALLOC_USE_PARTITION_MEM=0
 
 ifeq ($(CONFIG_620), 1)
 CFLAGS += -DCONFIG_620=1

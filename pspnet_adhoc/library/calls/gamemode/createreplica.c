@@ -125,6 +125,11 @@ static int gamemode_replica_thread(SceSize args, void *argp)
 	return 0;
 }
 
+static const struct SceKernelThreadOptParam thread_p5_stack_opt = {
+	.size = sizeof(struct SceKernelThreadOptParam),
+	.stackMpid = 5,
+};
+
 /**
  * Adhoc Emulator Gamemode Peer Replica Buffer Creator
  * @param src Peer MAC Address
@@ -239,7 +244,7 @@ int proNetAdhocGameModeCreateReplica(const SceNetEtherAddr * src, void * ptr, ui
 
 	if (_gamemode_replica_thread_id < 0)
 	{
-		_gamemode_replica_thread_id = sceKernelCreateThread("replica receive thread", gamemode_replica_thread, 111, 1024 * 8, 0, NULL);
+		_gamemode_replica_thread_id = sceKernelCreateThread("replica receive thread", gamemode_replica_thread, 111, 1024 * 8, 0, &thread_p5_stack_opt);
 
 		if (_gamemode_replica_thread_id < 0)
 		{

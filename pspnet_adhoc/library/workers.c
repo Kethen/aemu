@@ -137,6 +137,11 @@ static int worker_thread_func(SceSize args, void *argp){
 	}
 }
 
+static const struct SceKernelThreadOptParam thread_p5_stack_opt = {
+	.size = sizeof(struct SceKernelThreadOptParam),
+	.stackMpid = 5,
+};
+
 // exported by atpro
 int has_high_mem();
 int init_workers(){
@@ -162,7 +167,7 @@ int init_workers(){
 			sceKernelDeleteSema(workers[i].work_sema);
 			break;
 		}
-		workers[i].thid = sceKernelCreateThread("adhoc worker", worker_thread_func, 16, 0x3000, 0, NULL);
+		workers[i].thid = sceKernelCreateThread("adhoc worker", worker_thread_func, 16, 0x3000, 0, &thread_p5_stack_opt);
 		if (workers[i].thid < 0){
 			printk("%s: failed creating kernel thread, 0x%x\n", __func__, workers[i].thid);
 			sceKernelDeleteSema(workers[i].work_sema);

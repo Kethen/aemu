@@ -172,6 +172,11 @@ int proNetAdhocMatchingStart(int id, int event_th_prio, int event_th_stack, int 
 	RETURN_UNLOCK(ADHOC_MATCHING_NOT_INITIALIZED);
 }
 
+static const struct SceKernelThreadOptParam thread_p5_stack_opt = {
+	.size = sizeof(struct SceKernelThreadOptParam),
+	.stackMpid = 5,
+};
+
 /**
  * Setup Matching Threads for Context
  * @param context Matching Context
@@ -192,10 +197,10 @@ int _setupMatchingThreads(SceNetAdhocMatchingContext * context, int event_th_pri
 	// Create Event Thread Name
 	sprintf(threadname, "matching_ev%d", context->id);
 	// Create Event Thread
-	context->event_thid = sceKernelCreateThread(threadname, _matchingEventThread, event_th_prio, event_th_stack, 0, NULL);
+	context->event_thid = sceKernelCreateThread(threadname, _matchingEventThread, event_th_prio, event_th_stack, 0, &thread_p5_stack_opt);
 	#else
 	// Create Event Thread
-	context->event_thid = sceKernelCreateThread("matching_ev", _matchingEventThread, event_th_prio, event_th_stack, 0, NULL);
+	context->event_thid = sceKernelCreateThread("matching_ev", _matchingEventThread, event_th_prio, event_th_stack, 0, &thread_p5_stack_opt);
 	#endif
 	
 	// Created Event Thread
@@ -208,9 +213,9 @@ int _setupMatchingThreads(SceNetAdhocMatchingContext * context, int event_th_pri
 			#if 0
 			sprintf(threadname, "matching_io%d", context->id);
 			// Create IO Thread
-			context->input_thid = sceKernelCreateThread(threadname, _matchingInputThread, input_th_prio, input_th_stack, 0, NULL);
+			context->input_thid = sceKernelCreateThread(threadname, _matchingInputThread, input_th_prio, input_th_stack, 0, &thread_p5_stack_opt);
 			#else
-			context->input_thid = sceKernelCreateThread("matching_io", _matchingInputThread, input_th_prio, input_th_stack, 0, NULL);
+			context->input_thid = sceKernelCreateThread("matching_io", _matchingInputThread, input_th_prio, input_th_stack, 0, &thread_p5_stack_opt);
 			#endif
 			
 			// Created IO Thread

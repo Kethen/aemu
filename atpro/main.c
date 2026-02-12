@@ -627,8 +627,8 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 
 static int load_start_module(const char *path){
 	uint32_t k1 = pspSdkSetK1(0);
-	int uid = sceKernelLoadModule(path, 0, &mod_load_high_option);
-	//int uid = load_plugin_kernel(path, 0, &mod_load_p5_option);
+	//int uid = sceKernelLoadModule(path, 0, &mod_load_high_option);
+	int uid = sceKernelLoadModule(path, 0, &mod_load_p5_option);
 	pspSdkSetK1(k1);
 	if (uid < 0){
 		printk("%s: failed loading %s, 0x%x\n", __func__, path, uid);

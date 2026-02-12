@@ -67,12 +67,25 @@ int proNetAdhocInit(void)
 			printk("%s: vita speedup not detected\n", __func__);
 		}
 
+		// Load port offset
+		_readPortOffsetConfig();
+
+		int result = 0;
+
+		// Load Internet Modules
+		#if 0
+		result = sceUtilityLoadModule(PSP_MODULE_NET_INET);
+		printk("%s: loading internet modules, 0x%x\n", __func__, result);
+		#else
+		load_inet_modules();
+		#endif
+
 		// Load postoffice lib
 		if (postoffice_handle < 0){
 			SceKernelLMOption mod_load_high_option = {
 				.size = sizeof(SceKernelLMOption),
-				.mpidtext = 0,
-				.mpiddata = 0,
+				.mpidtext = 5,
+				.mpiddata = 5,
 				.flags = 0,
 				.position = PSP_SMEM_High,
 				.access = 0,
@@ -95,19 +108,6 @@ int proNetAdhocInit(void)
 				printk("%s: failed loading aemu postoffice, 0x%x\n", __func__, postoffice_handle);
 			}
 		}
-
-		// Load port offset
-		_readPortOffsetConfig();
-
-		int result = 0;
-
-		// Load Internet Modules
-		#if 0
-		result = sceUtilityLoadModule(PSP_MODULE_NET_INET);
-		printk("%s: loading internet modules, 0x%x\n", __func__, result);
-		#else
-		load_inet_modules();
-		#endif
 
 		// Enable Manual Infrastructure Module Control
 		_manage_modules = 1;
