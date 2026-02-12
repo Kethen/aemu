@@ -39,6 +39,11 @@ static int ptp_connect_postoffice_thread_func(SceSize args, void *argp){
 	return 0;
 }
 
+static const struct SceKernelThreadOptParam thread_p5_stack_opt = {
+	.size = sizeof(struct SceKernelThreadOptParam),
+	.stackMpid = 5,
+};
+
 static int ptp_connect_postoffice(int idx, uint32_t timeout, int nonblock){
 	struct aemu_post_office_sock_addr addr = {
 		.addr = resolve_server_ip(),
@@ -58,7 +63,7 @@ static int ptp_connect_postoffice(int idx, uint32_t timeout, int nonblock){
 				internal->connect_thread = -1;
 			}
 
-			internal->connect_thread = sceKernelCreateThread("ptp nonblock connect thread", ptp_connect_postoffice_thread_func, 100, 0x4000, 0, NULL);
+			internal->connect_thread = sceKernelCreateThread("ptp nonblock connect thread", ptp_connect_postoffice_thread_func, 100, 0x4000, 0, &thread_p5_stack_opt);
 			if (internal->connect_thread < 0){
 				printk("%s: failed creating connect thread, 0x%x\n", __func__, internal->connect_thread);
 				internal->ptp.state = PTP_STATE_CLOSED;
