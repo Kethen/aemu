@@ -19,3 +19,5 @@
 	IMPORT_FUNC  "ATPRO",0x1,get_game_code
 	IMPORT_FUNC  "ATPRO",0x2,has_high_mem
 	IMPORT_FUNC  "ATPRO",0x3,load_inet_modules
+	IMPORT_FUNC  "ATPRO",0x4,load_adhoc_modules
+	IMPORT_FUNC  "ATPRO",0x5,partition_to_use

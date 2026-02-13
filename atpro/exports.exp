@@ -28,6 +28,8 @@ PSP_EXPORT_FUNC_HASH(return_memory)
 PSP_EXPORT_FUNC_NID(get_game_code, 0x1)
 PSP_EXPORT_FUNC_NID(has_high_mem, 0x2)
 PSP_EXPORT_FUNC_NID(load_inet_modules, 0x3)
+PSP_EXPORT_FUNC_NID(load_adhoc_modules, 0x4)
+PSP_EXPORT_FUNC_NID(partition_to_use, 0x5)
 
 PSP_EXPORT_END
 

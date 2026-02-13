@@ -122,6 +122,7 @@ void _readPortOffsetConfig();
 // From kernel module
 void return_memory();
 void steal_memory();
+int partition_to_use();
 
 // resolve and returns the ip address of aemu_postoffice server
 uint32_t resolve_server_ip();

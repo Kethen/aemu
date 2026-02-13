@@ -167,18 +167,6 @@ SceUID module_io_uids[MODULE_LIST_SIZE] = {
 SceUID shim_uid = -1;
 static const char *shim_path = "ms0:/kd/pspnet_shims.prx";
 
-static void *allocate_partition_memory(int size){
-	SceUID uid = sceKernelAllocPartitionMemory(5, "aemu allocation", 4 /* high aligned */, size, (void *)4);
-
-	if (uid < 0)
-	{
-		printk("%s: failed allocating %d low aligned, 0x%x\n", __func__, size, uid);
-		return NULL;
-	}
-
-	return sceKernelGetBlockHeadAddr(uid);
-}
-
 static int is_standalone(){
 	int test_file = sceIoOpen("flash0:/kd/kermit.prx", PSP_O_RDONLY, 0777);
 	if (test_file >= 0){
@@ -204,6 +192,26 @@ static int is_go(){
 int has_high_mem(){
 	return 0;
 	//return is_vita() || sceKernelGetModel() != 0;
+}
+
+int partition_to_use(){
+	if (!has_high_mem()){
+		return 5;
+	}else{
+		return 2;
+	}
+}
+
+static void *allocate_partition_memory(int size){
+	SceUID uid = sceKernelAllocPartitionMemory(partition_to_use(), "aemu allocation", 4 /* high aligned */, size, (void *)4);
+
+	if (uid < 0)
+	{
+		printk("%s: failed allocating %d low aligned, 0x%x\n", __func__, size, uid);
+		return NULL;
+	}
+
+	return sceKernelGetBlockHeadAddr(uid);
 }
 
 void steal_memory()
@@ -299,7 +307,7 @@ static SceKernelLMOption mod_load_high_option = {
 	.creserved = {0, 0}
 };
 
-static SceKernelLMOption mod_load_p5_option = {
+static SceKernelLMOption mod_load_px_option = {
 	.size = sizeof(SceKernelLMOption),
 	.mpidtext = 5,
 	.mpiddata = 5,
@@ -480,12 +488,12 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 			}
 		}
 
-		for (int i = 0;i < sizeof(force_p5_modules) / sizeof(char *);i++)
+		for (int i = 0;i < sizeof(force_p5_modules) / sizeof(char *) && partition_to_use() == 5;i++)
 		{
 			if (strstr(test_path, force_p5_modules[i]))
 			{
 				printk("%s: forcing p5 load %s\n", __func__, force_p5_modules[i]);
-				option = &mod_load_p5_option;
+				option = &mod_load_px_option;
 				break;
 			}
 		}
@@ -628,7 +636,9 @@ static int load_start_module(const char *path, int kernel){
 	uint32_t k1 = pspSdkSetK1(0);
 	void* option = NULL;
 	if (!kernel){
-		option = &mod_load_p5_option;
+		mod_load_px_option.mpidtext = partition_to_use();
+		mod_load_px_option.mpiddata = partition_to_use();
+		option = &mod_load_px_option;
 	}
 	int uid = sceKernelLoadModule(path, 0, option);
 	pspSdkSetK1(k1);
@@ -2284,7 +2294,6 @@ int online_patcher(SceModule2 * module)
 			// Inject placeholder nickname is empty
 			hook_import_bynid((SceModule *)module, "sceUtility", 0x34B78343, get_system_param_string);
 
-			#if 1
 			static const char *create_thread_p5_list[] = {
 				"sceNet_Library",
 				"sceNetInet_Library",
@@ -2292,13 +2301,12 @@ int online_patcher(SceModule2 * module)
 				"sceNetResolver_Library",
 			};
 
-			for(int i = 0;i < sizeof(create_thread_p5_list) / sizeof(create_thread_p5_list[0]);i++){
+			for(int i = 0;i < sizeof(create_thread_p5_list) / sizeof(create_thread_p5_list[0]) && partition_to_use() == 5;i++){
 				if (strcmp(module->modname, create_thread_p5_list[i]) == 0){
 					hook_import_bynid((SceModule *)module, "ThreadManForUser", 0x446D8DE6, create_thread_p5);
 					break;
 				}
 			}
-			#endif
 		}
 	}
 	

@@ -17,7 +17,7 @@
 
 #include "../../common.h"
 
-static const struct SceKernelThreadOptParam thread_p5_stack_opt = {
+static struct SceKernelThreadOptParam thread_px_stack_opt = {
 	.size = sizeof(struct SceKernelThreadOptParam),
 	.stackMpid = 5,
 };
@@ -195,7 +195,8 @@ int proNetAdhocGameModeCreateMaster(const void * ptr, uint32_t size)
 		}
 	}
 
-	_gamemode_thread_id = sceKernelCreateThread("master data send thread", gamemode_master_thread, 111, 1024 * 8, 0, &thread_p5_stack_opt);
+	thread_px_stack_opt.stackMpid = partition_to_use();
+	_gamemode_thread_id = sceKernelCreateThread("master data send thread", gamemode_master_thread, 111, 1024 * 8, 0, &thread_px_stack_opt);
 	if (_gamemode_thread_id < 0)
 	{
 		printk("%s: failed creating broadcast thread, 0x%x\n", __func__, _gamemode_thread_id);

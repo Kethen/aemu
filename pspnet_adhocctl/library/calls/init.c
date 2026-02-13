@@ -132,10 +132,12 @@ void _notifyAdhocctlhandlers(int event, int error_code)
 	}
 }
 
-static const struct SceKernelThreadOptParam thread_p5_stack_opt = {
+static struct SceKernelThreadOptParam thread_px_stack_opt = {
 	.size = sizeof(struct SceKernelThreadOptParam),
 	.stackMpid = 5,
 };
+
+int partition_to_use();
 
 /**
  * Initialize the Adhoc-Control Emulator
@@ -174,7 +176,8 @@ int proNetAdhocctlInit(int stacksize, int prio, const SceNetAdhocctlAdhocId * ad
 			}
 
 			// Create Main Thread
-			int update = sceKernelCreateThread("friend_finder", _friendFinder, prio, 32768, 0, &thread_p5_stack_opt);
+			thread_px_stack_opt.stackMpid = partition_to_use();
+			int update = sceKernelCreateThread("friend_finder", _friendFinder, prio, 32768, 0, &thread_px_stack_opt);
 						
 			if (update < 0)
 			{
