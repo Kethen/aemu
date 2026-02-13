@@ -190,16 +190,15 @@ static int is_go(){
 }
 
 int has_high_mem(){
-	return 0;
-	//return is_vita() || sceKernelGetModel() != 0;
+	//return 0;
+	return is_vita() || sceKernelGetModel() != 0;
 }
 
 int partition_to_use(){
 	if (!has_high_mem()){
 		return 5;
-	}else{
-		return 2;
 	}
+	return 2;
 }
 
 static void *allocate_partition_memory(int size){
@@ -714,6 +713,7 @@ static void log_memory_info(){
 	printk("original instructions: 0x%lx 0x%lx\n", _lw((u32)patch_buffer), _lw((u32)patch_buffer + 8)); \
 }
 
+#if 0
 static SceUID (*observe_alloc_partition_memory_orig)(int part, const char *name, int type, SceSize size, void *addr) = NULL;
 static SceUID observe_alloc_partition_memory(int part, const char *name, int type, SceSize size, void *addr){
 	SceUID ret = observe_alloc_partition_memory_orig(part, name, type, size, addr);
@@ -731,6 +731,7 @@ static SceUID observe_create_thread(const char *name, void *entry, int priority,
 	}
 	return ret;
 }
+#endif
 
 // best effort, load inet modules ourselves instead of using sce utility
 void load_inet_modules(){
@@ -2056,10 +2057,13 @@ int online_patcher(SceModule2 * module)
 			hook_import_bynid((SceModule *)module, "ThreadManForUser", 0x446D8DE6, create_thread);
 			#endif
 			hook_import_bynid((SceModule *)module, "scePower", 0xA85880D0, is_non_fat);
-			hook_import_bynid((SceModule *)module, "sceUtility", 0x2A2B3DE0, utility_load_module);
-			hook_import_bynid((SceModule *)module, "sceUtility", 0xE49BFE92, utility_unload_module);
-			hook_import_bynid((SceModule *)module, "sceUtility", 0x1579a159, utility_load_netmodule);
-			hook_import_bynid((SceModule *)module, "sceUtility", 0x64d50c56, utility_unload_netmodule);
+			if (partition_to_use() == 5){
+				// when we are on p5, we want to save as much p2 as possible
+				hook_import_bynid((SceModule *)module, "sceUtility", 0x2A2B3DE0, utility_load_module);
+				hook_import_bynid((SceModule *)module, "sceUtility", 0xE49BFE92, utility_unload_module);
+				hook_import_bynid((SceModule *)module, "sceUtility", 0x1579a159, utility_load_netmodule);
+				hook_import_bynid((SceModule *)module, "sceUtility", 0x64d50c56, utility_unload_netmodule);
+			}
 
 			// allocate memory for netconf
 			//netconf_override = allocate_partition_memory(sizeof(allocate_partition_memory));
@@ -2686,16 +2690,16 @@ int module_start(SceSize args, void * argp)
 							scePowerLock(0);
 							printk("Disabled Power Button!\n");
 
-							#if 1
-							// Keep volatile lock locked, and return fake results to calls
-							void* base_addr = 0;
-							s32 size = 0;
-							int ret = sceKernelVolatileMemTryLock(0, &base_addr, &size);
-							printk("%s: sceKernelVolatileMemTryLock ret 0x%x base_addr 0x%x size %d\n", __func__, ret, base_addr, size);
-							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemLock), sceKernelVolatileMemLockPatched, sceKernelVolatileMemLockOrig);
-							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemTryLock), sceKernelVolatileMemTryLockPatched, sceKernelVolatileMemTryLockOrig);
-							HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemUnlock), sceKernelVolatileMemUnlockPatched, sceKernelVolatileMemUnlockOrig);
-							#endif
+							if (partition_to_use() == 5){
+								// Keep volatile lock locked, and return fake results to calls
+								void* base_addr = 0;
+								s32 size = 0;
+								int ret = sceKernelVolatileMemTryLock(0, &base_addr, &size);
+								printk("%s: sceKernelVolatileMemTryLock ret 0x%x base_addr 0x%x size %d\n", __func__, ret, base_addr, size);
+								HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemLock), sceKernelVolatileMemLockPatched, sceKernelVolatileMemLockOrig);
+								HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemTryLock), sceKernelVolatileMemTryLockPatched, sceKernelVolatileMemTryLockOrig);
+								HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemUnlock), sceKernelVolatileMemUnlockPatched, sceKernelVolatileMemUnlockOrig);
+							}
 
 							#if 0
 							// Monitor power locks
