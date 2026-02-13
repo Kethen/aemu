@@ -123,6 +123,7 @@ const char *force_fw_modules[] = {
 };
 
 const char *force_p5_modules[] ={
+	"pspnet.prx",
 	"pspnet_adhoc.prx",
 	"pspnet_adhocctl.prx",
 	"pspnet_adhoc_matching.prx",
@@ -680,10 +681,57 @@ static void log_memory_info(){
 	#endif
 }
 
+#define MAKE_JUMP(a, f) _sw(0x08000000 | (((u32)(f) & 0x0FFFFFFC) >> 2), a)
+#define GET_JUMP_TARGET(x) (0x80000000 | (((x) & 0x03FFFFFF) << 2))
+#define HIJACK_FUNCTION(a, f, ptr) \
+{ \
+	printk("hijacking function at 0x%lx with 0x%lx\n", (u32)a, (u32)f); \
+	u32 _func_ = (u32)a; \
+	u32 _ff = (u32)f; \
+	int _interrupts = pspSdkDisableInterrupts(); \
+	sceKernelDcacheWritebackInvalidateAll(); \
+	static u32 patch_buffer[3]; \
+	_sw(_lw(_func_), (u32)patch_buffer); \
+	_sw(_lw(_func_ + 4), (u32)patch_buffer + 8);\
+	MAKE_JUMP((u32)patch_buffer + 4, _func_ + 8); \
+	_sw(0x08000000 | (((u32)(_ff) >> 2) & 0x03FFFFFF), _func_); \
+	_sw(0, _func_ + 4); \
+	ptr = (void *)patch_buffer; \
+	sceKernelDcacheWritebackInvalidateAll(); \
+	sceKernelIcacheClearAll(); \
+	pspSdkEnableInterrupts(_interrupts); \
+	printk("original instructions: 0x%lx 0x%lx\n", _lw((u32)patch_buffer), _lw((u32)patch_buffer + 8)); \
+}
+
+static SceUID (*observe_alloc_partition_memory_orig)(int part, const char *name, int type, SceSize size, void *addr) = NULL;
+static SceUID observe_alloc_partition_memory(int part, const char *name, int type, SceSize size, void *addr){
+	SceUID ret = observe_alloc_partition_memory_orig(part, name, type, size, addr);
+	printk("%s: part %d name %s type %d size %d addr 0x%x, 0x%x\n", __func__, part, name, type, size, addr, ret);
+	return ret;
+}
+
+static SceUID (*observe_create_thread_orig)(const char *name, void *entry, int priority, int stack_size, int attr, struct SceKernelThreadOptParam *option) = NULL;
+static SceUID observe_create_thread(const char *name, void *entry, int priority, int stack_size, int attr, struct SceKernelThreadOptParam *option){
+	SceUID ret = observe_create_thread_orig(name, entry, priority, stack_size, attr, option);
+	if (option != NULL){
+		printk("%s: name %s entry 0x%x priority %d stack_size %d attr 0x%x option 0x%x part %d, 0x%x\n", __func__, name, entry, priority, stack_size, attr, option, option->stackMpid, ret);
+	}else{
+		printk("%s: name %s entry 0x%x priority %d stack_size %d attr 0x%x option 0x%x, 0x%x\n", __func__, name, entry, priority, stack_size, attr, option, ret);
+	}
+	return ret;
+}
+
 // best effort, load inet modules ourselves instead of using sce utility
 void load_inet_modules(){
 	log_memory_info();
 	printk("%s: loading inet modules\n", __func__);
+
+	// these are real unstable, need a better way to review allocations
+	// WHO TOOK MY P2 MEM
+	#if 0
+	HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelAllocPartitionMemory), observe_alloc_partition_memory, observe_alloc_partition_memory_orig);
+	HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelCreateThread), observe_create_thread, observe_create_thread_orig);
+	#endif
 
 	// a list of inet specific modules on top of adhoc
 	static const char *inet_modules[] = {
@@ -2139,6 +2187,7 @@ int online_patcher(SceModule2 * module)
 			hook_import_bynid((SceModule *)module, "sceUtility", 0x34B78343, get_system_param_string);
 
 			static const char *create_thread_p5_list[] = {
+				"sceNet_Library",
 				"sceNetInet_Library",
 				"sceNetApctl_Library",
 				"sceNetResolver_Library",
@@ -2323,28 +2372,6 @@ int input_thread(SceSize args, void * argp)
 	
 	// Return to Caller
 	return 0;
-}
-
-#define MAKE_JUMP(a, f) _sw(0x08000000 | (((u32)(f) & 0x0FFFFFFC) >> 2), a)
-#define GET_JUMP_TARGET(x) (0x80000000 | (((x) & 0x03FFFFFF) << 2))
-#define HIJACK_FUNCTION(a, f, ptr) \
-{ \
-	printk("hijacking function at 0x%lx with 0x%lx\n", (u32)a, (u32)f); \
-	u32 _func_ = (u32)a; \
-	u32 _ff = (u32)f; \
-	int _interrupts = pspSdkDisableInterrupts(); \
-	sceKernelDcacheWritebackInvalidateAll(); \
-	static u32 patch_buffer[3]; \
-	_sw(_lw(_func_), (u32)patch_buffer); \
-	_sw(_lw(_func_ + 4), (u32)patch_buffer + 8);\
-	MAKE_JUMP((u32)patch_buffer + 4, _func_ + 8); \
-	_sw(0x08000000 | (((u32)(_ff) >> 2) & 0x03FFFFFF), _func_); \
-	_sw(0, _func_ + 4); \
-	ptr = (void *)patch_buffer; \
-	sceKernelDcacheWritebackInvalidateAll(); \
-	sceKernelIcacheClearAll(); \
-	pspSdkEnableInterrupts(_interrupts); \
-	printk("original instructions: 0x%lx 0x%lx\n", _lw((u32)patch_buffer), _lw((u32)patch_buffer + 8)); \
 }
 
 int volatile_locked = 0;
