@@ -2,7 +2,7 @@
 
 ### General issues
 - PSN eboots are currently not supported
-- On PSP 1000, only games that leaves ~1.5MB ram free works. For games that works on Slims/Vitas but not 1000, individual game patches will likely be needed.
+- More games now work on the PSP1000, but keep in mind that games that work on slims have a not small chance to not work on 1000s
 - Not all games work properly, pspnet_adhoc_matching implementation here still needs work to match PPSSPP's implementation
 - Some users report that Adrenaline Bubble Manager on PSVita does not work with the plugin, I have no idea why
 
