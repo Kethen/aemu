@@ -177,12 +177,17 @@ static int is_standalone(){
 }
 
 static int is_vita(){
-	int test_file = sceIoOpen("flash0:/kd/usb.prx", PSP_O_RDONLY, 0777);
-	if (test_file >= 0){
-		sceIoClose(test_file);
-		return 0;
+	static int vita = -1;
+	if (vita == -1){
+		int test_file = sceIoOpen("flash0:/kd/usb.prx", PSP_O_RDONLY, 0777);
+		if (test_file >= 0){
+			sceIoClose(test_file);
+			vita = 0;
+		}else{
+			vita = 1;
+		}
 	}
-	return 1;
+	return vita;
 }
 
 static int is_go(){
