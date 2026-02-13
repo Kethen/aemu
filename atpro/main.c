@@ -123,7 +123,7 @@ const char *force_fw_modules[] = {
 };
 
 const char *force_p5_modules[] ={
-	"pspnet.prx",
+	//"pspnet.prx",
 	"pspnet_adhoc.prx",
 	"pspnet_adhocctl.prx",
 	"pspnet_adhoc_matching.prx",
@@ -396,7 +396,7 @@ SceUID load_plugin_user(const char * path, int flags, SceKernelLMOption * option
 	return load_plugin(path, flags, option, load_plugin_user_orig);
 }
 
-static int load_start_module(const char *path);
+static int load_start_module(const char *path, int kernel);
 SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, module_loader_func orig)
 {
 	// Force module path case
@@ -459,7 +459,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 	// Online Mode Enabled
 	if(onlinemode)
 	{
-		for (int i = 0;i < sizeof(force_fw_modules) / sizeof(char *) && onlinemode;i++)
+		for (int i = 0;i < sizeof(force_fw_modules) / sizeof(char *);i++)
 		{
 			if (strstr(test_path, force_fw_modules[i]) != NULL && strstr(test_path, "disc0:/") != NULL)
 			{
@@ -470,8 +470,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 			}
 		}
 
-		#if 0
-		for (int i = 0;i < sizeof(force_load_high_modules) / sizeof(char *) && onlinemode;i++)
+		for (int i = 0;i < sizeof(force_load_high_modules) / sizeof(char *);i++)
 		{
 			if (strstr(test_path, force_load_high_modules[i]))
 			{
@@ -480,9 +479,8 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 				break;
 			}
 		}
-		#endif
 
-		for (int i = 0;i < sizeof(force_p5_modules) / sizeof(char *) && onlinemode;i++)
+		for (int i = 0;i < sizeof(force_p5_modules) / sizeof(char *);i++)
 		{
 			if (strstr(test_path, force_p5_modules[i]))
 			{
@@ -575,7 +573,7 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 			{
 				if (shim_uid < 0)
 				{
-					shim_uid = load_start_module(shim_path);
+					shim_uid = load_start_module(shim_path, 0);
 					break;
 				}
 			}
@@ -626,10 +624,13 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 	return result;
 }
 
-static int load_start_module(const char *path){
+static int load_start_module(const char *path, int kernel){
 	uint32_t k1 = pspSdkSetK1(0);
-	//int uid = sceKernelLoadModule(path, 0, &mod_load_high_option);
-	int uid = sceKernelLoadModule(path, 0, &mod_load_p5_option);
+	void* option = NULL;
+	if (!kernel){
+		option = &mod_load_p5_option;
+	}
+	int uid = sceKernelLoadModule(path, 0, option);
 	pspSdkSetK1(k1);
 	if (uid < 0){
 		printk("%s: failed loading %s, 0x%x\n", __func__, path, uid);
@@ -726,23 +727,49 @@ void load_inet_modules(){
 	log_memory_info();
 	printk("%s: loading inet modules\n", __func__);
 
-	// these are real unstable, need a better way to review allocations
-	// WHO TOOK MY P2 MEM
-	#if 0
-	HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelAllocPartitionMemory), observe_alloc_partition_memory, observe_alloc_partition_memory_orig);
-	HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelCreateThread), observe_create_thread, observe_create_thread_orig);
-	#endif
+	static const char *kernel_modules[] = {
+		"flash0:/kd/ifhandle.prx",
+	};
 
-	// a list of inet specific modules on top of adhoc
+	for (int i = 0;i < sizeof(kernel_modules) / sizeof(kernel_modules[0]);i++){
+		load_start_module(kernel_modules[i], 1);
+	}	
+
 	static const char *inet_modules[] = {
 		"ms0:/kd/pspnet_shims.prx",
 		"flash0:/kd/pspnet_inet.prx",
 		"flash0:/kd/pspnet_apctl.prx",
-		"flash0:/kd/pspnet_resolver.prx",
+		"flash0:/kd/pspnet_resolver.prx"
 	};
 
 	for (int i = 0;i < sizeof(inet_modules) / sizeof(inet_modules[0]);i++){
-		load_start_module(inet_modules[i]);
+		load_start_module(inet_modules[i], 0);
+	}
+}
+
+void load_adhoc_modules(){
+	log_memory_info();
+	printk("%s: loading inet modules\n", __func__);
+
+	static const char *kernel_modules[] = {
+		"flash0:/kd/ifhandle.prx",
+	};
+
+	for (int i = 0;i < sizeof(kernel_modules) / sizeof(kernel_modules[0]);i++){
+		load_start_module(kernel_modules[i], 1);
+	}
+
+	static const char *adhoc_modules[] = {
+		"ms0:/kd/pspnet_shims.prx",
+		"ms0:/kd/pspnet_adhoc.prx",
+		"ms0:/kd/pspnet_adhocctl.prx",
+		"ms0:/kd/pspnet_adhoc_matching.prx",
+		"flash0:/kd/pspnet_adhoc_download.prx",
+		"flash0:/kd/pspnet_adhoc_discover.prx",
+	};
+
+	for (int i = 0;i < sizeof(adhoc_modules) / sizeof(adhoc_modules[0]);i++){
+		load_start_module(adhoc_modules[i], 0);
 	}
 }
 
@@ -1920,6 +1947,73 @@ int is_non_fat(){
 	return 0;
 }
 
+
+int (*utility_load_module_orig)(int id) = NULL;
+int utility_load_module(int id){
+	if (utility_load_module_orig == NULL){
+		utility_load_module_orig = (void *)sctrlHENFindFunction("sceUtility_Driver", "sceUtility", 0x2A2B3DE0);
+	}
+	if (id == PSP_MODULE_NET_INET){
+		load_inet_modules();
+		return 0;
+	}
+	if (id == PSP_MODULE_NET_ADHOC){
+		load_adhoc_modules();
+		return 0;
+	}
+	return utility_load_module_orig(id);
+}
+
+int (*utility_unload_module_orig)(int id) = NULL;
+int utility_unload_module(int id){
+	if (utility_unload_module_orig == NULL){
+		utility_unload_module_orig = (void *)sctrlHENFindFunction("sceUtility_Driver", "sceUtility", 0xE49BFE92);
+	}
+
+	// ignore unload request for these
+	if (id == PSP_MODULE_NET_INET){
+		return 0;
+	}
+	if (id == PSP_MODULE_NET_ADHOC){
+		return 0;
+	}
+
+	return utility_unload_module_orig(id);
+}
+
+int (*utility_load_netmodule_orig)(int id) = NULL;
+int utility_load_netmodule(int id){
+	if (utility_load_netmodule_orig == NULL){
+		utility_load_netmodule_orig = (void *)sctrlHENFindFunction("sceUtility_Driver", "sceUtility", 0x1579a159);
+	}
+	if (id == PSP_NET_MODULE_INET){
+		load_inet_modules();
+		return 0;
+	}
+	if (id == PSP_NET_MODULE_ADHOC){
+		load_adhoc_modules();
+		return 0;
+	}
+	return utility_load_netmodule_orig(id);
+}
+
+int (*utility_unload_netmodule_orig)(int id) = NULL;
+int utility_unload_netmodule(int id){
+	if (utility_unload_netmodule_orig == NULL){
+		utility_unload_netmodule_orig = (void *)sctrlHENFindFunction("sceUtility_Driver", "sceUtility", 0x64d50c56);
+	}
+
+	// ignore unload request for these
+	if (id == PSP_NET_MODULE_INET){
+		return 0;
+	}
+	if (id == PSP_NET_MODULE_ADHOC){
+		return 0;
+	}
+
+	return utility_unload_netmodule_orig(id);
+}
+
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
@@ -1952,6 +2046,10 @@ int online_patcher(SceModule2 * module)
 			hook_import_bynid((SceModule *)module, "ThreadManForUser", 0x446D8DE6, create_thread);
 			#endif
 			hook_import_bynid((SceModule *)module, "scePower", 0xA85880D0, is_non_fat);
+			hook_import_bynid((SceModule *)module, "sceUtility", 0x2A2B3DE0, utility_load_module);
+			hook_import_bynid((SceModule *)module, "sceUtility", 0xE49BFE92, utility_unload_module);
+			hook_import_bynid((SceModule *)module, "sceUtility", 0x1579a159, utility_load_netmodule);
+			hook_import_bynid((SceModule *)module, "sceUtility", 0x64d50c56, utility_unload_netmodule);
 
 			// allocate memory for netconf
 			//netconf_override = allocate_partition_memory(sizeof(allocate_partition_memory));
@@ -2186,6 +2284,7 @@ int online_patcher(SceModule2 * module)
 			// Inject placeholder nickname is empty
 			hook_import_bynid((SceModule *)module, "sceUtility", 0x34B78343, get_system_param_string);
 
+			#if 1
 			static const char *create_thread_p5_list[] = {
 				"sceNet_Library",
 				"sceNetInet_Library",
@@ -2199,6 +2298,7 @@ int online_patcher(SceModule2 * module)
 					break;
 				}
 			}
+			#endif
 		}
 	}
 	

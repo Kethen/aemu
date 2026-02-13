@@ -55,6 +55,10 @@ PSP_EXPORT_FUNC_HASH(free_memory_block)
 PSP_EXPORT_FUNC_HASH(create_thread)
 PSP_EXPORT_FUNC_HASH(is_non_fat)
 PSP_EXPORT_FUNC_HASH(create_thread_p5)
+PSP_EXPORT_FUNC_HASH(utility_load_module)
+PSP_EXPORT_FUNC_HASH(utility_unload_module)
+PSP_EXPORT_FUNC_HASH(utility_load_netmodule)
+PSP_EXPORT_FUNC_HASH(utility_unload_netmodule)
 PSP_EXPORT_END
 
 PSP_END_EXPORTS
