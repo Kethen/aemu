@@ -61,6 +61,10 @@ PSP_EXPORT_FUNC_HASH(utility_load_module)
 PSP_EXPORT_FUNC_HASH(utility_unload_module)
 PSP_EXPORT_FUNC_HASH(utility_load_netmodule)
 PSP_EXPORT_FUNC_HASH(utility_unload_netmodule)
+PSP_EXPORT_FUNC_HASH(utility_msg_dialog_init_start)
+PSP_EXPORT_FUNC_HASH(utility_msg_dialog_update)
+PSP_EXPORT_FUNC_HASH(utility_msg_dialog_get_status)
+PSP_EXPORT_FUNC_HASH(utility_msg_dialog_shutdown_start)
 PSP_EXPORT_END
 
 PSP_END_EXPORTS

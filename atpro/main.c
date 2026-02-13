@@ -2025,6 +2025,42 @@ int utility_unload_netmodule(int id){
 	return utility_unload_netmodule_orig(id);
 }
 
+static int msg_dialog_state = PSP_UTILITY_DIALOG_NONE;
+// dialog bypass in p5 mode
+int utility_msg_dialog_init_start(pspUtilityMsgDialogParams *params){
+	if (params != NULL){
+		// forward the message as a chat message
+		addChatLog("SYS", params->message);
+		// lie to game about having clicked yes
+		params->buttonPressed == PSP_UTILITY_MSGDIALOG_RESULT_YES;
+	}
+	msg_dialog_state = PSP_UTILITY_DIALOG_VISIBLE;
+
+	return 0;
+}
+
+void utility_msg_dialog_update(int frames){
+	return;
+}
+
+int utility_msg_dialog_get_status(){
+	if (msg_dialog_state == PSP_UTILITY_DIALOG_VISIBLE){
+		msg_dialog_state = PSP_UTILITY_DIALOG_QUIT;
+		return PSP_UTILITY_DIALOG_VISIBLE;
+	}
+
+	if (msg_dialog_state == PSP_UTILITY_DIALOG_FINISHED){
+		msg_dialog_state = PSP_UTILITY_DIALOG_NONE;
+		return PSP_UTILITY_DIALOG_FINISHED;
+	}
+
+	return msg_dialog_state;
+}
+
+void utility_msg_dialog_shutdown_start(){
+	msg_dialog_state = PSP_UTILITY_DIALOG_FINISHED;
+}
+
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
@@ -2063,6 +2099,12 @@ int online_patcher(SceModule2 * module)
 				hook_import_bynid((SceModule *)module, "sceUtility", 0xE49BFE92, utility_unload_module);
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x1579a159, utility_load_netmodule);
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x64d50c56, utility_unload_netmodule);
+
+				// we also want to skip simple dialogs to fix some games
+				hook_import_bynid((SceModule *)module, "sceUtility", 0x2AD8E239, utility_msg_dialog_init_start);
+				hook_import_bynid((SceModule *)module, "sceUtility", 0x95FC253B, utility_msg_dialog_update);
+				hook_import_bynid((SceModule *)module, "sceUtility", 0x9A1C91D7, utility_msg_dialog_get_status);
+				hook_import_bynid((SceModule *)module, "sceUtility", 0x67AF3428, utility_msg_dialog_shutdown_start);
 			}
 
 			// allocate memory for netconf
