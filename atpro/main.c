@@ -775,8 +775,8 @@ void load_adhoc_modules(){
 		"ms0:/kd/pspnet_adhoc.prx",
 		"ms0:/kd/pspnet_adhocctl.prx",
 		"ms0:/kd/pspnet_adhoc_matching.prx",
-		"flash0:/kd/pspnet_adhoc_download.prx",
-		"flash0:/kd/pspnet_adhoc_discover.prx",
+		//"flash0:/kd/pspnet_adhoc_download.prx",
+		//"flash0:/kd/pspnet_adhoc_discover.prx",
 	};
 
 	for (int i = 0;i < sizeof(adhoc_modules) / sizeof(adhoc_modules[0]);i++){
@@ -2499,8 +2499,27 @@ s32 sceKernelVolatileMemLockPatched(s32 unk, void **ptr, s32 *size)
 	return result;
 	#else
 	//printk("%s: 0x%x, 0x%x, 0x%x/%d\n", __func__, unk, ptr, size, *size);
+
+	// XXX some games actually uses P5, and not all of them respects the size from here
+	// some games like GTA respects it, but then unhappy that it is smaller than expected
+	// for those titles game patch will be needed
 	*ptr = (void *)0x08400000;
-	*size = 4194304;
+	*size = 1024 * 2900;
+
+	#if 0
+	// size test on slim
+	*size = 1024 * 1024 * 4;
+	static SceUID blockid = -1;
+	if (blockid < 0){
+		blockid = sceKernelAllocPartitionMemory(2, "p5 size test", 4, *size, (void *)4);
+	}
+	*ptr = sceKernelGetBlockHeadAddr(blockid);
+	#endif
+
+	// original size
+	//*ptr = (void *)0x08400000;
+	//*size = 4194304;
+
 	return 0;
 	#endif
 }
@@ -2514,8 +2533,27 @@ s32 sceKernelVolatileMemTryLockPatched(s32 unk, void **ptr, s32 *size)
 	return result;
 	#else
 	//printk("%s: 0x%x, 0x%x, 0x%x/%d\n", __func__, unk, ptr, size, *size);
+
+	// XXX some games actually uses P5, and not all of them respects the size from here
+	// some games like GTA respects it, but then unhappy that it is smaller than expected
+	// for those titles game patch will be needed
 	*ptr = (void *)0x08400000;
-	*size = 4194304;
+	*size = 1024 * 2900;
+
+	#if 0
+	// size test on slim
+	*size = 1024 * 1024 * 4;
+	static SceUID blockid = -1;
+	if (blockid < 0){
+		blockid = sceKernelAllocPartitionMemory(2, "p5 size test", 4, *size, (void *)4);
+	}
+	*ptr = sceKernelGetBlockHeadAddr(blockid);
+	#endif
+
+	// original size
+	//*ptr = (void *)0x08400000;
+	//*size = 4194304;
+
 	volatile_locked = 1;
 	return 0;
 	#endif
@@ -2692,13 +2730,14 @@ int module_start(SceSize args, void * argp)
 
 							if (partition_to_use() == 5){
 								// Keep volatile lock locked, and return fake results to calls
-								void* base_addr = 0;
-								s32 size = 0;
-								int ret = sceKernelVolatileMemTryLock(0, &base_addr, &size);
-								printk("%s: sceKernelVolatileMemTryLock ret 0x%x base_addr 0x%x size %d\n", __func__, ret, base_addr, size);
 								HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemLock), sceKernelVolatileMemLockPatched, sceKernelVolatileMemLockOrig);
 								HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemTryLock), sceKernelVolatileMemTryLockPatched, sceKernelVolatileMemTryLockOrig);
 								HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelVolatileMemUnlock), sceKernelVolatileMemUnlockPatched, sceKernelVolatileMemUnlockOrig);
+
+								void* base_addr = 0;
+								s32 size = 0;
+								int ret = sceKernelVolatileMemTryLockOrig(0, &base_addr, &size);
+								printk("%s: sceKernelVolatileMemTryLock ret 0x%x base_addr 0x%x size %d\n", __func__, ret, base_addr, size);
 							}
 
 							#if 0
