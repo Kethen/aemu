@@ -22,4 +22,5 @@ podman run \
 	cp /usr/x86_64-pc-cygwin/sys-root/usr/bin/cygwin1.dll ./
 	cp ../sqlite3_win_prebuilt/sqlite3.dll ./
 	cp ../pspnet_adhocctl_server/database.db ./
+	cp -r ../pspnet_adhocctl_server/www ./
 '
