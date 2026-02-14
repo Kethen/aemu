@@ -1,0 +1,124 @@
+<html>
+	<head>
+		<title>Prometheus Server Status 1.5</title>
+		<link rel="stylesheet" type="text/css" href="style.css" />
+		<link rel="icon" href="favicon.ico" type="image/x-icon" />
+		<meta http-equiv="refresh" content="120" />
+	</head>
+	<body>
+		<div class="headline">
+		        <xsl:value-of select="./prometheus/@usercount" /> Users are currently playing on <a href="https://github.com/Kethen/aemu">æmu</a>!
+		</div>
+		<div class="navigation">
+		        <a class="netlink" href="https://discord.com/invite/wxeGVkM">Discord</a>
+		        <a class="netlink" href="https://github.com/Kethen/aemu/releases">Client Download</a>
+		        <a class="donatelink" href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&amp;hosted_button_id=RJB74KKZAXS3E">Donate via PayPal (MrColdbird)</a>
+		        <a class="donatelink" href="https://patreon.com/coldbird">Donate via Patreon (MrColdbird)</a>
+		        <a class="donatelink" href="https://ko-fi.com/kethen">Donate via Ko-fi (Kethen)</a>
+		</div>
+		<div id="games">
+		</div>
+		<script>
+			function render_data(data){
+				let target = document.getElementById("games");
+				let new_html = ""
+				for(const game of data.games){
+					new_html += `
+						<div class="gametitle">
+							<table class="splitter">
+								<tr>
+									<td class="left">
+										${game.name}
+									</td>
+									<td class="right">
+										<span class="usercount">
+											<span class="good">${game.usercount} Total</span>
+										</span>
+									</td>
+								<tr>
+								<tr class="bottom">
+									<td>
+										<table class="groups">
+											<tr>
+												<th>Group</th>
+												<th>User Count</th>
+												<th>Players</th>
+											</tr>
+					`;
+					for (const group of game.groups){
+						new_html += `
+							<tr>
+								<td>${group.name}</td>
+								<td>${group.usercount}</td>
+								<td>
+						`;
+
+						new_html += `<table>`
+
+						for(const user of group.users){
+							new_html += `<tr>`;
+							new_html += `<td>${user.name}</td>`
+							new_html += `<td>PDP `
+								for(const port of user.pdp_ports){
+									if (port != user.pdp_ports[user.pdp_ports.length - 1]){
+										new_html += `${port} `;
+									}else{
+										new_html += `${port}`;
+									}
+								}
+							new_html += `</td>`
+							new_html += `<td>PTP `
+							for(const port of user.ptp_ports){
+								if (port != user.ptp_ports[user.ptp_ports.length - 1]){
+									new_html += `${port} `;
+								}else{
+									new_html += `${port}`;
+								}
+							}
+							new_html += `</td>`;
+							new_html += `<tr>`;
+						}
+
+						new_html += `</table>`
+
+						new_html += `
+								</td>
+							</tr>
+						`;
+					}
+
+					new_html += `
+										</table>
+									</td>
+								</tr>
+							</table>
+						</div>
+			
+					`;
+				}
+
+				target.innerHTML = new_html;
+			}
+
+			function update_games(){
+				let fetcher = fetch("data.json")
+				fetcher.then((res) => {
+					res.text().then((str) => {
+						try{
+							let data = JSON.parse(str);
+							render_data(data);
+							console.log(data);
+						}catch(err){
+							console.log(`failed parsing data, ${err}`);
+						}
+					});
+				});
+			}
+			setInterval(update_games, 1000 * 120);
+			update_games();
+		</script>
+		<div class="footer">
+        © 2012 Team PRO All Rights Reserved
+		</div>
+	</body>
+</html>
