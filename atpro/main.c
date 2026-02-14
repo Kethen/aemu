@@ -2037,7 +2037,7 @@ int utility_msg_dialog_init_start(pspUtilityMsgDialogParams *params){
 		// forward the message as a chat message
 		addChatLog("SYS", params->message);
 		// lie to game about having clicked yes
-		params->buttonPressed == PSP_UTILITY_MSGDIALOG_RESULT_YES;
+		params->buttonPressed = PSP_UTILITY_MSGDIALOG_RESULT_YES;
 	}
 	msg_dialog_state = PSP_UTILITY_DIALOG_VISIBLE;
 
