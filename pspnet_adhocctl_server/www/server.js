@@ -125,6 +125,9 @@ function process_data(res){
 			game_entry.groups.push(group_entry);
 
 			let users = group["user"];
+			if (users == undefined){
+				continue;
+			}
 			for(const user of users){
 				let user_entry = {
 					name:user["#text"],
