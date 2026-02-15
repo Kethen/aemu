@@ -104,7 +104,7 @@ function process_data(res){
 	}
 	let games = pro["game"];
 	if (games == undefined){
-		console.log(`game array not found in xml, please debug this`);
+		last_good_processed_data = processed_data;
 		return;
 	}
 	for(const game of games){
