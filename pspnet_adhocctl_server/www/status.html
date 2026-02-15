@@ -53,12 +53,18 @@
 								<td>
 						`;
 
-						new_html += `<table>`
+						new_html += `<table>
+										<tr>
+											<th>Nickname</th>
+											<th>PDP ports</th>
+											<th>PTP ports</th>
+										</tr>
+						`
 
 						for(const user of group.users){
 							new_html += `<tr>`;
 							new_html += `<td>${user.name}</td>`
-							new_html += `<td>PDP `
+							new_html += `<td>`
 								for(const port of user.pdp_ports){
 									if (port != user.pdp_ports[user.pdp_ports.length - 1]){
 										new_html += `${port} `;
@@ -67,7 +73,7 @@
 									}
 								}
 							new_html += `</td>`
-							new_html += `<td>PTP `
+							new_html += `<td>`
 							for(const port of user.ptp_ports){
 								if (port != user.ptp_ports[user.ptp_ports.length - 1]){
 									new_html += `${port} `;
