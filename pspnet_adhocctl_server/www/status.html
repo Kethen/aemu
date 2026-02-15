@@ -6,8 +6,8 @@
 		<meta http-equiv="refresh" content="120" />
 	</head>
 	<body>
-		<div class="headline">
-		        <xsl:value-of select="./prometheus/@usercount" /> Users are currently playing on <a href="https://github.com/Kethen/aemu">æmu</a>!
+		<div id="global_user_count" class="headline">
+		        0 online on <a href="https://github.com/Kethen/aemu">æmu</a> adhoc server
 		</div>
 		<div class="navigation">
 		        <a class="netlink" href="https://discord.com/invite/wxeGVkM">Discord</a>
@@ -20,6 +20,7 @@
 		</div>
 		<script>
 			function render_data(data){
+				let num_users = 0;
 				let target = document.getElementById("games");
 				let new_html = ""
 				for(const game of data.games){
@@ -52,6 +53,8 @@
 								<td>${group.usercount}</td>
 								<td>
 						`;
+
+						num_users += Number(group.usercount);
 
 						new_html += `<table>
 										<tr>
@@ -104,6 +107,7 @@
 				}
 
 				target.innerHTML = new_html;
+				document.getElementById("global_user_count").innerHTML = `${num_users} online on <a href="https://github.com/Kethen/aemu">æmu</a> adhoc server`
 			}
 
 			function update_games(){
