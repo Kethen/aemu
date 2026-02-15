@@ -116,6 +116,9 @@ function process_data(res){
 		processed_data.games.push(game_entry)
 
 		let groups = game["group"];
+		if (groups == undefined){
+			continue;
+		}
 		for (const group of groups){
 			let group_entry = {
 				name:group["@_name"],
