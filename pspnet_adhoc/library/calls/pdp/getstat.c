@@ -17,6 +17,25 @@
 
 #include "../../common.h"
 
+int pdp_peek_next_size_postoffice(int idx){
+	void *handle = pdp_postoffice_recover(idx);
+
+	if (handle == NULL){
+		return 0;
+	}
+
+	int next_size = pdp_peek_next_size(handle);
+	if (next_size == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
+		// let next send/recv figure this out
+		return 0;
+	}
+
+	if (next_size < 0){
+		return 0;
+	}
+	return next_size;
+}
+
 /**
  * Adhoc Emulator PDP Socket List Getter
  * @param buflen IN: Length of Buffer in Bytes OUT: Required Length of Buffer in Bytes
@@ -69,10 +88,7 @@ int proNetAdhocGetPdpStat(int * buflen, SceNetAdhocPdpStat * buf)
 					// Peek udp size, as PPSSPP does in https://github.com/hrydgard/ppsspp/commit/4881f4f0bd0110af5cceeba8dc70f90d0e8d0978
 					int udp_size = -1;
 					if (_postoffice){
-						void *postoffice_handle = pdp_postoffice_recover(j);
-						if (postoffice_handle != NULL){
-							udp_size = pdp_peek_next_size(postoffice_handle);
-						}
+						udp_size = pdp_peek_next_size_postoffice(j);
 					}else{
 						// we don't care about the content in here, we should not need malloc... I hope
 						static uint8_t peek_buf[10 * 1024];

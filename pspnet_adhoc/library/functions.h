@@ -137,4 +137,7 @@ void ppsspp_return_memory();
 
 int get_postoffice_fd(int idx);
 
+int pdp_peek_next_size_postoffice(int idx);
+int ptp_peek_next_size_postoffice(int idx);
+
 #endif
