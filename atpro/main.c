@@ -679,8 +679,8 @@ static int load_start_module(const char *path, int kernel){
 	return uid;
 }
 
+#ifdef DEBUG
 static void log_memory_info(){
-	#ifdef DEBUG
 	PspSysmemPartitionInfo meminfo = {0};
 	meminfo.size = sizeof(PspSysmemPartitionInfo);
 	for(int i = 1;i < 13;i++){
@@ -693,8 +693,10 @@ static void log_memory_info(){
 			printk("%s: p%d query failed, 0x%x\n", __func__, i, query_status);
 		}
 	}
-	#endif
 }
+#else
+#define log_memory_info()
+#endif
 
 #define MAKE_JUMP(a, f) _sw(0x08000000 | (((u32)(f) & 0x0FFFFFFC) >> 2), a)
 #define GET_JUMP_TARGET(x) (0x80000000 | (((x) & 0x03FFFFFF) << 2))
@@ -1963,6 +1965,117 @@ int is_non_fat(){
 	return 0;
 }
 
+// Flatout Headon sets this, then checks this in a loop during adhoc bootup
+static int fake_pll = 222;
+static int fake_cpu = 222;
+static int fake_bus = 111;
+
+#ifdef DEBUG
+static void log_clocks(){
+	static int (*pll)() = NULL;
+	static int (*cpu)() = NULL;
+	static int (*bus)() = NULL;
+	static float (*pll_float)() = NULL;
+	static float (*cpu_float)() = NULL;
+	static float (*bus_float)() = NULL;
+
+	if (pll == NULL){
+		pll = (void *)sctrlHENFindFunction("scePower_Service", "scePower", 0x34F9C463);
+		cpu = (void *)sctrlHENFindFunction("scePower_Service", "scePower", 0xFDB5BFE9);
+		bus = (void *)sctrlHENFindFunction("scePower_Service", "scePower", 0xBD681969);
+		pll_float = (void *)sctrlHENFindFunction("scePower_Service", "scePower", 0xEA382A27);
+		cpu_float = (void *)sctrlHENFindFunction("scePower_Service", "scePower", 0xB1A52C83);
+		bus_float = (void *)sctrlHENFindFunction("scePower_Service", "scePower", 0x9BADB3EB);
+	}
+
+	printk("%s: pll %d %d (fake %d) cpu %d %d (fake %d) bus %d %d (fake %d)\n", __func__, pll(), (int)pll_float(), fake_pll, cpu(), (int)cpu_float(), fake_cpu, bus(), (int)bus_float(), fake_bus);
+}
+#else
+#define log_clocks()
+#endif
+
+#define SCE_KERNEL_ERROR_INVALID_VALUE 0x800001FE
+
+int set_clock_frequency(int pll, int cpu, int bus){
+	printk("%s: begin\n", __func__);
+
+	// PPSSPP's implementation
+	if (pll < 19 || pll < cpu || pll > 333) {
+		printk("%s: bad pll, %d %d %d\n", __func__, pll, cpu, bus);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+	if (cpu == 0 || cpu > 333) {
+		printk("%s: bad cpu, %d %d %d\n", __func__, pll, cpu, bus);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+	if (bus == 0 || bus > 166) {
+		printk("%s: bad bus, %d %d %d\n", __func__, pll, cpu, bus);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+
+	fake_pll = pll;
+	fake_cpu = cpu;
+	fake_bus = bus;
+	log_clocks();
+	return 0;
+}
+
+int set_cpu_clock_frequency(int cpu){
+	if (cpu == 0 || cpu > 333) {
+		printk("%s: bad cpu, %d\n", __func__, cpu);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+	fake_pll = cpu;
+	fake_cpu = cpu;
+	log_clocks();
+	return 0;
+}
+
+int set_bus_clock_frequency(int bus){
+	if (bus == 0 || bus > 166) {
+		printk("%s: bad bus, %d\n", __func__, bus);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
+	fake_bus = bus;
+	log_clocks();
+	return 0;
+}
+
+int get_pll_clock_frequency_int(){
+	printk("%s: begin\n", __func__);
+	log_clocks();
+	return fake_pll;
+}
+
+int get_cpu_clock_frequency_int(){
+	printk("%s: begin\n", __func__);
+	log_clocks();
+	return fake_cpu;
+}
+
+int get_bus_clock_frequency_int(){
+	printk("%s: begin\n", __func__);
+	log_clocks();
+	return fake_bus;
+}
+
+float get_pll_clock_frequency_float(){
+	printk("%s: begin\n", __func__);
+	log_clocks();
+	return fake_pll;
+}
+
+float get_cpu_clock_frequency_float(){
+	printk("%s: begin\n", __func__);
+	log_clocks();
+	return fake_cpu;
+}
+
+float get_bus_clock_frequency_float(){
+	printk("%s: begin\n", __func__);
+	log_clocks();
+	return fake_bus;
+}
 
 int (*utility_load_module_orig)(int id) = NULL;
 int utility_load_module(int id){
@@ -2097,7 +2210,25 @@ int online_patcher(SceModule2 * module)
 			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0x50F61D8A, free_memory_block);
 			hook_import_bynid((SceModule *)module, "ThreadManForUser", 0x446D8DE6, create_thread);
 			#endif
+
+			// unify this to fat
 			hook_import_bynid((SceModule *)module, "scePower", 0xA85880D0, is_non_fat);
+
+			// fake clock setting and report, some games (at least flatout headon) sets a clock, then busy wait until it is applied
+			hook_import_bynid((SceModule *)module, "scePower", 0x737486F2, set_clock_frequency);
+			hook_import_bynid((SceModule *)module, "scePower", 0xEBD177D6, set_clock_frequency);
+			hook_import_bynid((SceModule *)module, "scePower", 0x469989AD, set_clock_frequency);
+			hook_import_bynid((SceModule *)module, "scePower", 0x843FBF43, set_cpu_clock_frequency);
+			hook_import_bynid((SceModule *)module, "scePower", 0xB8D7B3FB, set_bus_clock_frequency);
+			hook_import_bynid((SceModule *)module, "scePower", 0x34F9C463, get_pll_clock_frequency_int);
+			hook_import_bynid((SceModule *)module, "scePower", 0xFEE03A2F, get_cpu_clock_frequency_int);
+			hook_import_bynid((SceModule *)module, "scePower", 0xFDB5BFE9, get_cpu_clock_frequency_int);
+			hook_import_bynid((SceModule *)module, "scePower", 0x478FE6F5, get_bus_clock_frequency_int);
+			hook_import_bynid((SceModule *)module, "scePower", 0xBD681969, get_bus_clock_frequency_int);
+			hook_import_bynid((SceModule *)module, "scePower", 0xEA382A27, get_pll_clock_frequency_float);
+			hook_import_bynid((SceModule *)module, "scePower", 0xB1A52C83, get_cpu_clock_frequency_float);
+			hook_import_bynid((SceModule *)module, "scePower", 0x9BADB3EB, get_bus_clock_frequency_float);
+
 			if (partition_to_use() == 5){
 				// when we are on p5, we want to save as much p2 as possible
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x2A2B3DE0, utility_load_module);
