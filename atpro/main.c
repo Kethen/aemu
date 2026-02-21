@@ -2215,6 +2215,25 @@ int net_term(){
 	return 0;
 }
 
+int inet_init(){
+	printk("%s: stubbed\n", __func__);
+	return 0;
+}
+
+int inet_term(){
+	printk("%s: stubbed\n", __func__);
+	return 0;
+}
+
+int apctl_init(int stacksize, int priority){
+	printk("%s: stubbed stacksize %d priority %d\n", __func__, stacksize, priority);
+	return 0;
+}
+
+int apctl_term(){
+	printk("%s: stubbed\n", __func__);
+}
+
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
@@ -2542,9 +2561,13 @@ int online_patcher(SceModule2 * module)
 	}
 
 	if (game_module != NULL){
-		// we handle net init
+		// we handle net init, think we are really breaking infra mode this time
 		hook_import_bynid((SceModule *)game_module, "sceNet", 0x39AF39A6, net_init);
 		hook_import_bynid((SceModule *)game_module, "sceNet", 0x281928A9, net_term);
+		hook_import_bynid((SceModule *)game_module, "sceNetInet", 0x17943399, inet_init);
+		hook_import_bynid((SceModule *)game_module, "sceNetInet", 0xA9ED66B9, inet_term);
+		hook_import_bynid((SceModule *)game_module, "sceNetApctl", 0xE2F91F9B, apctl_init);
+		hook_import_bynid((SceModule *)game_module, "sceNetApctl", 0xB3EDD0EC, apctl_term);
 	}
 
 	// Enable System Control Patching

@@ -76,6 +76,10 @@ PSP_EXPORT_FUNC_HASH(get_cpu_clock_frequency_float)
 PSP_EXPORT_FUNC_HASH(get_bus_clock_frequency_float)
 PSP_EXPORT_FUNC_HASH(net_init)
 PSP_EXPORT_FUNC_HASH(net_term)
+PSP_EXPORT_FUNC_HASH(inet_init)
+PSP_EXPORT_FUNC_HASH(inet_term)
+PSP_EXPORT_FUNC_HASH(apctl_init)
+PSP_EXPORT_FUNC_HASH(apctl_term)
 PSP_EXPORT_END
 
 PSP_END_EXPORTS

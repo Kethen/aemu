@@ -81,7 +81,7 @@ int proNetAdhocctlTerm(void)
 		//apctl_disconnect_and_wait_till_disconnected();
 		
 		// Terminate Access Point Control
-		sceNetApctlTerm();
+		//sceNetApctlTerm();
 
 		// clear state
 		_in_gamemode = 0;
