@@ -651,6 +651,16 @@ static int load_start_module(const char *path, int kernel){
 		return uid;
 	}
 
+	// we need to fake success loading if the game tries to load it as well
+	int no_unload_module_index = -1;
+	for(int i = 0;i < sizeof(no_unload_module_file_names) / sizeof(no_unload_module_file_names[0]);i++){
+		if (strstr(path, no_unload_module_file_names[i]) != NULL){
+			no_unload_module_index = i;
+			no_unload_module_uids[i] = uid;
+			break;
+		}
+	}
+
 	#ifdef DEBUG
 	SceKernelModuleInfo info = {0};
 	info.size = sizeof(info);
@@ -676,6 +686,11 @@ static int load_start_module(const char *path, int kernel){
 		sceKernelUnloadModule(uid);
 		return start_status;
 	}
+
+	if (no_unload_module_index != -1){
+		no_unload_module_started[no_unload_module_index] = start_status;
+	}
+
 	return uid;
 }
 
