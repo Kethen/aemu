@@ -58,7 +58,7 @@ extern SceNetAdhocctlScanInfo * _networks;
 extern SceNetAdhocctlScanInfo * _newnetworks;
 
 // Event Handler
-#define ADHOCCTL_MAX_HANDLER 4
+#define ADHOCCTL_MAX_HANDLER 8
 extern SceNetAdhocctlHandler _event_handler[ADHOCCTL_MAX_HANDLER];
 extern int _event_handler_gp[ADHOCCTL_MAX_HANDLER];
 extern void * _event_args[ADHOCCTL_MAX_HANDLER];

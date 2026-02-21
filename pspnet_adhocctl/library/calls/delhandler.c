@@ -28,17 +28,17 @@ int proNetAdhocctlDelHandler(int id)
 	if(_init == 1)
 	{
 		// Valid Arguments
-		if(id > 0 && id <= 4)
+		if(id >= 0 && id < ADHOCCTL_MAX_HANDLER)
 		{
 			// Valid ID
-			if(_event_handler[id - 1] != NULL)
+			if(_event_handler[id] != NULL)
 			{
-				printk("%s: removing handler id 0x%x 0x%x 0x%x\n", __func__, id, _event_handler[id - 1], _event_args[id - 1]);
+				printk("%s: removing handler id 0x%x 0x%x 0x%x\n", __func__, id, _event_handler[id], _event_args[id]);
 
 
 				// Clear Event Handler
-				_event_handler[id - 1] = NULL;
-				_event_args[id - 1] = NULL;
+				_event_handler[id] = NULL;
+				_event_args[id] = NULL;
 
 				
 				// Return Success
