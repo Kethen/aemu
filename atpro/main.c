@@ -2314,6 +2314,7 @@ int online_patcher(SceModule2 * module)
 				}
 			}
 
+			#if 1
 			// let's load adhocctl early to boot up wifi now
 			int thid = sceKernelCreateThread("adhocctl_load_thread", load_adhocctl_thread_func, 63, 4096, 0, NULL);
 			if (thid < 0){
@@ -2321,6 +2322,7 @@ int online_patcher(SceModule2 * module)
 			}else{
 				sceKernelStartThread(thid, 0, NULL);
 			}
+			#endif
 		}
 
 		log_memory_info();

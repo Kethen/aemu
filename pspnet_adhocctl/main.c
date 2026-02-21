@@ -482,12 +482,17 @@ static int wifi_connect_thread_func(SceSize args, void *argp){
 				continue;
 			}
 
-			sceNetApctlTerm();
+			// IP address setup requires this
+			int inet_init_status = sceNetInetInit();
+			if (inet_init_status != 0){
+				printk("%s: sceNetInetInit failed, 0x%x\n", __func__, inet_init_status);
+			}
+
 			int apctl_init_status = sceNetApctlInit(0x2000, 0x30);
 			if (apctl_init_status != 0){
 				printk("%s: sceNetApctlInit failed, 0x%x\n", __func__, apctl_init_status);
-				sceKernelDelayThread(1000000);
-				continue;
+				//sceKernelDelayThread(1000000);
+				//continue;
 			}
 
 			int apctl_connect_status = sceNetApctlConnect(hotspot);
@@ -585,7 +590,7 @@ int module_start(SceSize args, void * argp)
 
 	// TODO: cleanup this thread on module stop, if we ever get around to look into why unloading adhoc crashes most games when inet is also loaded
 	thread_px_stack_opt.stackMpid = partition_to_use();
-	wifi_connect_thread = sceKernelCreateThread("wifi_connect", wifi_connect_thread_func, 63, 8192, 0, &thread_px_stack_opt);
+	wifi_connect_thread = sceKernelCreateThread("wifi_connect", wifi_connect_thread_func, 63, 0x2000, 0, &thread_px_stack_opt);
 	if (wifi_connect_thread < 0){
 		printk("%s: failed creating wifi connection thread, this is bad, 0x%x\n", __func__, wifi_connect_thread);
 	}else{
