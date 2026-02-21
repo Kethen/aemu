@@ -230,6 +230,7 @@ void apctl_disconnect_and_wait_till_disconnected(){
  */
 int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 {
+	#if 0
 	// WLAN Switch Check
 	int wlan_switch_state = sceWlanGetSwitchState();
 	if (wlan_switch_state != 1)
@@ -243,6 +244,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 		printk("%s: sceNetApctlInit failed, 0x%x\n", __func__, apctl_init_status);
 		return -1;
 	}
+	#endif
 
 	// Attempt Counter
 	int attemptmax = 20;
@@ -253,6 +255,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 	// Attempt Connection Setup
 	for(; attempt < attemptmax; attempt++)
 	{
+		#if 0
 		int apctl_connect_status = sceNetApctlConnect(_hotspot);
 		if (apctl_connect_status != 0)
 		{
@@ -300,6 +303,17 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 			apctl_disconnect_and_wait_till_disconnected();
 			continue;
 		}
+		#else
+		int wait_secs = 0;
+		while(!_wifi_connected && wait_secs < 10){
+			printk("%s: waiting for wifi connection to be established, please check your hotspot.txt, it should have been connected by now\n", __func__);
+			sceKernelDelayThread(1000000);
+			wait_secs++;
+		}
+		if (!_wifi_connected){
+			continue;
+		}
+		#endif
 
 		// Create Friend Finder Socket
 		int socket = sceNetInetSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP);

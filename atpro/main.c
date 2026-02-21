@@ -745,12 +745,13 @@ void load_inet_modules(){
 	log_memory_info();
 	printk("%s: loading inet modules\n", __func__);
 
-	static const char *kernel_modules[] = {
+	static const char *common_modules[] = {
 		"flash0:/kd/ifhandle.prx",
+		"flash0:/kd/pspnet.prx",
 	};
 
-	for (int i = 0;i < sizeof(kernel_modules) / sizeof(kernel_modules[0]);i++){
-		load_start_module(kernel_modules[i], 1);
+	for (int i = 0;i < sizeof(common_modules) / sizeof(common_modules[0]);i++){
+		load_start_module(common_modules[i], 1);
 	}	
 
 	static const char *inet_modules[] = {
@@ -769,12 +770,13 @@ void load_adhoc_modules(){
 	log_memory_info();
 	printk("%s: loading inet modules\n", __func__);
 
-	static const char *kernel_modules[] = {
+	static const char *common_modules[] = {
 		"flash0:/kd/ifhandle.prx",
+		"flash0:/kd/pspnet.prx",
 	};
 
-	for (int i = 0;i < sizeof(kernel_modules) / sizeof(kernel_modules[0]);i++){
-		load_start_module(kernel_modules[i], 1);
+	for (int i = 0;i < sizeof(common_modules) / sizeof(common_modules[0]);i++){
+		load_start_module(common_modules[i], 1);
 	}
 
 	static const char *adhoc_modules[] = {
@@ -2179,6 +2181,25 @@ void utility_msg_dialog_shutdown_start(){
 	msg_dialog_state = PSP_UTILITY_DIALOG_FINISHED;
 }
 
+static int load_adhocctl_thread_func(SceSize size, void *argp){
+	// if the game don't do it in 5 seconds, do it for the game
+	sceKernelDelayThread(5000000);
+	load_inet_modules();
+	load_adhoc_modules();
+	sceKernelExitDeleteThread(0);
+	return 0;
+}
+
+int net_init(int poolsize, int calloutprio, int calloutstack, int netintrprio, int netintrstack){
+	printk("%s: stubbed poolsize %d calloutprio %d calloutstack %d netintrprio %d netintrstack %d\n", __func__, poolsize, calloutprio, calloutstack, netintrprio, netintrstack);
+	return 0;
+}
+
+int net_term(){
+	printk("%s: stubbed\n", __func__);
+	return 0;
+}
+
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
@@ -2187,9 +2208,12 @@ int online_patcher(SceModule2 * module)
 
 	printk("%s: module start %s text_addr 0x%x\n", __func__, module->modname, module->text_addr);
 
+	static SceModule2 * game_module = NULL;
+
 	if (module->text_addr > 0x08800000 && module->text_addr < 0x08900000 && strcmp("opnssmp", module->modname) != 0)
 	{
 		// Very likely the game itself
+		game_module = module;
 
 		printk("%s: guessing this is the game, %s text_addr 0x%x\n", __func__, module->modname, module->text_addr);
 		if (onlinemode)
@@ -2229,14 +2253,14 @@ int online_patcher(SceModule2 * module)
 			hook_import_bynid((SceModule *)module, "scePower", 0xB1A52C83, get_cpu_clock_frequency_float);
 			hook_import_bynid((SceModule *)module, "scePower", 0x9BADB3EB, get_bus_clock_frequency_float);
 
-			if (partition_to_use() == 5){
-				// when we are on p5, we want to save as much p2 as possible
-				hook_import_bynid((SceModule *)module, "sceUtility", 0x2A2B3DE0, utility_load_module);
-				hook_import_bynid((SceModule *)module, "sceUtility", 0xE49BFE92, utility_unload_module);
-				hook_import_bynid((SceModule *)module, "sceUtility", 0x1579a159, utility_load_netmodule);
-				hook_import_bynid((SceModule *)module, "sceUtility", 0x64d50c56, utility_unload_netmodule);
+			// let's control how these work, and save some memory on the side
+			hook_import_bynid((SceModule *)module, "sceUtility", 0x2A2B3DE0, utility_load_module);
+			hook_import_bynid((SceModule *)module, "sceUtility", 0xE49BFE92, utility_unload_module);
+			hook_import_bynid((SceModule *)module, "sceUtility", 0x1579a159, utility_load_netmodule);
+			hook_import_bynid((SceModule *)module, "sceUtility", 0x64d50c56, utility_unload_netmodule);
 
-				// we also want to skip simple dialogs to fix some games
+			if (partition_to_use() == 5){
+				// we want to skip simple dialogs to fix some games
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x2AD8E239, utility_msg_dialog_init_start);
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x95FC253B, utility_msg_dialog_update);
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x9A1C91D7, utility_msg_dialog_get_status);
@@ -2288,6 +2312,14 @@ int online_patcher(SceModule2 * module)
 						break;
 					}
 				}
+			}
+
+			// let's load adhocctl early to boot up wifi now
+			int thid = sceKernelCreateThread("adhocctl_load_thread", load_adhocctl_thread_func, 63, 4096, 0, NULL);
+			if (thid < 0){
+				printk("%s: failed creating adhocctl load thread, 0x%x\n", __func__, thid);
+			}else{
+				sceKernelStartThread(thid, 0, NULL);
 			}
 		}
 
@@ -2491,7 +2523,13 @@ int online_patcher(SceModule2 * module)
 			}
 		}
 	}
-	
+
+	if (game_module != NULL){
+		// we handle net init
+		hook_import_bynid((SceModule *)game_module, "sceNet", 0x39AF39A6, net_init);
+		hook_import_bynid((SceModule *)game_module, "sceNet", 0x281928A9, net_term);
+	}
+
 	// Enable System Control Patching
 	return sysctrl_patcher_result;
 }

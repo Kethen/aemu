@@ -78,7 +78,7 @@ int proNetAdhocctlTerm(void)
 		//sceKernelUnloadModule(_upnp_uid);
 		
 		// Close Hotspot Connection
-		apctl_disconnect_and_wait_till_disconnected();
+		//apctl_disconnect_and_wait_till_disconnected();
 		
 		// Terminate Access Point Control
 		sceNetApctlTerm();

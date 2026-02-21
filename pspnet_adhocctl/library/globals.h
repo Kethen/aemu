@@ -107,4 +107,6 @@ extern SceLwMutexWorkarea group_list_lock;
 extern uint64_t _disconnect_timestamp;
 extern uint64_t _gamemode_join_timestamp;
 
+extern int _wifi_connected;
+
 #endif
