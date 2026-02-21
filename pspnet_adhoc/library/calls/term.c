@@ -90,6 +90,7 @@ int proNetAdhocTerm(void)
 		// Delete Gamemode Buffer
 		_deleteAllGMB();
 		
+		#if 0
 		// Terminate Internet Library
 		if (should_term_inet()){
 			int inet_term_result = sceNetInetTerm();
@@ -97,6 +98,7 @@ int proNetAdhocTerm(void)
 		}else{
 			printk("%s: sceNetInetTerm disabled on this game\n", __func__);
 		}
+		#endif
 		
 		// Unload Internet Modules (Just keep it in memory... unloading crashes?!)
 		// if(_manage_modules != 0) sceUtilityUnloadModule(PSP_MODULE_NET_INET);

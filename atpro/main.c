@@ -651,6 +651,16 @@ static int load_start_module(const char *path, int kernel){
 		return uid;
 	}
 
+	int no_unload_track_id = -1;
+	for(int i = 0;i < sizeof(no_unload_module_file_names) / sizeof(char *) && onlinemode;i++){
+		// load these modules once
+		if (strstr(path, no_unload_module_file_names[i]) != NULL){
+			no_unload_module_uids[i] = uid;
+			no_unload_track_id = i;
+			break;
+		}
+	}
+
 	#ifdef DEBUG
 	SceKernelModuleInfo info = {0};
 	info.size = sizeof(info);
@@ -665,8 +675,8 @@ static int load_start_module(const char *path, int kernel){
 	{
 		printk("%s: failed fetching module info of %s, 0x%x\n", __func__, path, query_status);
 	}
-
 	#endif
+
 	int module_start_ret;
 	k1 = pspSdkSetK1(0);
 	int start_status = sceKernelStartModule(uid, 0, NULL, &module_start_ret, NULL);
@@ -676,6 +686,11 @@ static int load_start_module(const char *path, int kernel){
 		sceKernelUnloadModule(uid);
 		return start_status;
 	}
+
+	if (no_unload_track_id != -1){
+		no_unload_module_started[no_unload_track_id] = start_status;
+	}
+
 	return uid;
 }
 
