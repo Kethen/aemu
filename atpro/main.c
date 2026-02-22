@@ -2302,6 +2302,8 @@ int online_patcher(SceModule2 * module)
 						}
 					}
 				}
+				// flush dcache after patching, in case the game runs that code immediately
+				sceKernelDcacheWritebackAll();
 			}
 
 			// allocate memory for netconf

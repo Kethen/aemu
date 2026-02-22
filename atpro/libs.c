@@ -206,8 +206,11 @@ int hook_import_bynid(SceModule *pMod, char *library, unsigned int nid, void *fu
 						}
 					}
 
-					sceKernelDcacheWritebackInvalidateRange(addr, 8);
-					sceKernelIcacheInvalidateRange(addr, 8);
+					// *I think* these has to be aligned, let's just flush all
+					//sceKernelDcacheWritebackInvalidateRange(addr, 8);
+					//sceKernelIcacheInvalidateRange(addr, 8);
+					sceKernelDcacheWritebackAll();
+					sceKernelIcacheInvalidateAll();
 				}
 			}
 		}
