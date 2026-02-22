@@ -40,8 +40,12 @@ static int should_term_inet(){
 		// Gran Turismo
 		"UCES01245",
 		"UCUS98632",
+		"UCUS90691",
 		"UCAS40265",
-		"UCJS10100"
+		"NPHG00022",
+		"UCJS10100",
+		"UCJS18055",
+		"NPJG00027",
 	};
 
 	for(int i = 0;i < sizeof(no_term_codes) / sizeof(no_term_codes[0]);i++){

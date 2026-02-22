@@ -2194,6 +2194,32 @@ void utility_msg_dialog_shutdown_start(){
 	msg_dialog_state = PSP_UTILITY_DIALOG_FINISHED;
 }
 
+static int should_fake_clocks(){
+	char name_buf[20] = {0};
+	get_game_code(name_buf, sizeof(name_buf));
+
+	static const char *no_fake_clock_codes[] = {
+		// Gran Turismo
+		"UCES01245",
+		"UCUS98632",
+		"UCUS90691",
+		"UCAS40265",
+		"NPHG00022",
+		"UCJS10100",
+		"UCJS18055",
+		"NPJG00027",
+	};
+
+	for(int i = 0;i < sizeof(no_fake_clock_codes) / sizeof(no_fake_clock_codes[0]);i++){
+		if (strcmp(no_fake_clock_codes[i], name_buf) == 0){
+			printk("%s: game is %s, we do not provide fake core getting/setting\n", __func__, name_buf);
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
@@ -2229,20 +2255,23 @@ int online_patcher(SceModule2 * module)
 			// unify this to fat
 			hook_import_bynid((SceModule *)module, "scePower", 0xA85880D0, is_non_fat);
 
-			// fake clock setting and report, some games (at least flatout headon) sets a clock, then busy wait until it is applied
-			hook_import_bynid((SceModule *)module, "scePower", 0x737486F2, set_clock_frequency);
-			hook_import_bynid((SceModule *)module, "scePower", 0xEBD177D6, set_clock_frequency);
-			hook_import_bynid((SceModule *)module, "scePower", 0x469989AD, set_clock_frequency);
-			hook_import_bynid((SceModule *)module, "scePower", 0x843FBF43, set_cpu_clock_frequency);
-			hook_import_bynid((SceModule *)module, "scePower", 0xB8D7B3FB, set_bus_clock_frequency);
-			hook_import_bynid((SceModule *)module, "scePower", 0x34F9C463, get_pll_clock_frequency_int);
-			hook_import_bynid((SceModule *)module, "scePower", 0xFEE03A2F, get_cpu_clock_frequency_int);
-			hook_import_bynid((SceModule *)module, "scePower", 0xFDB5BFE9, get_cpu_clock_frequency_int);
-			hook_import_bynid((SceModule *)module, "scePower", 0x478FE6F5, get_bus_clock_frequency_int);
-			hook_import_bynid((SceModule *)module, "scePower", 0xBD681969, get_bus_clock_frequency_int);
-			hook_import_bynid((SceModule *)module, "scePower", 0xEA382A27, get_pll_clock_frequency_float);
-			hook_import_bynid((SceModule *)module, "scePower", 0xB1A52C83, get_cpu_clock_frequency_float);
-			hook_import_bynid((SceModule *)module, "scePower", 0x9BADB3EB, get_bus_clock_frequency_float);
+			if (should_fake_clocks()){
+				// fake clock setting and report, some games (at least flatout headon) sets a clock, then busy wait until it is applied
+				// some games however benefits from cfw locked clocks, for example gran turismo gets to run at 60 fps, if we don't let the game set clock to 222
+				hook_import_bynid((SceModule *)module, "scePower", 0x737486F2, set_clock_frequency);
+				hook_import_bynid((SceModule *)module, "scePower", 0xEBD177D6, set_clock_frequency);
+				hook_import_bynid((SceModule *)module, "scePower", 0x469989AD, set_clock_frequency);
+				hook_import_bynid((SceModule *)module, "scePower", 0x843FBF43, set_cpu_clock_frequency);
+				hook_import_bynid((SceModule *)module, "scePower", 0xB8D7B3FB, set_bus_clock_frequency);
+				hook_import_bynid((SceModule *)module, "scePower", 0x34F9C463, get_pll_clock_frequency_int);
+				hook_import_bynid((SceModule *)module, "scePower", 0xFEE03A2F, get_cpu_clock_frequency_int);
+				hook_import_bynid((SceModule *)module, "scePower", 0xFDB5BFE9, get_cpu_clock_frequency_int);
+				hook_import_bynid((SceModule *)module, "scePower", 0x478FE6F5, get_bus_clock_frequency_int);
+				hook_import_bynid((SceModule *)module, "scePower", 0xBD681969, get_bus_clock_frequency_int);
+				hook_import_bynid((SceModule *)module, "scePower", 0xEA382A27, get_pll_clock_frequency_float);
+				hook_import_bynid((SceModule *)module, "scePower", 0xB1A52C83, get_cpu_clock_frequency_float);
+				hook_import_bynid((SceModule *)module, "scePower", 0x9BADB3EB, get_bus_clock_frequency_float);
+			}
 
 			if (partition_to_use() == 5){
 				// when we are on p5, we want to save as much p2 as possible
