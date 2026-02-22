@@ -36,6 +36,7 @@
 #include "hud.h"
 #include "logs.h"
 #include "systemctrl.h"
+#include "game_patches.h"
 
 PSP_MODULE_INFO("ATPRO", PSP_MODULE_KERNEL, 1, 1);
 
@@ -2220,23 +2221,6 @@ static int should_fake_clocks(){
 	return 1;
 }
 
-struct p5_patch{
-	const char *disc_id;
-	void *location;
-	const uint8_t *patch_content;
-	int patch_size;
-};
-
-static const struct p5_patch p5_patches[] = {
-	{
-		// monster hunter portable 3rd p5 usage patch
-		.disc_id = "ULJM05800",
-		.location = (void *)0x088f263c,
-		.patch_content = (uint8_t[]){0x26},
-		.patch_size = 1,
-	},
-};
-
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
@@ -2303,12 +2287,19 @@ int online_patcher(SceModule2 * module)
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x9A1C91D7, utility_msg_dialog_get_status);
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x67AF3428, utility_msg_dialog_shutdown_start);
 
-				char name_buf[20] = {0};
-				get_game_code(name_buf, sizeof(name_buf));
+				char id_buf[20] = {0};
+				get_game_code(id_buf, sizeof(id_buf));
+
+				printk("%s: disc id %s struct location 0x%x\n", __func__, id_buf, SysMemGameCodeGetter());
 
 				for (int i = 0;i < sizeof(p5_patches) / sizeof(p5_patches[0]);i++){
-					if (strcmp(name_buf, p5_patches[i].disc_id) == 0){
-						memcpy(p5_patches[i].location, p5_patches[i].patch_content, p5_patches[i].patch_size);
+					if (strcmp(id_buf, p5_patches[i].disc_id) == 0){
+						printk("%s: applying p5 patch [%s] for [%s]\n", __func__, p5_patches[i].patch_name, id_buf);
+						if (p5_patches[i].custom_patcher != NULL){
+							p5_patches[i].custom_patcher();
+						}else{
+							memcpy(p5_patches[i].location, p5_patches[i].patch_content, p5_patches[i].patch_size);
+						}
 					}
 				}
 			}
