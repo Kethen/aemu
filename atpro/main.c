@@ -2220,6 +2220,23 @@ static int should_fake_clocks(){
 	return 1;
 }
 
+struct p5_patch{
+	const char *disc_id;
+	void *location;
+	const uint8_t *patch_content;
+	int patch_size;
+};
+
+static const struct p5_patch p5_patches[] = {
+	{
+		// monster hunter portable 3rd p5 usage patch
+		.disc_id = "ULJM05800",
+		.location = (void *)0x088f263c,
+		.patch_content = (uint8_t[]){0x26},
+		.patch_size = 1,
+	},
+};
+
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
@@ -2285,6 +2302,15 @@ int online_patcher(SceModule2 * module)
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x95FC253B, utility_msg_dialog_update);
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x9A1C91D7, utility_msg_dialog_get_status);
 				hook_import_bynid((SceModule *)module, "sceUtility", 0x67AF3428, utility_msg_dialog_shutdown_start);
+
+				char name_buf[20] = {0};
+				get_game_code(name_buf, sizeof(name_buf));
+
+				for (int i = 0;i < sizeof(p5_patches) / sizeof(p5_patches[0]);i++){
+					if (strcmp(name_buf, p5_patches[i].disc_id) == 0){
+						memcpy(p5_patches[i].location, p5_patches[i].patch_content, p5_patches[i].patch_size);
+					}
+				}
 			}
 
 			// allocate memory for netconf
@@ -2725,6 +2751,7 @@ s32 sceKernelVolatileMemLockPatched(s32 unk, void **ptr, s32 *size)
 	// XXX some games actually uses P5, and not all of them respects the size from here
 	// some games like GTA respects it, but then unhappy that it is smaller than expected
 	// for those titles game patch will be needed
+	// meanwhile monster hunter portable 3rd don't respect this
 	*ptr = (void *)0x08400000;
 	*size = 1024 * 2900;
 
