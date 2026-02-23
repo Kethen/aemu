@@ -164,9 +164,6 @@ function process_data(res){
 
 setInterval(process_data, 5000);
 
-function draw_page(res){
-}
-
 const resources = [
 	{
 		path:"/favicon.ico",
