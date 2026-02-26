@@ -23,12 +23,21 @@
 				let target = document.getElementById("games");
 				let new_html = ""
 				for(const game of data.games){
+					let game_ids_str = "(";
+					for(const game_id of game.game_ids){
+						if (game_id != game.game_ids[game.game_ids.length - 1]){
+							game_ids_str += `${game_id},`;
+						}else{
+							game_ids_str += `${game_id}`;
+						}
+					}
+					game_ids_str += ")";
 					new_html += `
 						<div class="gametitle">
 							<table class="splitter">
 								<tr>
 									<td class="left">
-										${game.name}
+										${game.name} ${game_ids_str}
 									</td>
 									<td class="right">
 										<span class="usercount">

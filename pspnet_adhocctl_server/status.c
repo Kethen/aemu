@@ -21,9 +21,60 @@
 #include <status.h>
 #include <config.h>
 #include <sqlite3.h>
+#include "printf.h"
 
 // Function Prototypes
 const char * strcpyxml(char * out, const char * in, uint32_t size);
+
+static void get_game_id_list(const char *crosslinked_id, char *out_buf, int out_buf_size){
+	memset(out_buf, 0, out_buf_size);
+	sqlite3 * db = NULL;
+	int database_open_status = sqlite3_open(SERVER_DATABASE, &db);
+	if (database_open_status != SQLITE_OK){
+		return;
+	}
+
+	const char * sql = "SELECT id_from FROM crosslinks WHERE id_to=?;";
+	sqlite3_stmt * statement = NULL;
+	int statement_prepare_status = sqlite3_prepare_v2(db, sql, strlen(sql) + 1, &statement, NULL);
+	if (statement_prepare_status != SQLITE_OK){
+		sqlite3_close(db);
+		return;
+	}
+
+	int statement_bind_status = sqlite3_bind_text(statement, 1, crosslinked_id, strlen(crosslinked_id), SQLITE_STATIC);
+	if (statement_bind_status != SQLITE_OK){
+		sqlite3_finalize(statement);
+		sqlite3_close(db);
+		return;
+	}
+
+	int offset = 0;
+	if (out_buf_size > strlen(crosslinked_id) + 2)
+		offset = sprintf(out_buf, "%s,", crosslinked_id);
+	while(1){
+		int step_status = sqlite3_step(statement);
+		if (step_status != SQLITE_ROW){
+			break;
+		}
+		const char *linked_from = (const char *)sqlite3_column_text(statement, 0);
+		if (strcmp(crosslinked_id, linked_from) == 0){
+			continue;
+		}
+		int next_len = strlen(linked_from);
+		int rem_len = out_buf_size - offset;
+		if (rem_len - 2 < next_len){
+			break;
+		}
+		offset += sprintf(&out_buf[offset], "%s,", linked_from);
+	}
+	sqlite3_finalize(statement);
+	sqlite3_close(db);
+
+	if (offset != 0 && out_buf[offset - 1] == ','){
+		out_buf[offset - 1] = '\0';
+	}
+}
 
 /**
  * Update Status Logfile
@@ -32,7 +83,7 @@ void update_status(void)
 {
 	// Open Logfile
 	FILE * log = fopen(SERVER_STATUS_XMLOUT, "w");
-	
+
 	// Opened Logfile
 	if(log != NULL)
 	{
@@ -58,7 +109,10 @@ void update_status(void)
 				char productid[PRODUCT_CODE_LENGTH + 1];
 				strncpy(productid, game->game.data, PRODUCT_CODE_LENGTH);
 				productid[PRODUCT_CODE_LENGTH] = 0;
-				
+
+				char game_ids_buffer[512];
+				get_game_id_list(productid, game_ids_buffer, sizeof(game_ids_buffer));
+
 				// Display Name
 				char displayname[128];
 				memset(displayname, 0, sizeof(displayname));
@@ -98,7 +152,7 @@ void update_status(void)
 				}
 				
 				// Output Game Tag + Game Name
-				fprintf(log, "\t<game name=\"%s\" usercount=\"%u\">\n", displayname, game->playercount);
+				fprintf(log, "\t<game name=\"%s\" usercount=\"%u\" game_ids=\"%s\">\n", displayname, game->playercount, game_ids_buffer);
 				
 				// Activate User Count
 				uint32_t activecount = 0;

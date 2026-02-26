@@ -92,7 +92,7 @@ function fetch_data(){
 
 setInterval(fetch_data, 2000);
 
-function process_data(res){
+function process_data(){
 	let processed_data = {
 		games:[]
 	};
@@ -112,8 +112,16 @@ function process_data(res){
 			name:game["@_name"],
 			usercount:game["@_usercount"],
 			groups:[],
+			game_ids:[],
 		};
 		processed_data.games.push(game_entry)
+
+		let game_ids_str = game["@_game_ids"];
+		if (game_ids_str != undefined){
+			for(const id of game_ids_str.split(",")){
+				game_entry.game_ids.push(id);
+			}
+		}
 
 		let groups = game["group"];
 		if (groups == undefined){
