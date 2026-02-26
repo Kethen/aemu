@@ -7,6 +7,7 @@
   - System save data dialog will probably stop working during/after multiplayer round. Games that saves without system dialog or provide their own save UI are not affected.
 - Not all games work properly, pspnet_adhoc_matching implementation here still needs work to match PPSSPP's implementation
 - Some users report that Adrenaline Bubble Manager on PSVita does not work with the plugin, I have no idea why
+- Sometimes match lobbies can get inconsistent across players. When that happens, all players should leave the lobby then rejoin.
 
 ### Game issues
 - In Star Wars The Force Unleashed, console should host when cross playing with PPSSPP, due to pspnet_adhoc_matching timing difference.

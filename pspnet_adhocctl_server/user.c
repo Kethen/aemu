@@ -475,6 +475,49 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 	logout_user(user);
 }
 
+static int get_num_group_players_with_same_ip(SceNetAdhocctlUserNode *user){
+	SceNetAdhocctlUserNode *cur = user->group->player;
+	int num_user = 0;
+	while(cur != NULL){
+		if (user->resolver.ip == cur->resolver.ip){
+			num_user++;
+		}
+		cur = cur->group_next;
+	}
+	return num_user;
+}
+
+static int reconnect_players_with_ip(SceNetAdhocctlGroupNode *group, uint32_t ip){
+	SceNetAdhocctlUserNode *cur_player = group->player;
+	while(cur_player != NULL){
+		if (cur_player->resolver.ip == ip){
+			// Connect Packet
+			SceNetAdhocctlConnectPacketS2C packet = {0};
+			packet.base.opcode = OPCODE_CONNECT;
+			packet.name = cur_player->resolver.name;
+			packet.mac = cur_player->resolver.mac;
+			packet.ip = cur_player->resolver.ip;
+
+			char safegamestr[PRODUCT_CODE_LENGTH + 1] = {0};
+			strncpy(safegamestr, cur_player->game->game.data, PRODUCT_CODE_LENGTH);
+			char safegroupstr[ADHOCCTL_GROUPNAME_LEN + 1] = {0};
+			strncpy(safegroupstr, (char *)cur_player->group->group.data, ADHOCCTL_GROUPNAME_LEN);
+			uint8_t *ip = (uint8_t *)&cur_player->resolver.ip;
+			printf("reconnecting %s (MAC: %02X:%02X:%02X:%02X:%02X:%02X - IP: %u.%u.%u.%u) %s group %s.\n", (char *)cur_player->resolver.name.data, cur_player->resolver.mac.data[0], cur_player->resolver.mac.data[1], cur_player->resolver.mac.data[2], cur_player->resolver.mac.data[3], cur_player->resolver.mac.data[4], cur_player->resolver.mac.data[5], ip[3], ip[2], ip[1], ip[0], safegamestr, safegroupstr);
+
+			SceNetAdhocctlUserNode *send_to_player = group->player;
+			while(send_to_player != NULL){
+				// don't send to self
+				if (send_to_player != cur_player){
+					send(send_to_player->stream, &packet, sizeof(packet), 0);
+				}
+				send_to_player = send_to_player->group_next;
+			}
+		}
+		cur_player = cur_player->group_next;
+	}
+}
+
 /**
  * Disconnect User from Game Group
  * @param user User Node
@@ -484,6 +527,8 @@ void disconnect_user(SceNetAdhocctlUserNode * user)
 	// User is connected
 	if(user->group != NULL)
 	{
+		int num_group_players_with_same_ip = get_num_group_players_with_same_ip(user);
+
 		// Unlink Leftside (Beginning)
 		if(user->group_prev == NULL) user->group->player = user->group_next;
 		
@@ -498,26 +543,29 @@ void disconnect_user(SceNetAdhocctlUserNode * user)
 		
 		// Iterate remaining Group Players
 		SceNetAdhocctlUserNode * peer = user->group->player;
+		// Disconnect packet
+		SceNetAdhocctlDisconnectPacketS2C packet = {0};
+		packet.ip = user->resolver.ip;
 		while(peer != NULL)
 		{
-			// Disconnect Packet
-			SceNetAdhocctlDisconnectPacketS2C packet;
-			
-			// Clear Memory
-			// memset(&packet, 0, sizeof(packet));
-			
 			// Set Disconnect Opcode
 			packet.base.opcode = OPCODE_DISCONNECT;
 			
 			// Set User IP
 			packet.ip = user->resolver.ip;
 			
-			// Send Data
-			send(peer->stream, &packet, sizeof(packet), 0);
+			// XXX current protocol ejects players using IP address to brodcast disconnect eve t
+			// Send Data, purge all players with that IP
+			for(int i = 0;i < num_group_players_with_same_ip;i++){
+				send(peer->stream, &packet, sizeof(packet), 0);
+			}
 			
 			// Move Pointer
 			peer = peer->group_next;
 		}
+
+		// restore purged peers
+		reconnect_players_with_ip( user->group, user->resolver.ip);
 		
 		// Notify User
 		uint8_t * ip = (uint8_t *)&user->resolver.ip;
