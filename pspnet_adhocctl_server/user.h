@@ -79,6 +79,8 @@ typedef struct SceNetAdhocctlUserNode {
 	uint32_t rxpos;
 
 	uint16_t port;
+
+	int max_num_same_ip;
 } SceNetAdhocctlUserNode;
 
 // Double-Linked Game List

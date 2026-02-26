@@ -75,7 +75,10 @@ void login_user_stream(int fd, uint32_t ip, uint16_t port)
 				
 				// Initialize Death Clock
 				user->last_recv = time(NULL);
-				
+
+				// Initialize same ip workaround
+				user->max_num_same_ip = 0;
+
 				// Notify User
 				uint8_t * ipa = (uint8_t *)&user->resolver.ip;
 				printf("New Connection from %u.%u.%u.%u.\n", ipa[0], ipa[1], ipa[2], ipa[3]);
@@ -283,6 +286,20 @@ void free_database(void)
 	}
 }
 
+static void increment_max_num_same_ip(SceNetAdhocctlUserNode * user){
+	SceNetAdhocctlUserNode * cur = user->group->player;
+	while (cur != NULL){
+		if (cur->resolver.ip == user->resolver.ip){
+			cur->max_num_same_ip++;
+			if (cur->max_num_same_ip > 24){
+				// 24 should be a reasonable cap, unless we have homebrew trying to do massive multiplayer
+				cur->max_num_same_ip = 24;
+			}
+		}
+		cur = cur->group_next;
+	}
+}
+
 /**
  * Connect User to Game Group
  * @param user User Node
@@ -433,7 +450,11 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 
 				// Update Status Log
 				update_status();
-				
+
+				// XXX: Our disconnect packet go from IP address currently. We don't want to disconnect the wrong user meanwhile
+				// until we have a new protocol, we should only disconnect players from the same IP address when the last player disconnects
+				increment_max_num_same_ip(user);
+
 				// Exit Function
 				return;
 			}
@@ -475,6 +496,21 @@ void connect_user(SceNetAdhocctlUserNode * user, SceNetAdhocctlGroupName * group
 	logout_user(user);
 }
 
+static int is_last_user_of_ip(SceNetAdhocctlUserNode *user){
+	SceNetAdhocctlUserNode *cur = user->group->player;
+	int num_same_ip = 0;
+	while(cur != NULL){
+		if (user->resolver.ip == cur->resolver.ip){
+			num_same_ip++;
+		}
+		cur = cur->group_next;
+	}
+	if (num_same_ip == 1){
+		return 1;
+	}
+	return 0;
+}
+
 /**
  * Disconnect User from Game Group
  * @param user User Node
@@ -484,6 +520,8 @@ void disconnect_user(SceNetAdhocctlUserNode * user)
 	// User is connected
 	if(user->group != NULL)
 	{
+		int disconnecting_ip_last = is_last_user_of_ip(user);
+
 		// Unlink Leftside (Beginning)
 		if(user->group_prev == NULL) user->group->player = user->group_next;
 		
@@ -498,7 +536,7 @@ void disconnect_user(SceNetAdhocctlUserNode * user)
 		
 		// Iterate remaining Group Players
 		SceNetAdhocctlUserNode * peer = user->group->player;
-		while(peer != NULL)
+		while(peer != NULL && disconnecting_ip_last)
 		{
 			// Disconnect Packet
 			SceNetAdhocctlDisconnectPacketS2C packet;
@@ -511,10 +549,13 @@ void disconnect_user(SceNetAdhocctlUserNode * user)
 			
 			// Set User IP
 			packet.ip = user->resolver.ip;
-			
+
 			// Send Data
-			send(peer->stream, &packet, sizeof(packet), 0);
-			
+			// Wipe all users with this IP address on clients
+			for (int i = 0;i < user->max_num_same_ip;i++){
+				send(peer->stream, &packet, sizeof(packet), 0);
+			}
+
 			// Move Pointer
 			peer = peer->group_next;
 		}
