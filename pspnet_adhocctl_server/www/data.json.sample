@@ -1,0 +1,60 @@
+{
+   "games" : [
+      {
+         "game_ids" : [
+            "ULES00982"
+         ],
+         "groups" : [
+            {
+               "name" : "",
+               "usercount" : "1",
+               "users" : [
+                  {
+                     "name" : "Katie",
+                     "pdp_ports" : [
+                        20000,
+                        14495,
+                        14497,
+                        10001
+                     ],
+                     "ptp_ports" : []
+                  }
+               ]
+            }
+         ],
+         "name" : "ULES00982",
+         "usercount" : "1"
+      },
+      {
+         "game_ids" : [
+            "UCUS98632",
+            "UCES01245",
+            "UCAS40265"
+         ],
+         "groups" : [
+            {
+               "name" : "race01",
+               "usercount" : "2",
+               "users" : [
+                  {
+                     "name" : "PPSSPP",
+                     "pdp_ports" : [
+                        10001
+                     ],
+                     "ptp_ports" : []
+                  },
+                  {
+                     "name" : "PPSSPP",
+                     "pdp_ports" : [
+                        10001
+                     ],
+                     "ptp_ports" : []
+                  }
+               ]
+            }
+         ],
+         "name" : "Gran Turismo",
+         "usercount" : "2"
+      }
+   ]
+}
