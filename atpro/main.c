@@ -2306,16 +2306,20 @@ int online_patcher(SceModule2 * module)
 				sceKernelDcacheWritebackAll();
 			}
 
-			// allocate memory for netconf
-			//netconf_override = allocate_partition_memory(sizeof(allocate_partition_memory));
-			//netconf_adhoc_override = allocate_partition_memory(sizeof(struct pspUtilityNetconfAdhoc));
-			netconf_override = allocate_partition_memory(128);
-			netconf_adhoc_override = (void *)(((uint32_t)netconf_override) + 72);
+			if (netconf_override == NULL){
+				// allocate memory for netconf
+				//netconf_override = allocate_partition_memory(sizeof(allocate_partition_memory));
+				//netconf_adhoc_override = allocate_partition_memory(sizeof(struct pspUtilityNetconfAdhoc));
+				netconf_override = allocate_partition_memory(128);
+				netconf_adhoc_override = (void *)(((uint32_t)netconf_override) + 72);
+			}
 
-			// allocate memory for p5 thread create
-			thread_p5_stack_opt = allocate_partition_memory(sizeof(struct SceKernelThreadOptParam));
-			thread_p5_stack_opt->size = sizeof(struct SceKernelThreadOptParam);
-			thread_p5_stack_opt->stackMpid = 5;
+			if (thread_p5_stack_opt == NULL){
+				// allocate memory for p5 thread create
+				thread_p5_stack_opt = allocate_partition_memory(sizeof(struct SceKernelThreadOptParam));
+				thread_p5_stack_opt->size = sizeof(struct SceKernelThreadOptParam);
+				thread_p5_stack_opt->stackMpid = 5;
+			}
 
 			if (strcmp(module->modname, "MonsterHunterPortable3rd") == 0){
 				//{.module_name = "mhp3patch", .library_name = "mhp3kernel", .nid = 0x45ACEAF2}, // codestation's monster hunter patch loader
