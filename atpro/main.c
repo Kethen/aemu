@@ -103,7 +103,7 @@ char * module_build_names[MODULE_LIST_SIZE] = {
 };
 
 const char *force_px_modules[] ={
-	//"pspnet.prx",
+	"pspnet.prx",
 	"pspnet_adhoc.prx",
 	"pspnet_adhocctl.prx",
 	"pspnet_adhoc_matching.prx",
@@ -2193,6 +2193,21 @@ static int should_fake_clocks(){
 	return 1;
 }
 
+static int (*query_memory_info_orig)(uint32_t addr, uint32_t *partid_out, uint32_t *blockid_out) = NULL;
+int query_memory_info(uint32_t addr, uint32_t *partid_out, uint32_t *blockid_out){
+	if (query_memory_info_orig == NULL){
+		query_memory_info_orig = (void *)sctrlHENFindFunction("sceSystemMemoryManager", "SysMemUserForUser", 0x2A3E5280);
+	}
+	int ret = query_memory_info_orig(addr, partid_out, blockid_out);
+	printk("%s: addr 0x%x partid_out 0x%x (0x%x) blockid_out 0x%x (0x%x)\n", __func__, addr, partid_out, partid_out == NULL ? 0 : partid_out[0], blockid_out, blockid_out == NULL ? 0 : blockid_out[0]);
+	if (partid_out != NULL){
+		printk("%s: forcing partid to be 2\n", __func__);
+		partid_out[0] = 2;
+		return 0;
+	}
+	return ret;
+}
+
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
@@ -2527,6 +2542,10 @@ int online_patcher(SceModule2 * module)
 					hook_import_bynid((SceModule *)module, "ThreadManForUser", 0x446D8DE6, create_thread_px);
 					break;
 				}
+			}
+
+			if (strcmp(module->modname, "sceNet_Library") == 0){
+				hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0x2A3E5280, query_memory_info);
 			}
 		}
 	}
