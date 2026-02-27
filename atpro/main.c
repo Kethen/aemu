@@ -475,6 +475,10 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 
 		for (int i = 0;i < sizeof(force_px_modules) / sizeof(char *);i++)
 		{
+			if (partition_to_use() == 5 && strcmp(force_px_modules[i], "pspnet.prx") == 0){
+				// do not load pspnet.prx into p5 for now, it's a bit too big for that
+				continue;
+			}
 			if (strstr(test_path, force_px_modules[i]))
 			{
 				printk("%s: forcing %s into partition %d\n", __func__, force_px_modules[i], mod_load_px_option.mpidtext);
