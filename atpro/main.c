@@ -102,7 +102,8 @@ char * module_build_names[MODULE_LIST_SIZE] = {
 	"sceNetAdhocMatching_Library"
 };
 
-const char *force_load_high_modules[] ={
+const char *force_px_modules[] ={
+	//"pspnet.prx",
 	"pspnet_adhoc.prx",
 	"pspnet_adhocctl.prx",
 	"pspnet_adhoc_matching.prx",
@@ -121,20 +122,6 @@ const char *force_fw_modules[] = {
 	"pspnet_inet.prx",
 	"pspnet_apctl.prx",
 	"pspnet_resolver.prx",
-};
-
-const char *force_p5_modules[] ={
-	//"pspnet.prx",
-	"pspnet_adhoc.prx",
-	"pspnet_adhocctl.prx",
-	"pspnet_adhoc_matching.prx",
-	"pspnet_ap_dialog_dummy.prx",
-	"pspnet_adhoc_download.prx",
-	"pspnet_adhoc_discover.prx",
-	"pspnet_inet.prx",
-	"pspnet_apctl.prx",
-	"pspnet_resolver.prx",
-	"aemu_postoffice.prx"
 };
 
 const char *force_fw_module_names[sizeof(force_fw_modules) / sizeof(force_fw_modules[0])] = {
@@ -204,7 +191,10 @@ int partition_to_use(){
 	if (!has_high_mem()){
 		return 5;
 	}
-	return 2;
+	if (is_vita()){
+		return 11;
+	}
+	return 9;
 }
 
 static void *allocate_partition_memory(int size){
@@ -483,21 +473,11 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 			}
 		}
 
-		for (int i = 0;i < sizeof(force_load_high_modules) / sizeof(char *);i++)
+		for (int i = 0;i < sizeof(force_px_modules) / sizeof(char *);i++)
 		{
-			if (strstr(test_path, force_load_high_modules[i]))
+			if (strstr(test_path, force_px_modules[i]))
 			{
-				printk("%s: forcing load high %s\n", __func__, force_load_high_modules[i]);
-				option = &mod_load_high_option;
-				break;
-			}
-		}
-
-		for (int i = 0;i < sizeof(force_p5_modules) / sizeof(char *) && partition_to_use() == 5;i++)
-		{
-			if (strstr(test_path, force_p5_modules[i]))
-			{
-				printk("%s: forcing p5 load %s\n", __func__, force_p5_modules[i]);
+				printk("%s: forcing %s into partition %d\n", __func__, force_px_modules[i], mod_load_px_option.mpidtext);
 				option = &mod_load_px_option;
 				break;
 			}
@@ -641,8 +621,6 @@ static int load_start_module(const char *path, int kernel){
 	uint32_t k1 = pspSdkSetK1(0);
 	void* option = NULL;
 	if (!kernel){
-		mod_load_px_option.mpidtext = partition_to_use();
-		mod_load_px_option.mpiddata = partition_to_use();
 		option = &mod_load_px_option;
 	}
 	int uid = sceKernelLoadModule(path, 0, option);
@@ -1892,22 +1870,16 @@ static void memlayout_hack(){
 
 	// memory layout with just r6 loaded: log_memory_info: p2 startaddr 0x8800000 size 25165824 attr 0xf max 17314048 total 17314048
 
-	#if 1
-	// the goal is to have extra memory, but only offer the game roughly vanilla amount of memory after memory is stolen
-	// also be very careful not to hit the 40 MB limit barrier on PSVita, there be dragons beyond 40 MB
-	partition_2->size = 24 * 1024 * 1024; // base
-	partition_2->size += 8 + 128; // 128 B of netconf param alloc
-	partition_2->size += 8 * 1024 * 1024; // stolen
-	partition_2->size += 3 * 1024 * 1024; // PSP go odd memory layout
-	partition_2->size += 50 * 1024; // buffer
-	#else
-	// 40 MB is currently the limit on the vita, until all unsafe zones are mapped
-	partition_2->size = 40 * 1024 * 1024;
-	#endif
+	// force p2 normal layout
+	partition_2->size = 24 * 1024 * 1024;
+	// force p9/11 16MB
+	partition_9->size = 16 * 1024 * 1024;
+
+	// complete all the fields
 	partition_2->data->size = (((partition_2->size >> 8) << 9) | 0xFC);
-	partition_9->size = 0 * 1024 * 1024;
-	partition_9->address = 0x88800000 + partition_2->size;
+	partition_9->address = 0x08800000 + partition_2->size;
 	partition_9->data->size = (((partition_9->size >> 8) << 9) | 0xFC);
+	partition_9->attributes = 0xf;
 
 	// Change memory protection
 	u32 *prot = (u32 *)0xBC000040;
@@ -1944,10 +1916,10 @@ SceUID create_thread(const char *name, void *entry, int priority, int stack_size
 }
 
 
-static struct SceKernelThreadOptParam *thread_p5_stack_opt = NULL;
-SceUID create_thread_p5(const char *name, void *entry, int priority, int stack_size, int attr, void *option){
+static struct SceKernelThreadOptParam *thread_px_stack_opt = NULL;
+SceUID create_thread_px(const char *name, void *entry, int priority, int stack_size, int attr, void *option){
 	log_memory_info();
-	SceUID ret = sceKernelCreateThread(name, entry, priority, stack_size, attr, thread_p5_stack_opt);
+	SceUID ret = sceKernelCreateThread(name, entry, priority, stack_size, attr, thread_px_stack_opt);
 	printk("%s: name %s entry 0x%x priority %d stack_size %d attr 0x%x option 0x%x, 0x%x\n", __func__, name, entry, priority, stack_size, attr, option, ret);
 	return ret;
 }
@@ -2236,8 +2208,8 @@ int online_patcher(SceModule2 * module)
 		printk("%s: guessing this is the game, %s text_addr 0x%x\n", __func__, module->modname, module->text_addr);
 		if (onlinemode)
 		{
-			printk("%s: hooking module load/unload by the game and reserving memory for inet\n", __func__);
-			early_memory_stealing();
+			printk("%s: hooking module load/unload by the game and reserving memory\n", __func__);
+			//early_memory_stealing();
 			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x977DE386, load_plugin_user);
 			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x2E0911AA, unload_plugin_user);
 			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x50F0C1EC, start_plugin_user);
@@ -2314,11 +2286,11 @@ int online_patcher(SceModule2 * module)
 				netconf_adhoc_override = (void *)(((uint32_t)netconf_override) + 72);
 			}
 
-			if (thread_p5_stack_opt == NULL){
+			if (thread_px_stack_opt == NULL){
 				// allocate memory for p5 thread create
-				thread_p5_stack_opt = allocate_partition_memory(sizeof(struct SceKernelThreadOptParam));
-				thread_p5_stack_opt->size = sizeof(struct SceKernelThreadOptParam);
-				thread_p5_stack_opt->stackMpid = 5;
+				thread_px_stack_opt = allocate_partition_memory(sizeof(struct SceKernelThreadOptParam));
+				thread_px_stack_opt->size = sizeof(struct SceKernelThreadOptParam);
+				thread_px_stack_opt->stackMpid = partition_to_use();
 			}
 
 			if (strcmp(module->modname, "MonsterHunterPortable3rd") == 0){
@@ -2543,16 +2515,16 @@ int online_patcher(SceModule2 * module)
 			// Inject placeholder nickname is empty
 			hook_import_bynid((SceModule *)module, "sceUtility", 0x34B78343, get_system_param_string);
 
-			static const char *create_thread_p5_list[] = {
+			static const char *create_thread_px_list[] = {
 				"sceNet_Library",
 				"sceNetInet_Library",
 				"sceNetApctl_Library",
 				"sceNetResolver_Library",
 			};
 
-			for(int i = 0;i < sizeof(create_thread_p5_list) / sizeof(create_thread_p5_list[0]) && partition_to_use() == 5;i++){
-				if (strcmp(module->modname, create_thread_p5_list[i]) == 0){
-					hook_import_bynid((SceModule *)module, "ThreadManForUser", 0x446D8DE6, create_thread_p5);
+			for(int i = 0;i < sizeof(create_thread_px_list) / sizeof(create_thread_px_list[0]);i++){
+				if (strcmp(module->modname, create_thread_px_list[i]) == 0){
+					hook_import_bynid((SceModule *)module, "ThreadManForUser", 0x446D8DE6, create_thread_px);
 					break;
 				}
 			}
@@ -2921,6 +2893,9 @@ int module_start(SceSize args, void * argp)
 	for (int i = 0;i < sizeof(fd_path_map)/sizeof(fd_path_map[0]);i++){
 		fd_path_map[i].fd = -1;
 	}
+
+	mod_load_px_option.mpidtext = partition_to_use();
+	mod_load_px_option.mpiddata = partition_to_use();
 
 	// Game Mode & WLAN Switch On
 	if(sceKernelInitKeyConfig() == PSP_INIT_KEYCONFIG_GAME) {
