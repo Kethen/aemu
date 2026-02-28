@@ -1908,9 +1908,11 @@ static void memlayout_hack(){
 	// to be vita safe, keep p2 + p11 within 40MB
 	if (highmem){
 		partition_2->size = (40 - 4) * 1024 * 1024;
+		#if 0
 		if (!is_vita()){
 			partition_2->size = (55 - 4) * 1024 * 1024;
 		}
+		#endif
 		partition_9->size = 4 * 1024 * 1024;
 	}else{
 		// force p2 normal layout
