@@ -684,12 +684,15 @@ int _matchingInputThread(SceSize args, void * argp)
 		sceKernelDelayThread(9000);
 	}
 	
+	sceKernelLockLwMutex(&members_lock, 1, 0);
 	// Send Bye Messages
 	_sendByePacket(context);
 	
 	// Free Peer List Buffer
 	_clearPeerList(context);
-	
+	sceKernelUnlockLwMutex(&members_lock, 1);
+
+
 	// Delete Pointer Reference (and notify caller about finished cleanup)
 	context->input_thid = 0;
 	
@@ -1550,6 +1553,7 @@ void _handleTimeout(SceNetAdhocMatchingContext * context)
 		return;
 	}
 
+	sceKernelLockLwMutex(&members_lock, 1, 0);
 	// Iterate Peer List
 	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; while(peer != NULL)
 	{
@@ -1607,6 +1611,7 @@ void _handleTimeout(SceNetAdhocMatchingContext * context)
 		// Move Pointer
 		peer = next;
 	}
+	sceKernelUnlockLwMutex(&members_lock, 1);
 }
 
 /**
