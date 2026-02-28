@@ -41,7 +41,7 @@
 #define FAKE_FAT 0
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
-PSP_MODULE_INFO("ATPRO", PSP_MODULE_KERNEL, 1, 1);
+PSP_MODULE_INFO("ATPRO", PSP_MODULE_KERNEL | PSP_MODULE_SINGLE_LOAD | PSP_MODULE_SINGLE_START, 1, 1);
 
 // Game Code Getter (discovered in utility.prx)
 const char * SysMemGameCodeGetter(void);
