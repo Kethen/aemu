@@ -38,6 +38,8 @@
 #include "systemctrl.h"
 #include "game_patches.h"
 
+#define FAKE_FAT 0
+
 PSP_MODULE_INFO("ATPRO", PSP_MODULE_KERNEL, 1, 1);
 
 // Game Code Getter (discovered in utility.prx)
@@ -183,8 +185,11 @@ static int is_go(){
 }
 
 int has_high_mem(){
-	//return 0;
+	#if FAKE_FAT
+	return 0;
+	#else
 	return is_vita() || sceKernelGetModel() != 0;
+	#endif
 }
 
 int partition_to_use(){
@@ -475,10 +480,6 @@ SceUID load_plugin(const char * path, int flags, SceKernelLMOption * option, mod
 
 		for (int i = 0;i < sizeof(force_px_modules) / sizeof(char *);i++)
 		{
-			if (partition_to_use() == 5 && strcmp(force_px_modules[i], "pspnet.prx") == 0){
-				// do not load pspnet.prx into p5 for now, it's a bit too big for that
-				continue;
-			}
 			if (strstr(test_path, force_px_modules[i]))
 			{
 				printk("%s: forcing %s into partition %d\n", __func__, force_px_modules[i], mod_load_px_option.mpidtext);
@@ -2247,7 +2248,9 @@ int online_patcher(SceModule2 * module)
 			// unify this to fat
 			// actually don't do that, God Eater 2 disables multiplayer on PSP1000
 			// https://github.com/Kethen/aemu/issues/4#issuecomment-3976676474
-			//hook_import_bynid((SceModule *)module, "scePower", 0xA85880D0, is_non_fat);
+			#if FAKE_FAT
+			hook_import_bynid((SceModule *)module, "scePower", 0xA85880D0, is_non_fat);
+			#endif
 
 			if (should_fake_clocks()){
 				// fake clock setting and report, some games (at least flatout headon) sets a clock, then busy wait until it is applied
