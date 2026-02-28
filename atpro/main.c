@@ -2245,7 +2245,9 @@ int online_patcher(SceModule2 * module)
 			#endif
 
 			// unify this to fat
-			hook_import_bynid((SceModule *)module, "scePower", 0xA85880D0, is_non_fat);
+			// actually don't do that, God Eater 2 disables multiplayer on PSP1000
+			// https://github.com/Kethen/aemu/issues/4#issuecomment-3976676474
+			//hook_import_bynid((SceModule *)module, "scePower", 0xA85880D0, is_non_fat);
 
 			if (should_fake_clocks()){
 				// fake clock setting and report, some games (at least flatout headon) sets a clock, then busy wait until it is applied
