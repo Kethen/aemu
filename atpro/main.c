@@ -39,6 +39,7 @@
 #include "game_patches.h"
 
 #define FAKE_FAT 0
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 
 PSP_MODULE_INFO("ATPRO", PSP_MODULE_KERNEL, 1, 1);
 
@@ -1875,12 +1876,50 @@ static void memlayout_hack(){
 
 	// memory layout with just r6 loaded: log_memory_info: p2 startaddr 0x8800000 size 25165824 attr 0xf max 17314048 total 17314048
 
-	// force p2 normal layout
-	partition_2->size = 24 * 1024 * 1024;
-	// force p9/11 16MB
-	partition_9->size = 16 * 1024 * 1024;
+	static const char *highmem_games[] = {
+		// GTA VCS
+		"ULJM05395",
+		"ULUS10160",
+		"ULES00502",
+		"ULES00503",
+		"ULJM05297",
+		"ULJM05884",
 
-	// complete all the fields
+		// GTA LCS
+		"ULJM05359",
+		"ULKS46157",
+		"ULES00182",
+		"ULUS10041",
+		"ULJM05255",
+		"ULES00151",
+		"ULJM05885",
+	};
+
+	char game_code[20] = {0};
+	get_game_code(game_code, sizeof(game_code) - 1);
+	int highmem = 0;
+	for (int i = 0;i < ARRAY_SIZE(highmem_games); i++){
+		if (strcmp(game_code, highmem_games[i]) == 0){
+			highmem = 1;
+			break;
+		}
+	}
+
+	// to be vita safe, keep p2 + p11 within 40MB
+	if (highmem){
+		partition_2->size = (40 - 4) * 1024 * 1024;
+		if (!is_vita()){
+			partition_2->size = (55 - 4) * 1024 * 1024;
+		}
+		partition_9->size = 4 * 1024 * 1024;
+	}else{
+		// force p2 normal layout
+		partition_2->size = 24 * 1024 * 1024;
+		// force p9/11 16MB
+		partition_9->size = 16 * 1024 * 1024;
+	}
+
+	// complete other fields
 	partition_2->data->size = (((partition_2->size >> 8) << 9) | 0xFC);
 	partition_9->address = 0x08800000 + partition_2->size;
 	partition_9->data->size = (((partition_9->size >> 8) << 9) | 0xFC);
