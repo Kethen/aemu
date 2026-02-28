@@ -1900,6 +1900,7 @@ static void memlayout_hack(){
 	int highmem = 0;
 	for (int i = 0;i < ARRAY_SIZE(highmem_games); i++){
 		if (strcmp(game_code, highmem_games[i]) == 0){
+			printk("%s: enabling bigger p2 on %s\n", __func__, game_code);
 			highmem = 1;
 			break;
 		}
