@@ -2785,7 +2785,7 @@ s32 sceKernelVolatileMemLockPatched(s32 unk, void **ptr, s32 *size)
 	printk("%s: 0x%x 0x%x/0x%x 0x%x/%d, 0x%x\n", __func__, unk, ptr, *ptr, size, *size, result);
 	return result;
 	#else
-	//printk("%s: 0x%x, 0x%x, 0x%x/%d\n", __func__, unk, ptr, size, *size);
+	printk("%s: unk 0x%x ptr 0x%x size 0x%x\n", __func__, unk, ptr, size);
 
 	// XXX some games actually uses P5, and not all of them respects the size from here
 	// some games like GTA respects it, but then unhappy that it is smaller than expected
@@ -2808,6 +2808,7 @@ s32 sceKernelVolatileMemLockPatched(s32 unk, void **ptr, s32 *size)
 	//*ptr = (void *)0x08400000;
 	//*size = 4194304;
 
+	volatile_locked = 1;
 	return 0;
 	#endif
 }
@@ -2820,7 +2821,7 @@ s32 sceKernelVolatileMemTryLockPatched(s32 unk, void **ptr, s32 *size)
 	printk("%s: 0x%x 0x%x/0x%x 0x%x/%d, 0x%x\n", __func__, unk, ptr, *ptr, size, *size, result);
 	return result;
 	#else
-	//printk("%s: 0x%x, 0x%x, 0x%x/%d\n", __func__, unk, ptr, size, *size);
+	printk("%s: unk 0x%x ptr 0x%x size 0x%x\n", __func__, unk, ptr, size);
 
 	// XXX some games actually uses P5, and not all of them respects the size from here
 	// some games like GTA respects it, but then unhappy that it is smaller than expected
@@ -2856,8 +2857,8 @@ s32 sceKernelVolatileMemUnlockPatched(s32 unk)
 	printk("%s: 0x%x, 0x%x\n", __func__, unk, result);
 	return result;
 	#else
-	//printk("%s: 0x%x\n", __func__, unk);
 	volatile_locked = 0;
+	printk("%s: unk 0x%x\n", __func__, unk);
 	return 0;
 	#endif
 }
