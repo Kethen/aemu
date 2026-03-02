@@ -98,14 +98,18 @@ static int gamemode_replica_thread(SceSize args, void *argp)
 				}
 
 				// usable data
+				#if 0
 				if (_gamemode_replicas[i]->first_consumed == 0 || _gamemode_replicas[i]->first_consumed == 2){
+				#endif
 					_gamemode_replicas[i]->last_recv = sceKernelGetSystemTimeWide();
 					_gamemode_replicas[i]->data_updated = 1;
 					memcpy(_gamemode_replicas[i]->recv_buf, replica_receive_buffer, len);
+				#if 0
 					if (_gamemode_replicas[i]->first_consumed == 0){
 						_gamemode_replicas[i]->first_consumed = 1;
 					}
 				}
+				#endif
 			}
 
 			#ifdef DEBUG

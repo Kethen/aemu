@@ -103,7 +103,7 @@ typedef struct GamemodeInternal {
 	int data_updated;
 	void *recv_buf;
 	uint64_t last_recv;
-	int first_consumed;
+	//int first_consumed;
 } __attribute__((packed)) GamemodeInternal;
 
 #define ADHOCCTL_GAMEMODE_MAX_MEMBERS 16

@@ -70,7 +70,7 @@ int proNetAdhocGameModeUpdateReplica(int id, SceNetAdhocGameModeOptData * opt)
 				opt->last_recv = gamemode->last_recv;
 			}
 		}
-		gamemode->first_consumed = 2;
+		//gamemode->first_consumed = 2;
 		RETURN_UNLOCK(0);
 	}
 
