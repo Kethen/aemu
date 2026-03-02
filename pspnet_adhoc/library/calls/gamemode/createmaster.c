@@ -104,7 +104,7 @@ static int gamemode_master_thread(SceSize args, void *argp)
 				if (received < _gamemode_num_peers){
 					printk("%s: waiting for other masters, %d out of %d ready\n", __func__, received, _gamemode_num_peers);
 					sceKernelUnlockLwMutex(&_gamemode_lock, 1);
-					sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC);
+					sceKernelDelayThread(12000);
 					_gamemode.data_updated = 1;
 					continue;
 				}
@@ -113,7 +113,7 @@ static int gamemode_master_thread(SceSize args, void *argp)
 				// send one more time
 				sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 1000000, NON_BLOCK_SEND);
 				sceKernelUnlockLwMutex(&_gamemode_lock, 1);
-				sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC);
+				sceKernelDelayThread(12000);
 				_gamemode_all_received = 1;
 				continue;
 			}else{
