@@ -2246,12 +2246,58 @@ int query_memory_info(uint32_t addr, uint32_t *partid_out, uint32_t *blockid_out
 		query_memory_info_orig = (void *)sctrlHENFindFunction("sceSystemMemoryManager", "SysMemUserForUser", 0x2A3E5280);
 	}
 	int ret = query_memory_info_orig(addr, partid_out, blockid_out);
-	printk("%s: addr 0x%x partid_out 0x%x (0x%x) blockid_out 0x%x (0x%x)\n", __func__, addr, partid_out, partid_out == NULL ? 0 : partid_out[0], blockid_out, blockid_out == NULL ? 0 : blockid_out[0]);
+	printk("%s: addr 0x%x partid_out 0x%x (%d) blockid_out 0x%x (0x%x)\n", __func__, addr, partid_out, partid_out == NULL ? 0 : partid_out[0], blockid_out, blockid_out == NULL ? 0 : blockid_out[0]);
 	if (partid_out != NULL){
 		printk("%s: forcing partid to be 2\n", __func__);
 		partid_out[0] = 2;
 		return 0;
 	}
+	return ret;
+}
+
+static int (*net_init_orig)(int poolsize, int calloutprio, int calloutstack, int netintrprio, int netintrstack) = NULL;
+int net_init(int poolsize, int calloutprio, int calloutstack, int netintrprio, int netintrstack){
+	// should fetch it every time, in case it's not loaded or is unloaded
+	net_init_orig = (void *)sctrlHENFindFunction("sceNet_Library", "sceNet", 0x39AF39A6);
+	if (net_init_orig == NULL){
+		printk("%s: sceNet_Library is not loaded!\n", __func__);
+		return 0x8002013A; // not linked
+	}
+	int ret = net_init_orig(poolsize, calloutprio, calloutstack, netintrprio, netintrstack);
+	printk("%s: poolsize %d, calloutprio %d calloutstack %d netintrprio %d netintrstack %d, 0x%x\n", __func__, poolsize, calloutprio, calloutstack, netintrprio, netintrstack, ret);
+	return ret;
+}
+
+static int (*create_sema_orig)(const char *name, uint32_t attr, int init_cnt, int max_cnt, void *opt) = NULL;
+int create_sema(const char *name, uint32_t attr, int init_cnt, int max_cnt, void *opt){
+	if (create_sema_orig == NULL){
+		create_sema_orig = (void *)sctrlHENFindFunction("sceThreadManager", "ThreadManForUser", 0xD6DA4BA1);
+	}
+	int ret = create_sema_orig(name, attr, init_cnt, max_cnt, opt);
+	printk("%s: name %s attr 0x%x init_cnt %d max_cnt %d opt 0x%x, 0x%x\n", __func__, name, attr, init_cnt, max_cnt, opt, ret);
+	return ret;
+}
+
+static int (*create_event_flag_orig)(const char *name, uint32_t attr, uint32_t init_value, void *opt) = NULL;
+int create_event_flag(const char *name, uint32_t attr, uint32_t init_value, void *opt){
+	if (create_event_flag_orig == NULL){
+		create_event_flag_orig = (void *)sctrlHENFindFunction("sceThreadManager", "ThreadManForUser", 0x55C20A00);
+	}
+	int ret = create_event_flag_orig(name, attr, init_value, opt);
+	printk("%s: name %s attr 0x%x init_value 0x%x opt 0x%x, 0x%x\n", __func__, name, init_value, opt);
+	return ret;
+}
+
+static int (*create_heap_orig)(int part, int size, int unk, const char *name) = NULL;
+static int create_heap(int part, int size, int unk, const char *name){
+	if (strcmp(name, "SceNet") == 0){
+		part = partition_to_use();
+		unk = unk | 2; // seems to be high align flag
+		printk("%s: redirecting networking heap to partition %d\n", __func__, part);
+	}
+	int ret = create_heap_orig(part, size, unk, name);
+	printk("%s: part %d size %d unk 0x%x name %s, 0x%x\n", __func__, part, size, unk, name, ret);
+
 	return ret;
 }
 
@@ -2263,11 +2309,15 @@ int online_patcher(SceModule2 * module)
 
 	printk("%s: module start %s text_addr 0x%x\n", __func__, module->modname, module->text_addr);
 
+	static SceModule2 * game_module;
+
 	if (module->text_addr > 0x08800000 && module->text_addr < 0x08900000 && strcmp("opnssmp", module->modname) != 0)
 	{
 		// Very likely the game itself
-
 		printk("%s: guessing this is the game, %s text_addr 0x%x\n", __func__, module->modname, module->text_addr);
+
+		game_module = module;
+
 		if (onlinemode)
 		{
 			printk("%s: hooking module load/unload by the game and reserving memory\n", __func__);
@@ -2597,7 +2647,12 @@ int online_patcher(SceModule2 * module)
 
 			if (strcmp(module->modname, "sceNet_Library") == 0){
 				hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0x2A3E5280, query_memory_info);
+				//hook_import_bynid((SceModule *)module, "ThreadManForUser", 0xD6DA4BA1, create_sema);
+				//hook_import_bynid((SceModule *)module, "ThreadManForUser", 0x55C20A00, create_event_flag);
 			}
+
+			// sceNet has late linking, attempt rehook
+			//hook_import_bynid((SceModule *)game_module, "sceNet", 0x39AF39A6, net_init);
 		}
 	}
 	
@@ -3046,6 +3101,9 @@ int module_start(SceSize args, void * argp)
 						HIJACK_FUNCTION(netconf_init_func, netconf_init, netconf_init_orig);
 						void *netconf_get_status_func = (void *)sctrlHENFindFunction("sceUtility_Driver", "sceUtility", 0x6332AA39);
 						HIJACK_FUNCTION(netconf_get_status_func, netconf_get_status, netconf_get_status_orig);
+
+						// Fix SceNet heap creation when games don't reserve enough free memory
+						HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t *)sceKernelCreateHeap), create_heap, create_heap_orig);
 					}
 					
 					// Create Input Thread
