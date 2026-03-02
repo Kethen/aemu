@@ -1554,6 +1554,7 @@ void _handleTimeout(SceNetAdhocMatchingContext * context)
 	}
 
 	sceKernelLockLwMutex(&members_lock, 1, 0);
+
 	// Iterate Peer List
 	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; while(peer != NULL)
 	{
@@ -1600,6 +1601,11 @@ void _handleTimeout(SceNetAdhocMatchingContext * context)
 				else
 				{
 					_sendCancelPacket(context, &peer->mac, 0, NULL);
+				}
+
+				// if the peer list is nuked during _sendCancelPacket, there's no peer to iterate anymore
+				if (context->peerlist == NULL){
+					break;
 				}
 			}
 
