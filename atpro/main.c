@@ -1908,13 +1908,13 @@ static void memlayout_hack(){
 
 	// to be vita safe, keep p2 + p11 within 40MB
 	if (highmem){
-		partition_2->size = (40 - 4) * 1024 * 1024;
+		partition_2->size = (40 - 5) * 1024 * 1024;
 		#if 0
 		if (!is_vita()){
-			partition_2->size = (55 - 4) * 1024 * 1024;
+			partition_2->size = (55 - 5) * 1024 * 1024;
 		}
 		#endif
-		partition_9->size = 4 * 1024 * 1024;
+		partition_9->size = 5 * 1024 * 1024;
 	}else{
 		// force p2 normal layout
 		partition_2->size = 24 * 1024 * 1024;
@@ -2295,7 +2295,7 @@ static int create_heap(int part, int size, uint32_t unk, const char *name){
 	if (target_part != 5 && strcmp(name, "SceNet") == 0){
 		part = target_part;
 		unk = unk | 2; // seems to be high align flag
-		size = 2 * 1024 * 1024;
+		size = 3 * 1024 * 1024;
 		printk("%s: redirecting networking heap to partition %d and enlarging it to %d\n", __func__, part, size);
 	}
 	int ret = create_heap_orig(part, size, unk, name);
