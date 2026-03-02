@@ -63,9 +63,12 @@ int proNetAdhocGameModeUpdateReplica(int id, SceNetAdhocGameModeOptData * opt)
 		memcpy(gamemode->data, gamemode->recv_buf, gamemode->data_size);
 		if (opt != NULL)
 		{
-			opt->size = sizeof(SceNetAdhocGameModeOptData);
-			opt->flag = 1;
-			opt->last_recv = gamemode->last_recv;
+			if (opt->size >= 8){
+				opt->flag = 1;
+			}
+			if (opt->size >= 16){
+				opt->last_recv = gamemode->last_recv;
+			}
 		}
 		gamemode->first_consumed = 2;
 		RETURN_UNLOCK(0);
@@ -74,8 +77,9 @@ int proNetAdhocGameModeUpdateReplica(int id, SceNetAdhocGameModeOptData * opt)
 	// no data
 	if (opt != NULL)
 	{
-		opt->size = sizeof(SceNetAdhocGameModeOptData);
-		opt->flag = 0;
+		if (opt->size >= 8){
+			opt->flag = 0;
+		}
 	}
 	RETURN_UNLOCK(0);
 }
