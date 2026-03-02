@@ -31,21 +31,15 @@ static int gamemode_replica_thread(SceSize args, void *argp)
 
 	while(!_gamemode_replica_stop_thread)
 	{
-		int recv_status = 0;
-		int packet_limit = 20;
-		while(recv_status == 0 && packet_limit > 0 && !_gamemode_replica_stop_thread)
+		if (sceKernelTryLockLwMutex(&_gamemode_lock, 1) != 0)
 		{
-			if (sceKernelTryLockLwMutex(&_gamemode_lock, 1) != 0)
-			{
-				sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC / 8);
-				continue;
-			}
+			sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC / 8);
+			continue;
+		}
 
-			#define UNLOCK_CONTINUE() { \
-				sceKernelUnlockLwMutex(&_gamemode_lock, 1); \
-				continue; \
-			}
-
+		int packet_limit = 20;
+		while(packet_limit > 0 && !_gamemode_replica_stop_thread)
+		{
 			SceNetEtherAddr saddr = {0};
 			uint16_t sport = 0;
 			int len = largest_gamemode_replica;
@@ -53,34 +47,35 @@ static int gamemode_replica_thread(SceSize args, void *argp)
 
 			#define NON_BLOCK_RECV 1
 
-			recv_status = sceNetAdhocPdpRecv(_gamemode_socket, &saddr, &sport, replica_receive_buffer, &len, 1000000, NON_BLOCK_RECV);
+			int recv_status = sceNetAdhocPdpRecv(_gamemode_socket, &saddr, &sport, replica_receive_buffer, &len, 1000000, NON_BLOCK_RECV);
 
 			#if NON_BLOCK_RECV
 			if (recv_status == ADHOC_WOULD_BLOCK)
 			{
 				//printk("%s: no packet in buffer\n", __func__);
-				UNLOCK_CONTINUE();
+				break;
 			}
 
 			#else
 
 			if (recv_status == ADHOC_TIMEOUT)
 			{
-				printk("%s: packet receive timed out\n", __func__);
-				UNLOCK_CONTINUE();
+				//printk("%s: packet receive timed out\n", __func__);
+				break;
 			}
 			#endif
 
 			if (recv_status != 0)
 			{
 				printk("%s: failed receiving packet, 0x%x\n", __func__, recv_status);
-				UNLOCK_CONTINUE();
+				break;
 			}
 
 			#ifdef DEBUG
 			int packet_processed = 0;
 			#endif
 
+			// we have a packet on hand, find the destination
 			for (int i = 0;i < sizeof(_gamemode_replicas) / sizeof(GamemodeInternal *);i++)
 			{
 				if (_gamemode_replicas[i] == NULL)
@@ -119,11 +114,11 @@ static int gamemode_replica_thread(SceSize args, void *argp)
 				//printk("%s: received data has no handler\n", __func__);
 			}
 			#endif
-
-			UNLOCK_CONTINUE();
 		}
+
+		sceKernelUnlockLwMutex(&_gamemode_lock, 1);
 		// PPSSPP sends us a lot of packets in some games
-		sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC / 2);
+		sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC / 4);
 	}
 
 	printk("%s: gamemode replica thread stopped\n", __func__);
