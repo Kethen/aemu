@@ -2289,9 +2289,10 @@ int create_event_flag(const char *name, uint32_t attr, uint32_t init_value, void
 }
 
 static int (*create_heap_orig)(int part, int size, int unk, const char *name) = NULL;
-static int create_heap(int part, int size, int unk, const char *name){
-	if (strcmp(name, "SceNet") == 0){
-		part = partition_to_use();
+static int create_heap(int part, int size, uint32_t unk, const char *name){
+	int target_part = partition_to_use();
+	if (target_part != 5 && strcmp(name, "SceNet") == 0){
+		part = target_part;
 		unk = unk | 2; // seems to be high align flag
 		printk("%s: redirecting networking heap to partition %d\n", __func__, part);
 	}
