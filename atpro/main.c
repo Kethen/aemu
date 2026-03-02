@@ -110,7 +110,7 @@ const char *force_px_modules[] ={
 	"pspnet_adhoc.prx",
 	"pspnet_adhocctl.prx",
 	"pspnet_adhoc_matching.prx",
-	"pspnet_ap_dialog_dummy.prx",
+	//"pspnet_ap_dialog_dummy.prx",
 	"pspnet_adhoc_download.prx",
 	"pspnet_adhoc_discover.prx",
 	"pspnet_inet.prx",
