@@ -2295,8 +2295,9 @@ static int create_heap(int part, int size, uint32_t unk, const char *name){
 	if (target_part != 5 && strcmp(name, "SceNet") == 0){
 		part = target_part;
 		unk = unk | 2; // seems to be high align flag
+		int old_size = size;
 		size = 3 * 1024 * 1024;
-		printk("%s: redirecting networking heap to partition %d and enlarging it to %d\n", __func__, part, size);
+		printk("%s: redirecting networking heap to partition %d and enlarging it to %d from %d\n", __func__, part, size, old_size);
 	}
 	int ret = create_heap_orig(part, size, unk, name);
 	printk("%s: part %d size %d unk 0x%x name %s, 0x%x\n", __func__, part, size, unk, name, ret);
