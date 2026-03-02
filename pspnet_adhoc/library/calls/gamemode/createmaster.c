@@ -89,7 +89,7 @@ static int gamemode_master_thread(SceSize args, void *argp)
 			sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 1000000, NON_BLOCK_SEND);
 			if (_gamemode.data_updated)
 			{
-				_gamemode.data_updated = 0;
+				_gamemode.data_updated--;
 			}
 		}
 
@@ -123,7 +123,7 @@ static int gamemode_master_thread(SceSize args, void *argp)
 		}
 
 		sceKernelUnlockLwMutex(&_gamemode_lock, 1);
-		sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC);
+		sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC / 2);
 	}
 
 	printk("%s: gamemode master thread stopped\n", __func__);

@@ -55,7 +55,7 @@ int proNetAdhocGameModeUpdateMaster(void)
 	//sceNetAdhocPdpSend(_gamemode_socket, &_broadcast_mac, ADHOC_GAMEMODE_PORT, _gamemode.recv_buf, _gamemode.data_size, 0, 1);
 
 	// Send data
-	_gamemode.data_updated = 1;
+	_gamemode.data_updated = 2;
 
 	RETURN_UNLOCK(0);
 }
