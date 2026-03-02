@@ -37,7 +37,7 @@ static int gamemode_replica_thread(SceSize args, void *argp)
 		{
 			if (sceKernelTryLockLwMutex(&_gamemode_lock, 1) != 0)
 			{
-				sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC);
+				sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC / 8);
 				continue;
 			}
 
@@ -122,7 +122,8 @@ static int gamemode_replica_thread(SceSize args, void *argp)
 
 			UNLOCK_CONTINUE();
 		}
-		sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC);
+		// PPSSPP sends us a lot of packets in some games
+		sceKernelDelayThread(GAMEMODE_UPDATE_INTERVAL_USEC / 2);
 	}
 
 	printk("%s: gamemode replica thread stopped\n", __func__);
