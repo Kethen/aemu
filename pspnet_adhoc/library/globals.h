@@ -99,8 +99,8 @@ extern SceUID _gamemode_socket;
 extern int _gamemode_socket_users;
 
 #define ADHOC_GAMEMODE_PORT 31000
-// we ball let's try to match PPSSPP
-#define GAMEMODE_UPDATE_INTERVAL_USEC 500
+// we actually can't match PPSSPP reliably, at least in Bomberman
+#define GAMEMODE_UPDATE_INTERVAL_USEC 6000
 #define GAMEMODE_INIT_DELAY_USEC 100000
 #define GAMEMODE_SYNC_TIMEOUT_USEC 250000
 
