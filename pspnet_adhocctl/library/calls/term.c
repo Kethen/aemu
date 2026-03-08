@@ -31,6 +31,10 @@ int proNetAdhocctlTerm(void)
 	// Library initialized
 	if(_init == 1)
 	{
+		if (_disconnect_thread >= 0){
+			sceKernelWaitThreadEnd(_disconnect_thread, NULL);
+		}
+
 		// Send shutdown request
 		_init = 0;
 		
