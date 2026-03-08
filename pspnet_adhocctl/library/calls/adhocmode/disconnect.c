@@ -98,7 +98,6 @@ int proNetAdhocctlDisconnect(void)
 	// Library initialized
 	if(_init == 1)
 	{
-		// Do not delay here, Tekken 6 hates that
 		if (_disconnect_thread >= 0){
 			sceKernelWaitThreadEnd(_disconnect_thread, NULL);
 			sceKernelDeleteThread(_disconnect_thread);
@@ -118,7 +117,10 @@ int proNetAdhocctlDisconnect(void)
 		_in_gamemode = 0;
 
 		// https://github.com/hrydgard/ppsspp/pull/18435/changes
-		//busy_wait(16667);
+		// Do not yield here, Tekken 6 hates that
+		// Kingdom Hearts Birth by Sleep seems to need a delay if we don't yield
+		// this is getting real messy
+		busy_wait(16667);
 		//sceKernelDelayThread(16667);
 
 		// Notify Event Handlers (even if we weren't connected, not doing this will freeze games like God Eater, which expect this behaviour)
