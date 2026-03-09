@@ -287,6 +287,17 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 			continue;
 		}
 
+		// PSVita 1000 seems to have issues connecting right after adhocctl
+		sceKernelDelayThread(100000 * attempt);
+
+		// Server IP
+		uint32_t ip = resolve_server_ip();
+		if (ip == 0xFFFFFFFF){
+			printk("%s: failed resolving server ip address on attempt %d\n", __func__, attempt);
+			apctl_disconnect_and_wait_till_disconnected();
+			continue;
+		}
+
 		// Create Friend Finder Socket
 		int socket = sceNetInetSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 		if (socket <= 0)
@@ -304,17 +315,6 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 		// Apply Receive Timeout Settings to Socket
 		// uint32_t timeout = ADHOCCTL_RECV_TIMEOUT;
 		// sceNetInetSetsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-
-		// PSVita 1000 seems to have issues connecting right after adhocctl
-		sceKernelDelayThread(100000 * attempt);
-
-		// Server IP
-		uint32_t ip = resolve_server_ip();
-		if (ip == 0xFFFFFFFF){
-			printk("%s: failed resolving server ip address on attempt %d\n", __func__, attempt);
-			apctl_disconnect_and_wait_till_disconnected();
-			continue;
-		}
 
 		// Prepare Server Address
 		SceNetInetSockaddrIn addr;
