@@ -72,7 +72,6 @@ int _zero = 0;
 int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id);
 int _readHotspotConfig(void);
 int _findHotspotConfigId(char * ssid);
-const char * _readServerConfig(void);
 void _readChatKeyphrases(const SceNetAdhocctlAdhocId * adhoc_id);
 int _friendFinder(SceSize args, void * argp);
 void _addFriend(SceNetAdhocctlConnectPacketS2C * packet);
@@ -154,20 +153,7 @@ int proNetAdhocctlInit(int stacksize, int prio, const SceNetAdhocctlAdhocId * ad
 		// Minimum Stacksize (just to fake SCE behaviour)
 		if(stacksize >= 3072)
 		{
-			if (_readHotspotConfig() != 0)
-			{
-				printk("%s: failed reading hotspot config\n", __func__);
-				return -1;
-			}
-
-			// Get Server IP (String)
-			const char * ip = _readServerConfig();
-
-			if (ip == NULL)
-			{
-				printk("%s: failed reading ip config\n", __func__);
-				return -1;
-			}
+			_readHotspotConfig();
 
 			if (_initNetwork(adhoc_id) != 0)
 			{
@@ -462,13 +448,16 @@ int _readHotspotConfig(void)
 		if(_hotspot != -1) printk("Selected Hotspot: %s\n", line);
 		
 		// No Hotspot found
-		else printk("Couldn't find Hotspot: %s\n", line);
+		else printk("warning: couldn't find Hotspot: %s, falling back to default hotspot id 0\n", line);
 		
 		// Close Configuration File
 		sceIoClose(fd);
 		
 		// Return Success
 		if(_hotspot >= 0) return 0;
+	}else{
+		printk("%s: warning: hotspot.txt missing, falling back to default hotspot id 0\n", __func__);
+		_hotspot = 0;
 	}
 	
 	// Generic Error
@@ -504,35 +493,6 @@ int _findHotspotConfigId(char * ssid)
 
 	printk("%s: Hotspot with SSID %s not found, using config 0\n", __func__, ssid);
 	return 0;
-}
-
-/**
- * Read Server IP
- * @return IP != 0 on success or... 0
- */
-const char * _readServerConfig(void)
-{
-	// Line Buffer
-	static char line[128];
-
-	// Open Configuration File
-	int fd = sceIoOpen("ms0:/seplugins/server.txt", PSP_O_RDONLY, 0777);
-	
-	// Opened Configuration File
-	if(fd >= 0)
-	{
-		// Read Line
-		_readLine(fd, line, sizeof(line));
-		
-		// Close Configuration File
-		sceIoClose(fd);
-		
-		// Return IP (String)
-		return line;
-	}
-	
-	// Generic Error
-	return NULL;
 }
 
 /**

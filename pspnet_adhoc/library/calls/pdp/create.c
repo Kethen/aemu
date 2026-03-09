@@ -19,6 +19,10 @@
 
 static uint32_t server_ip = 0;
 
+void reset_server_ip_cache(){
+	server_ip = 0;
+}
+
 uint32_t resolve_server_ip(){
 	sceKernelWaitSema(_server_resolve_mutex, 1, 0);
 
