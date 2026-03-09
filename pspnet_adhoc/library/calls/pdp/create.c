@@ -23,6 +23,8 @@ void reset_server_ip_cache(){
 	server_ip = 0;
 }
 
+const char DEFAULT_SERVER[] = "socom.cc";
+
 uint32_t resolve_server_ip(){
 	sceKernelWaitSema(_server_resolve_mutex, 1, 0);
 
@@ -47,28 +49,24 @@ uint32_t resolve_server_ip(){
 		return 0xFFFFFFFF;
 	}
 
+
+	char namebuf[128] = {0};
+
 	int fd = sceIoOpen("ms0:/seplugins/server.txt", PSP_O_RDONLY, 0777);
 	if (fd < 0){
+		// PPSSPP style
 		fd = sceIoOpen("ms0:/PSP/PLUGINS/atpro/server.txt", PSP_O_RDONLY, 0777);
 	}
+
 	if (fd < 0){
-		sceNetResolverDelete(rid);
-		sceNetResolverTerm();
-		sceKernelSignalSema(_server_resolve_mutex, 1);
-		printk("%s: failed opening server.txt for reading, 0x%x\n", __func__, fd);
-		return 0xFFFFFFFF;
+		memcpy(namebuf, DEFAULT_SERVER, sizeof(DEFAULT_SERVER));
+		printk("%s: failed opening server.txt for reading, 0x%x, falling back to %s\n", __func__, fd, namebuf);
+	}else{
+		sceIoRead(fd, namebuf, sizeof(namebuf) - 1);
+		sceIoClose(fd);
 	}
-	char namebuf[128] = {0};
-	int read_status = sceIoRead(fd, namebuf, 127);
-	sceIoClose(fd);
-	if (read_status < 0){
-		sceNetResolverDelete(rid);
-		sceNetResolverTerm();
-		sceKernelSignalSema(_server_resolve_mutex, 1);
-		printk("%s: failed reading server.txt, 0x%x\n", __func__, read_status);
-		return 0xFFFFFFFF;
-	}
-	for(int i = 0;i < 127;i++){
+
+	for(int i = 0;i < sizeof(namebuf) - 1;i++){
 		if (namebuf[i] == '\0'){
 			break;
 		}
@@ -76,6 +74,7 @@ uint32_t resolve_server_ip(){
 			namebuf[i] = '\0';
 		}
 	}
+	printk("%s: choosen server: %s\n", __func__, namebuf);
 
 	uint32_t pending_ip = 0;
 	int resolve_status = sceNetResolverStartNtoA(rid, namebuf, (struct in_addr *)&pending_ip, 500000, 2);
