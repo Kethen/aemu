@@ -116,7 +116,6 @@ extern int _gamemode_num_peers;
 extern int _gamemode_all_received;
 extern SceUID _socket_mapper_mutex;
 extern SceUID _server_resolve_mutex;
-extern int _port_offset;
 extern int _is_ppsspp;
 extern int _postoffice;
 extern int _vita_speedup;

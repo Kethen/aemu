@@ -30,14 +30,12 @@ PSP_MODULE_INFO(MODULENAME, PSP_MODULE_USER + 6, 1, 4);
 PSP_HEAP_SIZE_KB(500);
 bool use_worker = true;
 
-int _port_offset = 0;
-
 SceUID _socket_mapper_mutex = -1;
 SceUID _server_resolve_mutex = -1;
 
 static uint16_t reverse_port(uint16_t port)
 {
-	return port - _port_offset;
+	return port - get_port_offset();
 }
 
 static uint16_t offset_port(uint16_t port)
@@ -47,7 +45,7 @@ static uint16_t offset_port(uint16_t port)
 	{
 		return 0;
 	}
-	port += _port_offset;
+	port += get_port_offset();
 	if (port == 0)
 	{
 		return 65535;
@@ -55,8 +53,14 @@ static uint16_t offset_port(uint16_t port)
 	return port;
 }
 
-void _readPortOffsetConfig(void)
+static int port_offset = -1;
+
+int get_port_offset()
 {
+	if (port_offset != -1){
+		return port_offset;
+	}
+
 	// Line Buffer
 	static char line[128];
 
@@ -73,13 +77,22 @@ void _readPortOffsetConfig(void)
 		char read_buf[1024] = {0};
 		sceIoRead(fd, read_buf, sizeof(read_buf) - 1);
 
-		_port_offset = atoi(read_buf);
+		port_offset = atoi(read_buf);
+		printk("%s: portoffset set to %d\n", __func__, port_offset);
 
 		// Close Configuration File
 		sceIoClose(fd);
+	}else{
+		port_offset = 10000;
+		printk("%s: warning: cannot open port_offset.txt, falling back to %d\n", __func__, port_offset);
 	}
+
+	return port_offset;
 }
 
+void reset_port_offset(){
+	port_offset = -1;
+}
 
 // Stubs (Optimizer converts those to Jumps)
 int sceNetAdhocInit(void)

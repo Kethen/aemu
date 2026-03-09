@@ -67,8 +67,8 @@ int proNetAdhocInit(void)
 			printk("%s: vita speedup not detected\n", __func__);
 		}
 
-		// Load port offset
-		_readPortOffsetConfig();
+		// precache port offset
+		get_port_offset();
 
 		int result = 0;
 

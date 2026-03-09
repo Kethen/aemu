@@ -444,17 +444,10 @@ int _readHotspotConfig(void)
 		// Find Hotspot Configuration
 		_hotspot = _findHotspotConfigId(line);
 		
-		// Found Hotspot
-		if(_hotspot != -1) printk("Selected Hotspot: %s\n", line);
-		
-		// No Hotspot found
-		else printk("warning: couldn't find Hotspot: %s, falling back to default hotspot id 0\n", line);
-		
 		// Close Configuration File
 		sceIoClose(fd);
 		
-		// Return Success
-		if(_hotspot >= 0) return 0;
+		return 0;
 	}else{
 		printk("%s: warning: hotspot.txt missing, falling back to default hotspot id 0\n", __func__);
 		_hotspot = 0;
@@ -484,14 +477,17 @@ int _findHotspotConfigId(char * ssid)
 		if(sceUtilityGetNetParam(i, PSP_NETPARAM_SSID, &entry) == 0)
 		{
 			// Log Parameter
-			printk("Reading PSP Infrastructure Profile for %s\n", entry.asString);
+			printk("%s: profile %d ssid %s\n", __func__, i, entry.asString);
 			
 			// Hotspot Configuration found
-			if(strcmp(entry.asString, ssid) == 0) return i;
+			if(strcmp(entry.asString, ssid) == 0){
+				printk("%s: found profile %d with ssid %s\n", __func__, i, entry.asString);
+				return i;
+			}
 		}
 	}
 
-	printk("%s: Hotspot with SSID %s not found, using config 0\n", __func__, ssid);
+	printk("%s: warning: couldn't find profile with ssid %s, falling back to default hotspot id 0\n", __func__, ssid);
 	return 0;
 }
 
