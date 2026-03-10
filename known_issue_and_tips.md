@@ -1,9 +1,10 @@
 ## Known issues and tips
 
 ### General issues
-- PSN eboots should work, with ARK on PSP, and on PSVita you need to use either ARK standalone, or newest isage Adrenaline nightly builds, with ARK EPI set in Adrenaline menu
+- PSN eboots should work on PSPs with ARK, and on PSVita you need to use either ARK standalone, Adrenaline ARK pentazemin, or newest isage Adrenaline nightly builds with ARK EPI set in Adrenaline menu
   - https://github.com/PSP-Archive/ARK-4?tab=readme-ov-file#installation-on-psp
   - https://github.com/PSP-Archive/ARK-4?tab=readme-ov-file#standalone-official-pspemu
+  - https://github.com/PSP-Archive/ARK-4?tab=readme-ov-file#adrenaline-patched-pspemu
   - https://github.com/isage/Adrenaline/releases
 - More games now work on the PSP1000, but keep in mind that games that do work on slims have a not small chance to not work on 1000s
   - Games that uses memory partition 5 will likely not work properly eg. GTA LCS, GTA VCS
