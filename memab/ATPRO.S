@@ -21,3 +21,4 @@
 	IMPORT_FUNC  "ATPRO",0x3,load_inet_modules
 	IMPORT_FUNC  "ATPRO",0x4,load_adhoc_modules
 	IMPORT_FUNC  "ATPRO",0x5,partition_to_use
+	IMPORT_FUNC  "ATPRO",0x6,is_vita

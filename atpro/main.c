@@ -167,7 +167,7 @@ static int is_standalone(){
 	return 0;
 }
 
-static int is_vita(){
+int is_vita(){
 	static int vita = -1;
 	if (vita == -1){
 		int test_file = sceIoOpen("flash0:/kd/usb.prx", PSP_O_RDONLY, 0777);

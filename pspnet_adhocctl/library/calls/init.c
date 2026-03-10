@@ -70,7 +70,7 @@ int _zero = 0;
 
 // Function Prototypes
 int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id);
-int _readHotspotConfig(void);
+void _readHotspotConfig(void);
 int _findHotspotConfigId(char * ssid);
 void _readChatKeyphrases(const SceNetAdhocctlAdhocId * adhoc_id);
 int _friendFinder(SceSize args, void * argp);
@@ -427,7 +427,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
  * Read Access Point Configuration Name
  * @return 0 on success or... -1
  */
-int _readHotspotConfig(void)
+void _readHotspotConfig(void)
 {
 	// Open Configuration File
 	int fd = sceIoOpen("ms0:/seplugins/hotspot.txt", PSP_O_RDONLY, 0777);
@@ -446,16 +446,13 @@ int _readHotspotConfig(void)
 		
 		// Close Configuration File
 		sceIoClose(fd);
-		
-		return 0;
-	}else{
-		printk("%s: warning: hotspot.txt missing, falling back to default hotspot id 0\n", __func__);
-		_hotspot = 0;
+		return;
 	}
-	
-	// Generic Error
-	return -1;
+
+	_hotspot = _findHotspotConfigId("");
 }
+
+int is_vita();
 
 /**
  * Find Infrastructure Configuration ID for SSID
@@ -464,11 +461,17 @@ int _readHotspotConfig(void)
  */
 int _findHotspotConfigId(char * ssid)
 {
-	// Counter
-	int i = 0;
-	
+	if (is_vita()){
+		printk("%s: psvita detected, using hotspot id 0\n", __func__);
+		return 0;
+	}
+
 	// Find Hotspot by SSID
-	for(; i <= 10; i++)
+	int fallback = 0;
+	#ifdef DEBUG
+	netData fallback_entry;
+	#endif
+	for(int i = 1; i <= 10; i++)
 	{
 		// Parameter Container
 		netData entry;
@@ -484,11 +487,18 @@ int _findHotspotConfigId(char * ssid)
 				printk("%s: found profile %d with ssid %s\n", __func__, i, entry.asString);
 				return i;
 			}
+
+			if (!is_vita() && fallback == 0 && strlen(entry.asString) != 0){
+				fallback = i;
+				#ifdef DEBUG
+				fallback_entry = entry;
+				#endif
+			}
 		}
 	}
 
-	printk("%s: warning: couldn't find profile with ssid %s, falling back to default hotspot id 0\n", __func__, ssid);
-	return 0;
+	printk("%s: warning: couldn't find profile with ssid %s, falling back to hotspot id %d ssid %s\n", __func__, ssid, fallback, fallback_entry.asString);
+	return fallback;
 }
 
 /**
