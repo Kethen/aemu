@@ -17,6 +17,7 @@
 
 #include "../../common.h"
 
+void fix_game_mac(SceNetEtherAddr *mac);
 static int ptp_connect_postoffice_thread_func(SceSize args, void *argp){
 	int idx = *(int *)argp;
 	AdhocSocket *internal = _sockets[idx];
@@ -27,7 +28,10 @@ static int ptp_connect_postoffice_thread_func(SceSize args, void *argp){
 	};
 
 	int state;
-	void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->ptp.laddr, internal->ptp.lport, (const char *)&internal->ptp.paddr, internal->ptp.pport, &state);
+	SceNetEtherAddr fixed_daddr = internal->ptp.paddr;
+	fix_game_mac(&fixed_daddr);
+
+	void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->ptp.laddr, internal->ptp.lport, (const char *)&fixed_daddr, internal->ptp.pport, &state);
 	if (ptp_socket == NULL){
 		printk("%s: failed connecting to ptp socket on id %d, %d\n", __func__, idx + 1, state);
 		internal->ptp.state = PTP_STATE_CLOSED;

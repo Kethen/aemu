@@ -19,6 +19,7 @@
 
 #define NBIO_BCAST 1
 
+void fix_game_mac(SceNetEtherAddr *mac);
 static int pdp_send_postoffice_unicast(int idx, const SceNetEtherAddr *daddr, uint16_t dport, const void *data, int len, uint32_t timeout, int nonblock){
 	uint64_t begin = sceKernelGetSystemTimeWide();
 	uint64_t end = begin + timeout;
@@ -48,7 +49,10 @@ static int pdp_send_postoffice_unicast(int idx, const SceNetEtherAddr *daddr, ui
 			pdp_send_status = AEMU_POSTOFFICE_CLIENT_SESSION_WOULD_BLOCK;
 			break;
 		}
-		pdp_send_status = pdp_send(pdp_sock, (const char *)daddr, dport, (char *)data, len, nonblock || timeout != 0);
+
+		SceNetEtherAddr fixed_daddr = *daddr;
+		fix_game_mac(&fixed_daddr);
+		pdp_send_status = pdp_send(pdp_sock, (const char *)&fixed_daddr, dport, (char *)data, len, nonblock || timeout != 0);
 		if (pdp_send_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
 			// let recovery deal with this
 			pdp_delete(pdp_sock);

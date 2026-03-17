@@ -91,6 +91,27 @@ void _maccpy(void *dst, const void *src)
 	return;
 }
 
+// fix deranged mac addresses from games
+void fix_game_mac(SceNetEtherAddr *mac){
+	uint8_t localmac[6]; sceWlanGetEtherAddr((void *)localmac);
+	if (_isMacMatch(localmac, mac)){
+		memcpy(mac, localmac, 6);
+		return;
+	}
+
+	_acquirePeerLock();
+	SceNetAdhocctlPeerInfoEmu *peer = _friends;
+	while(peer != NULL){
+		if (_isMacMatch(&peer->mac_addr, mac)){
+			memcpy(mac, &peer->mac_addr, 6);
+			break;
+		}
+		peer = peer->next;
+	}
+	_freePeerLock();
+	return;
+}
+
 /**
  * Resolve MAC to IP
  * @param mac Peer MAC Address
