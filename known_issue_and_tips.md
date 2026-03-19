@@ -1,7 +1,7 @@
 ## Known issues and tips
 
 ### General issues
-- PSN eboots should work on PSPs with ARK, and on PSVita you need to use either ARK standalone, Adrenaline ARK pentazemin, or newest isage Adrenaline nightly builds with vPSP Custom Firmware set to ARK in Adrenaline menu
+- PSN eboots should work on PSPs with ARK, and on PSVita you need to use either ARK standalone, Adrenaline ARK pentazemin, or newest isage Adrenaline nightly builds
   - https://github.com/PSP-Archive/ARK-4?tab=readme-ov-file#installation-on-psp
   - https://github.com/PSP-Archive/ARK-4?tab=readme-ov-file#standalone-official-pspemu
   - https://github.com/PSP-Archive/ARK-4?tab=readme-ov-file#adrenaline-patched-pspemu
