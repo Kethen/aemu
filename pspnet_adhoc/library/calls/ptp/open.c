@@ -17,7 +17,7 @@
 
 #include "../../common.h"
 
-int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, const SceNetEtherAddr *daddr, uint16_t dport, uint32_t bufsize){
+static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, const SceNetEtherAddr *daddr, uint16_t dport, uint32_t bufsize){
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 	if (internal == NULL){
 		printk("%s: ran out of heap memory trying to open ptp socket\n", __func__);
@@ -55,6 +55,9 @@ int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, const SceN
 
 	*slot = internal;
 	sceKernelSignalSema(_socket_mapper_mutex, 1);
+
+	// trigger connect, it seems that "connect" means something else in this API, this is required by the warriors
+	proNetAdhocPtpConnect(i + 1, 0, 1);
 
 	return i + 1;
 }
@@ -192,6 +195,9 @@ int proNetAdhocPtpOpen(const SceNetEtherAddr * saddr, uint16_t sport, const SceN
 									internal->ptp_ext.mode = PTP_MODE_OPEN;
 
 									sceKernelSignalSema(_socket_mapper_mutex, 1);
+
+									// trigger connect, it seems that "connect" means something else in this API, this is required by the warriors
+									proNetAdhocPtpConnect(i + 1, 0, 1);
 
 									// Return PTP Socket Pointer
 									return i + 1;
