@@ -121,8 +121,8 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 						isds[i].events |= INET_POLLRDNORM;
 					}
 
-					if (_vita_speedup && _sockets[sds[i].id - 1]->is_ptp && now - _sockets[sds[i].id - 1]->ptp_ext.establish_timestamp < 10000000){
-						// we slow down polling for 10 seconds so that Gran Turismo don't get confused
+					if (_vita_speedup && _sockets[sds[i].id - 1]->is_ptp && now - _sockets[sds[i].id - 1]->ptp_ext.establish_timestamp < 20000000){
+						// we slow down polling for 20 seconds so that Gran Turismo don't get confused
 						should_delay_for_vita_speedup = 1;
 					}
 
