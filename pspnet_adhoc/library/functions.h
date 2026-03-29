@@ -140,4 +140,6 @@ int get_postoffice_fd(int idx);
 int pdp_peek_next_size_postoffice(int idx);
 int ptp_peek_next_size_postoffice(int idx);
 
+uint16_t reverse_port(uint16_t port);
+
 #endif

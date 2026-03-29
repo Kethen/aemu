@@ -33,7 +33,7 @@ bool use_worker = true;
 SceUID _socket_mapper_mutex = -1;
 SceUID _server_resolve_mutex = -1;
 
-static uint16_t reverse_port(uint16_t port)
+uint16_t reverse_port(uint16_t port)
 {
 	return port - get_port_offset();
 }

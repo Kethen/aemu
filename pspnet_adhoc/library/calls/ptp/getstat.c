@@ -82,6 +82,10 @@ int proNetAdhocGetPtpStat(int * buflen, SceNetAdhocPtpStat * buf)
 					// Fix Client View Socket ID
 					buf[i].id = j + 1;
 
+					// reverse port offset
+					buf[i].lport = reverse_port(buf[i].lport);
+					buf[i].pport = reverse_port(buf[i].pport);
+
 					// Peek tcp size, as PPSSPP does in https://github.com/hrydgard/ppsspp/commit/4881f4f0bd0110af5cceeba8dc70f90d0e8d0978
 					int tcp_size = -1;
 					if (_postoffice){

@@ -85,6 +85,9 @@ int proNetAdhocGetPdpStat(int * buflen, SceNetAdhocPdpStat * buf)
 					// Write End of List Reference
 					buf[i].next = NULL;
 
+					// reverse port offset, sonic rivals 2 uses the lport value to settle on the correct socket
+					buf[i].lport = reverse_port(buf[i].lport);
+
 					// Peek udp size, as PPSSPP does in https://github.com/hrydgard/ppsspp/commit/4881f4f0bd0110af5cceeba8dc70f90d0e8d0978
 					int udp_size = -1;
 					if (_postoffice){
@@ -94,7 +97,7 @@ int proNetAdhocGetPdpStat(int * buflen, SceNetAdhocPdpStat * buf)
 						static uint8_t peek_buf[10 * 1024];
 						udp_size = sceNetInetRecv(_sockets[j]->pdp.id, peek_buf, sizeof(peek_buf), INET_MSG_DONTWAIT | INET_MSG_PEEK);
 					}
-					//printk("%s: udp size %d\n", __func__, udp_size);
+					//printk("%s: udp size of %d: %d\n", __func__, j + 1, udp_size);
 					if (udp_size <= 0){
 						buf[i].rcv_sb_cc = 0;
 					}else{
@@ -108,10 +111,12 @@ int proNetAdhocGetPdpStat(int * buflen, SceNetAdhocPdpStat * buf)
 					i++;
 				}
 			}
-			
+
+			//printk("%s: num socks %d (requested %d) buflen %d\n", __func__, i, *buflen / sizeof(SceNetAdhocPdpStat), i * sizeof(SceNetAdhocPdpStat));
+
 			// Update Buffer Length
 			*buflen = i * sizeof(SceNetAdhocPdpStat);
-			
+
 			// Success
 			return 0;
 		}
