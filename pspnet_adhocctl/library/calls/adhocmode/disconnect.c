@@ -76,6 +76,9 @@ int disconnect_thread_func(SceSize args, void *argp){
 
 		// Multithreading Unlock
 		_freePeerLock();
+
+		//_notifyAdhocctlhandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
+		//_disconnect_timestamp = sceKernelGetSystemTimeWide();
 	}
 
 	return 0;
@@ -88,6 +91,39 @@ static void busy_wait(int us){
 	while(begin - sceKernelGetSystemTimeWide() < us){
 	}
 }
+
+void get_game_code(char *buf, int len);
+static int should_disconnect_in_thread(){
+	// not all games are happy with this (Crash Tag Team Racing), but some games need it (Tekken 6)
+	// until we can perfectly emulate the timing, a quirk list is needed
+
+	char name_buf[20] = {0};
+	get_game_code(name_buf, sizeof(name_buf));
+
+	printk("%s: gamecode is %s\n", __func__, name_buf);
+
+	static const char *codes[] = {
+		// Tekken 6
+		"NPHH00308",
+		"ULKS46235",
+		"NPJH50184",
+		"ULES01376",
+		"NPUH10047",
+		"ULUS10466",
+		"ULJS19054",
+		"ULAS42214",
+		"ULJS00224",
+	};
+
+	for(int i = 0;i < sizeof(codes) / sizeof(codes[0]);i++){
+		if (strcmp(codes[i], name_buf) == 0){
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 
 /**
  * Leave current Network
@@ -104,24 +140,28 @@ int proNetAdhocctlDisconnect(void)
 			_disconnect_thread = -1;
 		}
 
-		thread_px_stack_opt.stackMpid = partition_to_use();
-		_disconnect_thread = sceKernelCreateThread("disconnect thread", disconnect_thread_func, 100, 0x3000, 0, NULL);
-		if (_disconnect_thread < 0){
-			printk("%s: failed creating disconnect thread, 0x%x\n", __func__, _disconnect_thread);
+		if (should_disconnect_in_thread()){
+			thread_px_stack_opt.stackMpid = partition_to_use();
+			_disconnect_thread = sceKernelCreateThread("disconnect thread", disconnect_thread_func, 100, 0x3000, 0, NULL);
+			if (_disconnect_thread < 0){
+				printk("%s: failed creating disconnect thread, 0x%x\n", __func__, _disconnect_thread);
+			}else{
+				sceKernelStartThread(_disconnect_thread, 0, NULL);
+			}
+
+			// https://github.com/hrydgard/ppsspp/pull/18435/changes
+			// Do not yield here, Tekken 6 hates that
+			// Kingdom Hearts Birth by Sleep seems to need a delay if we don't yield
+			// this is getting real messy
+			busy_wait(16667);
+			//sceKernelDelayThread(16667);
 		}else{
-			sceKernelStartThread(_disconnect_thread, 0, NULL);
+			disconnect_thread_func(0, NULL);
 		}
 
 		// Either way it's not game mode anymore
 		_num_gamemode_peers = 0;
 		_in_gamemode = 0;
-
-		// https://github.com/hrydgard/ppsspp/pull/18435/changes
-		// Do not yield here, Tekken 6 hates that
-		// Kingdom Hearts Birth by Sleep seems to need a delay if we don't yield
-		// this is getting real messy
-		busy_wait(16667);
-		//sceKernelDelayThread(16667);
 
 		// Notify Event Handlers (even if we weren't connected, not doing this will freeze games like God Eater, which expect this behaviour)
 		//_notifyAdhocctlhandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
