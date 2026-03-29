@@ -28,8 +28,9 @@ A nodejs based status page template is now also provided:
 2. By default server listens to port 8080. If port 8080 is already in-use and you are not running the server in a container, you can find the port number at the top of `www/server.js` and change that
 3. aemu_postoffice debug data url can be customized at the top of `www/server.js`, see below [Data relay](#data-relay) as to what aemu_postoffice is
 4. Run `www/server.js` with nodejs
-5. Open port TCP 8080 on your firewall
-6. Port forward TCP 8080 / set up http proxy for the status page, if you are hosting on the internet
+5. Open port TCP 8080 on your firewall, port forward TCP 8080 / set up http proxy for the status page, if you are hosting on the internet
+  - Status page will be available at http://:8080/
+  - `data.json` for PPSSPP built-in server viewer will be available at http://:8080/data.json, an example output for developers can be found [here](/pspnet_adhocctl_server/www/data.json.sample)
 
 
 ### Data relay
