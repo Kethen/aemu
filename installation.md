@@ -152,6 +152,12 @@ game, ef0:/seplugins/atpro.prx, on
 
 - Note that not all games currently work. Try a different game to see if it's an installation issue or game specific issue.
 - Some plugins might conflict with aemu, disable all other plugins and try again.
+- If you have a lot of random lag/disconnects, try to improve your networking environment.
+  - Choose a relay server you have stable connection to, usually means the server you are physically the closest to.
+  - Create a wireless hotspot with a clean 2.4GHz channel.
+    - On PSP, 802.11b absolutely requires this, find a dedicated channel for your PSP, if you have multiple PSPs, it might be a good idea to have a dedicated channel for each PSP.
+    - On PSVita, it's less bad with 802.11n, but it's still a good idea to have a less busy channel. It's usually okay to share a dedicated channel among a few PSVitas.
+    - Apps like https://github.com/VREMSoftwareDevelopment/WifiAnalyzer might help finding a clean/less busy 2.4GHz channel.
 - Install `kd` and `seplugins` from `dist_660_debug` instead, then run your game again. `ms0:/atpro.log` / `ef0:/atpro.log` / `ux0:/pspemu/atpro.log` will contain debug information that might help solving your issues.
 
 ### <a id="crossplaying-with-ppsspp" /> Crossplaying with PPSSPP
