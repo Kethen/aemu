@@ -2,3 +2,7 @@
 	path = aemu_postoffice
 	url = https://github.com/Kethen/aemu_postoffice
 	branch = aemu
+[submodule "utility_app/lvgl"]
+	path = utility_app/lvgl
+	url = https://github.com/lvgl/lvgl
+	branch = release/v8.2
