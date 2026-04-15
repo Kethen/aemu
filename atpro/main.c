@@ -19,6 +19,7 @@
 #include <pspkernel.h>
 #include <pspinit.h>
 #include <pspdisplay.h>
+#include <pspge.h>
 #include <psprtc.h>
 #include <psploadcore.h>
 #include <psputilsforkernel.h>
@@ -700,7 +701,25 @@ static void log_memory_info(){
 
 #define MAKE_JUMP(a, f) _sw(0x08000000 | (((u32)(f) & 0x0FFFFFFC) >> 2), a)
 #define GET_JUMP_TARGET(x) (0x80000000 | (((x) & 0x03FFFFFF) << 2))
-#define HIJACK_FUNCTION(a, f, ptr) \
+// Davee's new 5 bytes chainable trampoline used in ARK cfw and RJL fork
+#define HIJACK_FUNCTION(a, f, p) \
+{ \
+	int _interrupts = pspSdkDisableInterrupts(); \
+	static u32 _pb_[5]; \
+	_sw(_lw((u32)(a)), (u32)_pb_); \
+	_sw(_lw((u32)(a) + 4), (u32)_pb_ + 4);\
+	_sw(NOP, (u32)_pb_ + 8);\
+	_sw(NOP, (u32)_pb_ + 16);\
+	MAKE_JUMP((u32)_pb_ + 12, (u32)(a) + 8); \
+	_sw(0x08000000 | (((u32)(f) >> 2) & 0x03FFFFFF), (u32)(a)); \
+	_sw(0, (u32)(a) + 4); \
+	p = (void *)_pb_; \
+	sceKernelDcacheWritebackInvalidateAll(); \
+	sceKernelIcacheClearAll(); \
+	pspSdkEnableInterrupts(_interrupts); \
+}
+
+#define HIJACK_FUNCTION_V1(a, f, ptr) \
 { \
 	printk("hijacking function at 0x%lx with 0x%lx\n", (u32)a, (u32)f); \
 	u32 _func_ = (u32)a; \
@@ -1568,6 +1587,7 @@ int setframebuf(void *topaddr, int bufferwidth, int pixelformat, int sync)
 	displayCanvas.buffer = topaddr;
 	displayCanvas.lineWidth = bufferwidth;
 	displayCanvas.pixelFormat = pixelformat;
+	displayCanvas.scale = 1;
 
 	draw_hud();
 
@@ -2388,6 +2408,23 @@ static int create_heap(int part, int size, uint32_t unk, const char *name){
 	return ret;
 }
 
+int (*ge_list_enqueue_orig)(const void *list, void *stall, int cbid, PspGeListArgs *arg) = NULL;
+int ge_list_enqueue(const void *list, void *stall, int cbid, PspGeListArgs *arg){
+	if (list == (void *)0x0A800000){
+		// queuing the gu copy command, the RENDER_LIST defined in gepatch
+		// vram that was rendered to, defined as VRAM_DRAW_BUFFER_OFFSET in gepatch, in uncached mode
+		displayCanvas.buffer = (void *)0x44000000;
+		displayCanvas.lineWidth = 960;
+		// gepatch always render in 565 mode
+		displayCanvas.pixelFormat = PSP_DISPLAY_PIXEL_FORMAT_565;
+		displayCanvas.scale = 2;
+
+		draw_hud();
+	}
+
+	return ge_list_enqueue_orig(list, stall, cbid, arg);
+}
+
 // Online Module Start Patcher
 int online_patcher(SceModule2 * module)
 {
@@ -2542,6 +2579,9 @@ int online_patcher(SceModule2 * module)
 
 		if (!gepatch_present){
 			hook_import_bynid((SceModule *)module, "sceDisplay", 0x289D82FE, setframebuf);
+		}else{
+			// jack sceGeListEnQueue to hook gepatch copyFrameBuffer, none of the functions were exported there...
+			HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t*)sceGeListEnQueue), ge_list_enqueue, ge_list_enqueue_orig);
 		}
 		hook_import_bynid((SceModule *)module, "sceDisplay", 0x36CDFADE, sceDisplayWaitVblankPatched);
 		hook_import_bynid((SceModule *)module, "sceDisplay", 0x8EB9EC49, sceDisplayWaitVblankCBPatched);
