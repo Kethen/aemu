@@ -1559,6 +1559,8 @@ int sceDisplayWaitVblankStartCBPatched()
 	return sceDisplayWaitVblankStartCB();
 }
 
+static int gepatch_present = 0;
+
 // Framebuffer Setter
 int setframebuf(void *topaddr, int bufferwidth, int pixelformat, int sync)
 {
@@ -1569,7 +1571,6 @@ int setframebuf(void *topaddr, int bufferwidth, int pixelformat, int sync)
 
 	draw_hud();
 
-	// Passthrough
 	return sceDisplaySetFrameBuf(topaddr, bufferwidth, pixelformat, sync);
 }
 
@@ -1846,6 +1847,118 @@ typedef struct SysMemPartition {
 	PartitionData *data;
 } SysMemPartition;
 
+static int should_enable_highmem_for_game(){
+	static const char *highmem_games[] = {
+		// GTA VCS
+		"ULJM05395",
+		"ULUS10160",
+		"ULES00502",
+		"ULES00503",
+		"ULJM05297",
+		"ULJM05884",
+
+		// GTA LCS
+		"ULJM05359",
+		"ULKS46157",
+		"ULES00182",
+		"ULUS10041",
+		"ULJM05255",
+		"ULES00151",
+		"ULJM05885",
+	};
+
+	char game_code[20] = {0};
+	get_game_code(game_code, sizeof(game_code) - 1);
+	int highmem = 0;
+	for (int i = 0;i < ARRAY_SIZE(highmem_games); i++){
+		if (strcmp(game_code, highmem_games[i]) == 0){
+			printk("%s: enabling bigger p2 on %s\n", __func__, game_code);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+struct protect_region{
+	uint32_t addr;
+	uint32_t size;
+};
+
+static int get_module_id_by_name(const char *name){
+	// this makes it not thread safe, but stack safe
+	static SceUID mods[128] = {0};
+	int num_mods = 0;
+	int module_list_fetch_status = sceKernelGetModuleIdList(mods, sizeof(mods), &num_mods);
+	if (module_list_fetch_status < 0){
+		printk("%s: failed fetcing module list when looking for %s, 0x%x\n", __func__, name, module_list_fetch_status);
+		return -1;
+	}
+
+	for(int i = 0;i < num_mods;i++){
+		SceKernelModuleInfo info = {0};
+		info.size = sizeof(SceKernelModuleInfo);
+		int query_status = sceKernelQueryModuleInfo(mods[i], &info);
+		if (query_status < 0){
+			printk("%s: failed fetching module info of 0x%x\n", __func__, mods[i]);
+			continue;
+		}
+
+		if (strncmp(info.name, name, sizeof(info.name)) == 0){
+			return mods[i];
+		}
+	}
+	return -1;
+}
+
+static void protect_gepatch_memory(){
+	if (gepatch_present){
+		return;
+	}
+
+	if (!is_vita()){
+		return;
+	}
+
+	if (get_module_id_by_name("GePatch") == -1){
+		printk("%s: gepatch plugin not found, not reserving memory\n", __func__);
+		return;
+	}
+	printk("%s: gepatch plugin found, reserving memory\n", __func__);
+
+	gepatch_present = 1;
+
+	static const struct protect_region protect_regions[] = {
+		// FAKE_VRAM
+		{
+			.addr = 0x0a000000,
+			.size = 4 * 1024 * 1024
+		},
+		// DISPLAY_BUFFER
+		{
+			.addr = 0x0a400000,
+			.size = 1024 * 1024
+		},
+		// RENDER_LIST, for one sceGuCopyImage call
+		{
+			.addr = 0x0a800000,
+			.size = 64
+		}
+	};
+
+	// this is assuming a 35 - 5 split on highmem enabled games
+	// this can also break highmem in games, if the game tries to allocate one big block on p2, but is greeted with fragmented memory
+	int target_part = should_enable_highmem_for_game() ? 2 : partition_to_use();
+
+	for(int i = 0;i < sizeof(protect_regions) / sizeof(protect_regions[0]);i++){
+		int alloc_status = sceKernelAllocPartitionMemory(target_part, "gepatch_protect", PSP_SMEM_Addr, protect_regions[i].size, (void *)protect_regions[i].addr);
+		if (alloc_status < 0){
+			printk("%s: failed protecting 0x%x %d, 0x%x\n", __func__, protect_regions[i].addr, protect_regions[i].size, alloc_status);
+		}
+	}
+
+	return;
+}
+
 // based on Adrenaline
 static void memlayout_hack(){
 	if(!has_high_mem()){
@@ -1876,38 +1989,8 @@ static void memlayout_hack(){
 
 	// memory layout with just r6 loaded: log_memory_info: p2 startaddr 0x8800000 size 25165824 attr 0xf max 17314048 total 17314048
 
-	static const char *highmem_games[] = {
-		// GTA VCS
-		"ULJM05395",
-		"ULUS10160",
-		"ULES00502",
-		"ULES00503",
-		"ULJM05297",
-		"ULJM05884",
-
-		// GTA LCS
-		"ULJM05359",
-		"ULKS46157",
-		"ULES00182",
-		"ULUS10041",
-		"ULJM05255",
-		"ULES00151",
-		"ULJM05885",
-	};
-
-	char game_code[20] = {0};
-	get_game_code(game_code, sizeof(game_code) - 1);
-	int highmem = 0;
-	for (int i = 0;i < ARRAY_SIZE(highmem_games); i++){
-		if (strcmp(game_code, highmem_games[i]) == 0){
-			printk("%s: enabling bigger p2 on %s\n", __func__, game_code);
-			highmem = 1;
-			break;
-		}
-	}
-
 	// to be vita safe, keep p2 + p11 within 40MB
-	if (highmem){
+	if (should_enable_highmem_for_game()){
 		partition_2->size = (40 - 5) * 1024 * 1024;
 		#if 0
 		if (!is_vita()){
@@ -2325,6 +2408,9 @@ int online_patcher(SceModule2 * module)
 		if (onlinemode)
 		{
 			printk("%s: hooking module load/unload by the game and reserving memory\n", __func__);
+
+			protect_gepatch_memory();
+
 			//early_memory_stealing();
 			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x977DE386, load_plugin_user);
 			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x2E0911AA, unload_plugin_user);
@@ -2454,7 +2540,9 @@ int online_patcher(SceModule2 * module)
 
 		printk("%s: hooking hud drawing and input\n", __func__);
 
-		hook_import_bynid((SceModule *)module, "sceDisplay", 0x289D82FE, setframebuf);
+		if (!gepatch_present){
+			hook_import_bynid((SceModule *)module, "sceDisplay", 0x289D82FE, setframebuf);
+		}
 		hook_import_bynid((SceModule *)module, "sceDisplay", 0x36CDFADE, sceDisplayWaitVblankPatched);
 		hook_import_bynid((SceModule *)module, "sceDisplay", 0x8EB9EC49, sceDisplayWaitVblankCBPatched);
 		hook_import_bynid((SceModule *)module, "sceDisplay", 0x984C27E7, sceDisplayWaitVblankStartPatched);
@@ -3146,3 +3234,4 @@ int module_stop(SceSize args, void * argp)
 	// Return Success
 	return 0;
 }
+
