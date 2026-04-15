@@ -1075,12 +1075,12 @@ void drawSmallFont(CANVAS *canvas, const char *text, int x, int y, u32 fillcolor
 						break;
 
 					case PSP_DISPLAY_PIXEL_FORMAT_565:
-						vram16 = (u16*)canvas->buffer + x + y * canvas->lineWidth;				
-						for(i = 0; i < 7; i++) {
+						vram16 = (u16*)canvas->buffer + x * canvas->scale + y * canvas->lineWidth * canvas->scale;
+						for(i = 0; i < 7 * canvas->scale; i++) {
 							vram16_ptr = vram16;
-							font = small_font[((int)ch) * 7 + i];
-							for (j = 0; j < 7; j++) {
-								switch(font[j]) {
+							font = small_font[((int)ch) * 7 + i / canvas->scale];
+							for (j = 0; j < 7 * canvas->scale; j++) {
+								switch(font[j / canvas->scale]) {
 									case 'x': *vram16_ptr = fillcolor16; break;
 									case '-': *vram16_ptr = BLACK_565; break;
 									case 'R': *vram16_ptr = RED_565; break;
@@ -1172,19 +1172,33 @@ void fillRectangle(CANVAS *canvas, int x, int y, int width, int height, u32 fill
 			case PSP_DISPLAY_PIXEL_FORMAT_5551:
 			case PSP_DISPLAY_PIXEL_FORMAT_4444:
 
-				vram16 = (u16*)canvas->buffer + x + y * canvas->lineWidth;
-				vram16_ptr = vram16;
-				for(i = 0; i < width; i++, vram16_ptr++) *vram16_ptr = border16;
-				vram16 += canvas->lineWidth;
-				for(j = 0; j < (height - 2); j++) {
+				vram16 = (u16*)canvas->buffer + x * canvas->scale + y * canvas->lineWidth * canvas->scale;
+				// top border
+				for (int k = 0;k < canvas->scale;k++){
 					vram16_ptr = vram16;
-					*vram16_ptr = border16; vram16_ptr++;
-					for(i = 0; i < (width - 2); i++, vram16_ptr++) *vram16_ptr = fill16;
-					*vram16_ptr = border16;
+					for(i = 0; i < width * canvas->scale; i++, vram16_ptr++) *vram16_ptr = border16;
 					vram16 += canvas->lineWidth;
 				}
-				vram16_ptr = vram16;
-				for(i = 0; i < width; i++, vram16_ptr++) *vram16_ptr = border16;
+				for(j = 0; j < (height - 2) * canvas->scale; j++) {
+					vram16_ptr = vram16;
+					// left border
+					for(int k = 0;k < canvas->scale;k++){
+						*vram16_ptr = border16; vram16_ptr++;
+					}
+					// fill
+					for(i = 0; i < (width - 2) * canvas->scale; i++, vram16_ptr++) *vram16_ptr = fill16;
+					// right border
+					for(int k = 0;k < canvas->scale;k++){
+						*vram16_ptr = border16; vram16_ptr++;
+					}
+					vram16 += canvas->lineWidth;
+				}
+				// bottom border
+				for (int k = 0;k < canvas->scale;k++){
+					vram16_ptr = vram16;
+					for(i = 0; i < width * canvas->scale; i++, vram16_ptr++) *vram16_ptr = border16;
+					vram16 += canvas->lineWidth;
+				}
 				break;
 		}
 

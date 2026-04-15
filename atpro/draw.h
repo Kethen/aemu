@@ -32,6 +32,7 @@ typedef struct CANVAS {
 	int height;
 	int lineWidth;
 	int pixelFormat;
+	int scale;
 	u32 *buffer;
 } CANVAS;
 
