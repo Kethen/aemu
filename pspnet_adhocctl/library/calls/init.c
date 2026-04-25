@@ -208,6 +208,17 @@ void apctl_disconnect_and_wait_till_disconnected(){
 	printk("%s: returning on state %d\n", __func__, state);
 }
 
+static void sanitize_nickname(SceNetAdhocctlNickname *name){
+	for(int i = 0;i < 4;i++){
+		name->data[ADHOCCTL_NICKNAME_LEN - 1 - i] = 0;
+	}
+}
+
+static void copy_nickname(SceNetAdhocctlNickname *dst, SceNetAdhocctlNickname *src){
+	*dst = *src;
+	sanitize_nickname(dst);
+}
+
 /**
  * Initialize Networking Components for Adhocctl Emulator
  * @param adhoc_id Game Product Code
@@ -349,6 +360,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 		
 		// Read PSP Player Name
 		sceUtilityGetSystemParamString(PSP_SYSTEMPARAM_ID_STRING_NICKNAME, (char *)_parameter.nickname.data, ADHOCCTL_NICKNAME_LEN);
+		sanitize_nickname(&_parameter.nickname);
 		
 		#if 0
 		// Read Adhoc Channel
@@ -375,7 +387,7 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 		packet.mac = _parameter.bssid.mac_addr;
 		
 		// Set Nickname
-		packet.name = _parameter.nickname;
+		copy_nickname(&packet.name, &_parameter.nickname);
 		
 		// Set Game Product ID
 		memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
@@ -732,6 +744,7 @@ int _friendFinder(SceSize args, void * argp)
 					#endif
 					
 					// Add Incoming Chat to HUD
+					sanitize_nickname(&packet->name);
 					addChatLog((char *)packet->name.data, packet->base.message);
 					
 					// Move RX Buffer
@@ -1065,7 +1078,7 @@ void _addFriend(SceNetAdhocctlConnectPacketS2C * packet)
 	if (peer != NULL)
 	{
 		printk("%s: warning, refreshing existing peer %x:%x:%x:%x:%x:%x\n", __func__, packet->mac.data[0], packet->mac.data[1], packet->mac.data[2], packet->mac.data[3], packet->mac.data[4], packet->mac.data[5]);
-		peer->nickname = packet->name;
+		copy_nickname(&peer->nickname, &packet->name);
 		peer->mac_addr = packet->mac;
 		peer->ip_addr = packet->ip;
 		// TODO? we are never really using the last_recv field to timeout.... we just assume that the server on tcp don't miss
@@ -1089,7 +1102,7 @@ void _addFriend(SceNetAdhocctlConnectPacketS2C * packet)
 		peer->next = _friends;
 		
 		// Save Nickname
-		peer->nickname = packet->name;
+		copy_nickname(&peer->nickname, &packet->name);
 		
 		// Save MAC Address
 		peer->mac_addr = packet->mac;

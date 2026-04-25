@@ -3123,6 +3123,9 @@ static void load_nickname_override(){
 		}
 		printk("%s: loaded nickname (%s) from storage\n", __func__, nickname);
 	}
+	for(int i = 0;i < 4;i++){
+		nickname[sizeof(nickname) - 1 - i] = 0;
+	}
 }
 
 // Module Start Event
