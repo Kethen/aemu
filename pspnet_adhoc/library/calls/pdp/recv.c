@@ -131,6 +131,40 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 	return 0;
 }
 
+void get_game_code(char *buf, int len);
+static int would_block_for_invalid_id(){
+	static int cache = -1;
+	if (cache != -1){
+		return cache;
+	}
+
+	char name_buf[20] = {0};
+	get_game_code(name_buf, sizeof(name_buf));
+
+	printk("%s: gamecode is %s\n", __func__, name_buf);
+
+	static const char *gamecodes[] = {
+		// naruto shippunden ultimate ninja heros 3
+		"ULUS10518",
+		"ULES01407",
+		"NPUH90078",
+		"NPEH90038",
+		"ULJS00236",
+		"ULJS19066",
+		"ULKS46229",
+	};
+
+	for(int i = 0;i < sizeof(gamecodes) / sizeof(gamecodes[0]);i++){
+		if (strcmp(gamecodes[i], name_buf) == 0){
+			cache = 1;
+			return 1;
+		}
+	}
+
+	cache = 0;
+	return 0;
+}
+
 /**
  * Adhoc Emulator PDP Receive Call
  * @param id Socket File Descriptor
@@ -287,8 +321,11 @@ int proNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 			// Invalid Argument
 			return ADHOC_INVALID_ARG;
 		}
-		
+
 		// Invalid Socket ID
+		if (would_block_for_invalid_id()){
+			return ADHOC_WOULD_BLOCK;
+		}
 		return ADHOC_INVALID_SOCKET_ID;
 	}
 	
