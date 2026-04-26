@@ -17,6 +17,40 @@
 
 #include "../common.h"
 
+void get_game_code(char *buf, int len);
+static int need_delay(){
+	static int cache = -1;
+	if (cache != -1){
+		return cache;
+	}
+
+	char name_buf[20] = {0};
+	get_game_code(name_buf, sizeof(name_buf));
+
+	printk("%s: gamecode is %s\n", __func__, name_buf);
+
+	static const char *gamecodes[] = {
+		// naruto shippunden ultimate ninja heros 3
+		"ULUS10518",
+		"ULES01407",
+		"NPUH90078",
+		"NPEH90038",
+		"ULJS00236",
+		"ULJS19066",
+		"ULKS46229",
+	};
+
+	for(int i = 0;i < sizeof(gamecodes) / sizeof(gamecodes[0]);i++){
+		if (strcmp(gamecodes[i], name_buf) == 0){
+			cache = 1;
+			return 1;
+		}
+	}
+
+	cache = 0;
+	return 0;
+}
+
 /**
  * Trigger Adhoc Network Scan
  * @return 0 on success or... ADHOCCTL_NOT_INITIALIZED, ADHOCCTL_BUSY
@@ -34,10 +68,14 @@ int proNetAdhocctlScan(void)
 			
 			// Prepare Scan Request Packet
 			uint8_t opcode = OPCODE_SCAN;
-			
+
 			// Send Scan Request Packet
 			sceNetInetSend(_metasocket, &opcode, 1, INET_MSG_DONTWAIT);
-			
+
+			if (need_delay()){
+				sceKernelDelayThread(250000);
+			}
+
 			// Return Success
 			return 0;
 		}

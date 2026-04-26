@@ -17,3 +17,6 @@
 - In Star Wars The Force Unleashed, console should host when cross playing with PPSSPP, due to pspnet_adhoc_matching timing difference.
 - [Games affected by cpu emulation inaccuracy desync on PPSSPP](https://github.com/hrydgard/ppsspp/issues/14361#issuecomment-814940104) will likely not work when cross playing with PPSSPP
 - Dissidia 012 on PSVita has timing issues when qutting from a match and going back to lobby. It'll look normal but it won't be able to find other players most of the time. When that happens, go back to main menu then back to lobby.
+- Naruto Shippunden Ultimate Ninja Heros 3 suffer severe timing issues:
+	- sometimes gives a stuck "connecting ..." pop up in room lobby/room list, can be ignored
+	- gets stuck sometimes during round launching, requires game restart when that happens
