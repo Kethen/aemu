@@ -577,6 +577,40 @@ static int stricmp(const char *lhs, const char *rhs)
 }
 #endif
 
+void get_game_code(char *buf, int len);
+static int need_per_op_slowdown(){
+	static int cache = -1;
+	if (cache != -1){
+		return cache;
+	}
+
+	char name_buf[20] = {0};
+	get_game_code(name_buf, sizeof(name_buf));
+
+	printk("%s: gamecode is %s\n", __func__, name_buf);
+
+	static const char *gamecodes[] = {
+		// naruto shippunden ultimate ninja heros 3
+		"ULUS10518",
+		"ULES01407",
+		"NPUH90078",
+		"NPEH90038",
+		"ULJS00236",
+		"ULJS19066",
+		"ULKS46229",
+	};
+
+	for(int i = 0;i < sizeof(gamecodes) / sizeof(gamecodes[0]);i++){
+		if (strcmp(gamecodes[i], name_buf) == 0){
+			cache = 1;
+			return 1;
+		}
+	}
+
+	cache = 0;
+	return 0;
+}
+
 /**
  * Friend Finder Thread (Receives Peer Information)
  * @param args Length of argp in Bytes (Unused)
@@ -664,9 +698,12 @@ int _friendFinder(SceSize args, void * argp)
 			rxpos += received;
 			
 			// Log Incoming Traffic
-			#ifdef DEBUG
 			printk("Received %d Bytes of Data from Server\n", received);
-			#endif
+
+			// holy mother of timing issues need to yield here for some games
+			if (need_per_op_slowdown()){
+				sceKernelDelayThread(2000);
+			}
 		}
 		
 		// Handle Packets
