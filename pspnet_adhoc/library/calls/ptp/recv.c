@@ -21,11 +21,6 @@ static int ptp_recv_postoffice(int idx, void *data, int *len, uint32_t timeout, 
 	uint64_t begin = sceKernelGetSystemTimeWide();
 	uint64_t end = begin + timeout;
 
-	if (*len > AEMU_POSTOFFICE_PTP_BLOCK_MAX){
-		// okay what's with the giant buffers in games
-		*len = AEMU_POSTOFFICE_PTP_BLOCK_MAX;
-	}
-
 	// don't emit connect event again now the game has used the socket
 	_sockets[idx]->ptp_ext.connect_event_fired = true;
 
@@ -54,10 +49,6 @@ static int ptp_recv_postoffice(int idx, void *data, int *len, uint32_t timeout, 
 		}
 		if (recv_status == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
 			return ADHOC_DISCONNECTED;
-		}
-		if (recv_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY){
-			// critical
-			printk("%s: critical: client buffer way too big, %d, please debug this\n", __func__, *len);
 		}
 		break;
 	}

@@ -49,11 +49,6 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 	uint64_t begin = sceKernelGetSystemTimeWide();
 	uint64_t end = begin + timeout;
 
-	if (*len > AEMU_POSTOFFICE_PDP_BLOCK_MAX){
-		// okay what's with the giant buffers in games
-		*len = AEMU_POSTOFFICE_PDP_BLOCK_MAX;
-	}
-
 	int sport_cpy = 0;
 	int len_cpy = 0;
 	int pdp_recv_status = 0;
@@ -86,7 +81,15 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 		}
 
 		// we are about to perform recv, do a size check now
-		int next_size = pdp_peek_next_size_postoffice(idx);
+		int next_size = pdp_peek_next_size(pdp_sock);
+		if (next_size == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
+			// let recovery logic handle this
+			pdp_delete(pdp_sock);
+			_sockets[idx]->postoffice_handle = NULL;
+			sceKernelDelayThread(100);
+			continue;
+		}
+
 		if (next_size > *len){
 			*len = next_size;
 			return ADHOC_NOT_ENOUGH_SPACE;
@@ -119,11 +122,6 @@ static int pdp_recv_postoffice(int idx, SceNetEtherAddr *saddr, uint16_t *sport,
 		// this should not happen anymore
 		printk("%s: please debug this, we did a size check before recv, then we ran out of buffer space\n", __func__);
 		return ADHOC_NOT_ENOUGH_SPACE;
-	}
-	if (pdp_recv_status == AEMU_POSTOFFICE_CLIENT_OUT_OF_MEMORY){
-		// this is critical
-		printk("%s: critical: huge client buf %d what is going on please fix\n", __func__, *len);
-		len_cpy = 0;
 	}
 
 	*len = len_cpy;

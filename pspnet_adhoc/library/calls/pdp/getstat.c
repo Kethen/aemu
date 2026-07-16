@@ -17,23 +17,23 @@
 
 #include "../../common.h"
 
-int pdp_peek_next_size_postoffice(int idx){
+int pdp_buffered_data_size_postoffice(int idx){
 	void *handle = pdp_postoffice_recover(idx);
 
 	if (handle == NULL){
 		return 0;
 	}
 
-	int next_size = pdp_peek_next_size(handle);
-	if (next_size == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
-		// let next send/recv figure this out
+	int buffered_size = pdp_buffered_data_size(handle);
+	if (buffered_size == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
+		// let next recovery figure this out
+		// WARNING: this assumes the game is not going to try and get stat and send/recv at the same time
+		pdp_delete(handle);
+		_sockets[idx]->postoffice_handle = NULL;
 		return 0;
 	}
 
-	if (next_size < 0){
-		return 0;
-	}
-	return next_size;
+	return buffered_size;
 }
 
 /**
@@ -91,7 +91,7 @@ int proNetAdhocGetPdpStat(int * buflen, SceNetAdhocPdpStat * buf)
 					// Peek udp size, as PPSSPP does in https://github.com/hrydgard/ppsspp/commit/4881f4f0bd0110af5cceeba8dc70f90d0e8d0978
 					int udp_size = -1;
 					if (_postoffice){
-						udp_size = pdp_peek_next_size_postoffice(j);
+						udp_size = pdp_buffered_data_size_postoffice(j);
 					}else{
 						// we don't care about the content in here, we should not need malloc... I hope
 						static uint8_t peek_buf[10 * 1024];
