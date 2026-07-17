@@ -15,6 +15,9 @@
  * along with PRO ONLINE. If not, see <http://www.gnu.org/licenses/ .
  */
 
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <malloc.h>
 #include <string.h>
 #include <user.h>

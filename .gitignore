@@ -2,3 +2,4 @@
 *.prx
 *.o
 dist_660*/
+dist/

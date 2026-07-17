@@ -1529,72 +1529,182 @@ void patch_netconf_utility(void * init, void * getstatus, void * update, void * 
 	}
 }
 
-static void draw_hud()
-{
-	// Increase Frame Counter
-	//framecount++;
+static unsigned int hud_draw_count = 0;
 
-	// Ready to Paint State
-	if(wait == 0 && displayCanvas.buffer != NULL)
-	{
-		// Lock State
-		wait = 1;
-		
-		// Get Canvas Information
-		int mode = 0; sceDisplayGetMode(&mode, &(displayCanvas.width), &(displayCanvas.height));
-		
-		// HUD Painting Required
-		if(hud_on) drawInfo(&displayCanvas);
-		
-		// Notification Painting Required
-		else drawNotification(&displayCanvas);
-		
-		// Unlock State
-		wait = 0;
-	}
+static void draw_hud(void)
+{
+    int mode;
+    int width;
+    int height;
+
+    if (wait != 0 || displayCanvas.buffer == NULL)
+        return;
+
+    wait = 1;
+
+    mode = 0;
+    width = 0;
+    height = 0;
+
+    if (sceDisplayGetMode(&mode, &width, &height) >= 0)
+    {
+        displayCanvas.width = width;
+        displayCanvas.height = height;
+
+        if (hud_on)
+            drawInfo(&displayCanvas);
+        else
+            drawNotification(&displayCanvas);
+    }
+
+    wait = 0;
+}
+int sceDisplayWaitVblankPatched(void)
+{
+    int result = sceDisplayWaitVblank();
+
+    draw_hud();
+
+    return result;
 }
 
-int sceDisplayWaitVblankPatched()
+int sceDisplayWaitVblankCBPatched(void)
 {
-	draw_hud();
-	return sceDisplayWaitVblank();
+    int result = sceDisplayWaitVblankCB();
+
+    draw_hud();
+
+    return result;
 }
 
-int sceDisplayWaitVblankCBPatched()
+int sceDisplayWaitVblankStartPatched(void)
 {
-	draw_hud();
-	return sceDisplayWaitVblankCB();
+    int result = sceDisplayWaitVblankStart();
+
+    draw_hud();
+
+    return result;
 }
 
-int sceDisplayWaitVblankStartPatched()
+int sceDisplayWaitVblankStartCBPatched(void)
 {
-	draw_hud();
-	return sceDisplayWaitVblankStart();
-}
+    int result = sceDisplayWaitVblankStartCB();
 
-int sceDisplayWaitVblankStartCBPatched()
-{
-	draw_hud();
-	return sceDisplayWaitVblankStartCB();
+    draw_hud();
+
+    return result;
 }
 
 static int gepatch_present = 0;
+typedef int (*SceDisplaySetFrameBufFn)(
+    void *topaddr,
+    int bufferwidth,
+    int pixelformat,
+    int sync
+);
+
+static SceDisplaySetFrameBufFn real_setframebuf = NULL;
+static int display_syscall_hooked = 0;
 
 // Framebuffer Setter
-int setframebuf(void *topaddr, int bufferwidth, int pixelformat, int sync)
+int setframebuf(
+    const void *topaddr,
+    int bufferwidth,
+    int pixelformat,
+    int sync
+)
 {
-	// Update Canvas Information
-	displayCanvas.buffer = topaddr;
-	displayCanvas.lineWidth = bufferwidth;
-	displayCanvas.pixelFormat = pixelformat;
-	displayCanvas.scale = 1;
+    int result = sceDisplaySetFrameBuf(
+        topaddr,
+        bufferwidth,
+        pixelformat,
+        sync
+    );
 
-	draw_hud();
+    if (result < 0)
+        return result;
 
-	return sceDisplaySetFrameBuf(topaddr, bufferwidth, pixelformat, sync);
+    if (
+        topaddr != NULL &&
+        bufferwidth >= 480 &&
+        bufferwidth <= 2048 &&
+        (
+            pixelformat == PSP_DISPLAY_PIXEL_FORMAT_565  ||
+            pixelformat == PSP_DISPLAY_PIXEL_FORMAT_5551 ||
+            pixelformat == PSP_DISPLAY_PIXEL_FORMAT_4444 ||
+            pixelformat == PSP_DISPLAY_PIXEL_FORMAT_8888
+        )
+    )
+    {
+        displayCanvas.buffer = (void *)topaddr;
+        displayCanvas.lineWidth = bufferwidth;
+        displayCanvas.pixelFormat = pixelformat;
+        displayCanvas.scale = 1;
+    }
+
+    /*
+     * Do not call draw_hud() here.
+     *
+     * Some games call sceDisplaySetFrameBuf from rendering threads or
+     * switch buffers several times per frame. Drawing here can corrupt
+     * the pending framebuffer or deadlock when the PRO Online HUD opens.
+     */
+
+    return result;
 }
+static int install_system_display_hook(void)
+{
+    if (display_syscall_hooked) {
+        return 0;
+    }
 
+    /*
+     * Obtain the original kernel-resolved display function.
+     *
+     * Depending on the CFW, the library may be exposed as either
+     * sceDisplay or sceDisplay_driver.
+     */
+    real_setframebuf = (SceDisplaySetFrameBufFn)sctrlHENFindFunction(
+        "sceDisplay_Service",
+        "sceDisplay",
+        0x289D82FE
+    );
 
+    if (real_setframebuf == NULL) {
+        real_setframebuf = (SceDisplaySetFrameBufFn)sctrlHENFindFunction(
+            "sceDisplay_Service",
+            "sceDisplay_driver",
+            0x289D82FE
+        );
+    }
+
+    if (real_setframebuf == NULL) {
+        printk("%s: sceDisplaySetFrameBuf not found\n", __func__);
+        return -1;
+    }
+
+    /*
+     * Replace all user-mode syscall references to the original function.
+     * This is broader than patching one game's import table.
+     */
+    sctrlHENPatchSyscall(
+        (void *)real_setframebuf,
+        (void *)setframebuf
+    );
+
+    sceKernelDcacheWritebackAll();
+    sceKernelIcacheClearAll();
+
+    display_syscall_hooked = 1;
+
+    printk(
+        "%s: installed global sceDisplaySetFrameBuf hook, original=%p\n",
+        __func__,
+        real_setframebuf
+    );
+
+    return 0;
+}
 
 // Read Positive Null & Passthrough Hook
 int read_buffer_positive(SceCtrlData * pad_data, int count)
@@ -1986,10 +2096,10 @@ static void memlayout_hack(){
 		return;
 	}
 
-	SysMemPartition *(*get_partition)() = NULL;
+	SysMemPartition *(*get_partition)(int partition_id) = NULL;
 	for (u32 addr = 0x88000000;addr < 0x4000 + 0x88000000;addr+=4){
 		if (_lw(addr) == 0x2C85000D){
-		    get_partition = (SysMemPartition *(*)())(addr-4);
+		    get_partition = (SysMemPartition *(*)(int))(addr - 4);
 		    break;
 		}
 	}
@@ -2424,148 +2534,615 @@ int ge_list_enqueue(const void *list, void *stall, int cbid, PspGeListArgs *arg)
 
 	return ge_list_enqueue_orig(list, stall, cbid, arg);
 }
-
-// Online Module Start Patcher
-int online_patcher(SceModule2 * module)
+static void patch_hud_imports(SceModule2 *module)
 {
-	// Try to do this before stargate
+    if (module == NULL) {
+        return;
+    }
+
+    /* Kernel modules have the high address bit set. */
+    if ((module->text_addr & 0x80000000) != 0) {
+        return;
+    }
+
+    /* Do not patch the plugin itself. Adjust this name if your PRX differs. */
+    if (strcmp(module->modname, "atpro") == 0) {
+        return;
+    }
+
+    printk(
+        "%s: patching module %s at 0x%08X\n",
+        __func__,
+        module->modname,
+        module->text_addr
+    );
+
+    if (!gepatch_present) {
+        hook_import_bynid(
+            (SceModule *)module,
+            "sceDisplay",
+            0x289D82FE,
+            setframebuf
+        );
+    }
+
+    hook_import_bynid(
+        (SceModule *)module,
+        "sceDisplay",
+        0x36CDFADE,
+        sceDisplayWaitVblankPatched
+    );
+
+    hook_import_bynid(
+        (SceModule *)module,
+        "sceDisplay",
+        0x8EB9EC49,
+        sceDisplayWaitVblankCBPatched
+    );
+
+    hook_import_bynid(
+        (SceModule *)module,
+        "sceDisplay",
+        0x984C27E7,
+        sceDisplayWaitVblankStartPatched
+    );
+
+    hook_import_bynid(
+        (SceModule *)module,
+        "sceDisplay",
+        0x46F186C3,
+        sceDisplayWaitVblankStartCBPatched
+    );
+
+    hook_import_bynid(
+        (SceModule *)module,
+        "sceCtrl",
+        0x1F803938,
+        read_buffer_positive
+    );
+
+    hook_import_bynid(
+        (SceModule *)module,
+        "sceCtrl",
+        0x3A622550,
+        peek_buffer_positive
+    );
+
+    hook_import_bynid(
+        (SceModule *)module,
+        "sceCtrl",
+        0x60B81F86,
+        read_buffer_negative
+    );
+
+    hook_import_bynid(
+        (SceModule *)module,
+        "sceCtrl",
+        0xC152080A,
+        peek_buffer_negative
+    );
+}
+
+/*
+ * Games do not always load the Sony adhoc modules from their main executable.
+ * Some use a later game PRX, so limiting these hooks to the guessed main
+ * module lets the original flash0 adhoc stack slip past the plugin.
+ *
+ * Keep this separate from the HUD hooks: display/controller hooks are more
+ * invasive and have caused some secondary modules to fail during startup.
+ */
+static void patch_module_loader_imports(SceModule2 *module)
+{
+	if (module == NULL || (module->text_addr & 0x80000000) != 0)
+	{
+		return;
+	}
+
+	hook_import_bynid(
+		(SceModule *)module,
+		"ModuleMgrForUser",
+		0x977DE386,
+		load_plugin_user
+	);
+	hook_import_bynid(
+		(SceModule *)module,
+		"ModuleMgrForUser",
+		0x2E0911AA,
+		unload_plugin_user
+	);
+	hook_import_bynid(
+		(SceModule *)module,
+		"ModuleMgrForUser",
+		0x50F0C1EC,
+		start_plugin_user
+	);
+	hook_import_bynid(
+		(SceModule *)module,
+		"ModuleMgrForUser",
+		0xD1FF982A,
+		stop_plugin_user
+	);
+	hook_import_bynid(
+		(SceModule *)module,
+		"IoFileMgrForUser",
+		0x109F50BC,
+		open_file
+	);
+	hook_import_bynid(
+		(SceModule *)module,
+		"IoFileMgrForUser",
+		0x810C4BC3,
+		close_file
+	);
+	hook_import_bynid(
+		(SceModule *)module,
+		"ModuleMgrForUser",
+		0xB7F46618,
+		load_module_by_id
+	);
+
+	/*
+	 * Some games ask sceUtility to load the whole network stack instead of
+	 * loading individual PRXs. These hooks are required on slim models too;
+	 * otherwise sceUtility silently installs Sony's original adhoc modules.
+	 */
+	hook_import_bynid(
+		(SceModule *)module,
+		"sceUtility",
+		0x2A2B3DE0,
+		utility_load_module
+	);
+	hook_import_bynid(
+		(SceModule *)module,
+		"sceUtility",
+		0xE49BFE92,
+		utility_unload_module
+	);
+	hook_import_bynid(
+		(SceModule *)module,
+		"sceUtility",
+		0x1579A159,
+		utility_load_netmodule
+	);
+	hook_import_bynid(
+		(SceModule *)module,
+		"sceUtility",
+		0x64D50C56,
+		utility_unload_netmodule
+	);
+}
+// Online Module Start Patcher
+int online_patcher(SceModule2 *module)
+{
+	/* Try to do this before stargate. */
 	int sysctrl_patcher_result = sysctrl_patcher(module);
 
-	printk("%s: module start %s text_addr 0x%x\n", __func__, module->modname, module->text_addr);
-
-	static SceModule2 * game_module;
-
-	if (module->text_addr > 0x08800000 && module->text_addr < 0x08900000 && strcmp("opnssmp", module->modname) != 0)
+	if (module == NULL)
 	{
-		// Very likely the game itself
-		printk("%s: guessing this is the game, %s text_addr 0x%x\n", __func__, module->modname, module->text_addr);
+		return sysctrl_patcher_result;
+	}
+
+	printk(
+		"%s: module start %s text_addr 0x%x\n",
+		__func__,
+		module->modname,
+		module->text_addr
+	);
+
+	if (onlinemode && (module->text_addr & 0x80000000) == 0)
+	{
+		patch_module_loader_imports(module);
+	}
+
+	/* HUD hooks stay on the guessed game executable for compatibility. */
+	static SceModule2 *game_module;
+
+	if (
+		module->text_addr > 0x08800000 &&
+		module->text_addr < 0x08900000 &&
+		strcmp("opnssmp", module->modname) != 0
+	)
+	{
+		/* Very likely the game itself. */
+		printk(
+			"%s: guessing this is the game, %s text_addr 0x%x\n",
+			__func__,
+			module->modname,
+			module->text_addr
+		);
 
 		game_module = module;
 
+		patch_hud_imports(module);
+
 		if (onlinemode)
 		{
-			printk("%s: hooking module load/unload by the game and reserving memory\n", __func__);
+			printk(
+				"%s: hooking module load/unload by the game and reserving memory\n",
+				__func__
+			);
 
 			protect_gepatch_memory();
 
-			//early_memory_stealing();
-			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x977DE386, load_plugin_user);
-			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x2E0911AA, unload_plugin_user);
-			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x50F0C1EC, start_plugin_user);
-			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0xD1FF982A, stop_plugin_user);
-			hook_import_bynid((SceModule *)module, "IoFileMgrForUser", 0x109F50BC, open_file);
-			hook_import_bynid((SceModule *)module, "IoFileMgrForUser", 0x810C4BC3, close_file);
-			hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0xB7F46618, load_module_by_id);
-			#if 0 // not all games are happy with these hooks, only enable them for testing
-			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0x237DBD4F, alloc_partition_memory);
-			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0xB6D61D02, free_partition_memory);
-			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0xFE707FDF, alloc_memory_block);
-			hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0x50F61D8A, free_memory_block);
-			hook_import_bynid((SceModule *)module, "ThreadManForUser", 0x446D8DE6, create_thread);
-			#endif
+			/* early_memory_stealing(); */
 
-			// unify this to fat
-			// actually don't do that, God Eater 2 disables multiplayer on PSP1000
-			// https://github.com/Kethen/aemu/issues/4#issuecomment-3976676474
-			#if FAKE_FAT
-			hook_import_bynid((SceModule *)module, "scePower", 0xA85880D0, is_non_fat);
-			#endif
+#if 0
+			/*
+			 * Not all games are happy with these hooks.
+			 * Only enable them for testing.
+			 */
+			hook_import_bynid(
+				(SceModule *)module,
+				"SysMemUserForUser",
+				0x237DBD4F,
+				alloc_partition_memory
+			);
 
-			if (should_fake_clocks()){
-				// fake clock setting and report, some games (at least flatout headon) sets a clock, then busy wait until it is applied
-				// some games however benefits from cfw locked clocks, for example gran turismo gets to run at 60 fps, if we don't let the game set clock to 222
-				hook_import_bynid((SceModule *)module, "scePower", 0x737486F2, set_clock_frequency);
-				hook_import_bynid((SceModule *)module, "scePower", 0xEBD177D6, set_clock_frequency);
-				hook_import_bynid((SceModule *)module, "scePower", 0x469989AD, set_clock_frequency);
-				hook_import_bynid((SceModule *)module, "scePower", 0x843FBF43, set_cpu_clock_frequency);
-				hook_import_bynid((SceModule *)module, "scePower", 0xB8D7B3FB, set_bus_clock_frequency);
-				hook_import_bynid((SceModule *)module, "scePower", 0x34F9C463, get_pll_clock_frequency_int);
-				hook_import_bynid((SceModule *)module, "scePower", 0xFEE03A2F, get_cpu_clock_frequency_int);
-				hook_import_bynid((SceModule *)module, "scePower", 0xFDB5BFE9, get_cpu_clock_frequency_int);
-				hook_import_bynid((SceModule *)module, "scePower", 0x478FE6F5, get_bus_clock_frequency_int);
-				hook_import_bynid((SceModule *)module, "scePower", 0xBD681969, get_bus_clock_frequency_int);
-				hook_import_bynid((SceModule *)module, "scePower", 0xEA382A27, get_pll_clock_frequency_float);
-				hook_import_bynid((SceModule *)module, "scePower", 0xB1A52C83, get_cpu_clock_frequency_float);
-				hook_import_bynid((SceModule *)module, "scePower", 0x9BADB3EB, get_bus_clock_frequency_float);
+			hook_import_bynid(
+				(SceModule *)module,
+				"SysMemUserForUser",
+				0xB6D61D02,
+				free_partition_memory
+			);
+
+			hook_import_bynid(
+				(SceModule *)module,
+				"SysMemUserForUser",
+				0xFE707FDF,
+				alloc_memory_block
+			);
+
+			hook_import_bynid(
+				(SceModule *)module,
+				"SysMemUserForUser",
+				0x50F61D8A,
+				free_memory_block
+			);
+
+			hook_import_bynid(
+				(SceModule *)module,
+				"ThreadManForUser",
+				0x446D8DE6,
+				create_thread
+			);
+#endif
+
+			/*
+			 * Unify this to fat.
+			 *
+			 * Actually do not do that. God Eater 2 disables multiplayer
+			 * on PSP-1000.
+			 *
+			 * https://github.com/Kethen/aemu/issues/4#issuecomment-3976676474
+			 */
+#if FAKE_FAT
+			hook_import_bynid(
+				(SceModule *)module,
+				"scePower",
+				0xA85880D0,
+				is_non_fat
+			);
+#endif
+
+			if (should_fake_clocks())
+			{
+				/*
+				 * Fake clock setting and reporting.
+				 *
+				 * Some games, including FlatOut: Head On, set a clock
+				 * and then busy-wait until it is applied.
+				 *
+				 * Some games benefit from CFW-locked clocks. For example,
+				 * Gran Turismo can run at 60 FPS if the game is not allowed
+				 * to reduce the clock to 222 MHz.
+				 */
+				hook_import_bynid(
+					(SceModule *)module,
+					"scePower",
+					0x737486F2,
+					set_clock_frequency
+				);
+
+				hook_import_bynid(
+					(SceModule *)module,
+					"scePower",
+					0xEBD177D6,
+					set_clock_frequency
+				);
+
+				hook_import_bynid(
+					(SceModule *)module,
+					"scePower",
+					0x469989AD,
+					set_clock_frequency
+				);
+
+				hook_import_bynid(
+					(SceModule *)module,
+					"scePower",
+					0x843FBF43,
+					set_cpu_clock_frequency
+				);
+
+				hook_import_bynid(
+					(SceModule *)module,
+					"scePower",
+					0xB8D7B3FB,
+					set_bus_clock_frequency
+				);
+
+				hook_import_bynid(
+					(SceModule *)module,
+					"scePower",
+					0x34F9C463,
+					get_pll_clock_frequency_int
+				);
+
+				hook_import_bynid(
+					(SceModule *)module,
+					"scePower",
+					0xFEE03A2F,
+					get_cpu_clock_frequency_int
+				);
+
+				hook_import_bynid(
+					(SceModule *)module,
+					"scePower",
+					0xFDB5BFE9,
+					get_cpu_clock_frequency_int
+				);
+
+				hook_import_bynid(
+					(SceModule *)module,
+					"scePower",
+					0x478FE6F5,
+					get_bus_clock_frequency_int
+				);
+
+				hook_import_bynid(
+					(SceModule *)module,
+					"scePower",
+					0xBD681969,
+					get_bus_clock_frequency_int
+				);
+
+				hook_import_bynid(
+					(SceModule *)module,
+					"scePower",
+					0xEA382A27,
+					get_pll_clock_frequency_float
+				);
+
+				hook_import_bynid(
+					(SceModule *)module,
+					"scePower",
+					0xB1A52C83,
+					get_cpu_clock_frequency_float
+				);
+
+				hook_import_bynid(
+					(SceModule *)module,
+					"scePower",
+					0x9BADB3EB,
+					get_bus_clock_frequency_float
+				);
 			}
 
-			if (partition_to_use() == 5){
-				// when we are on p5, we want to save as much p2 as possible
-				hook_import_bynid((SceModule *)module, "sceUtility", 0x2A2B3DE0, utility_load_module);
-				hook_import_bynid((SceModule *)module, "sceUtility", 0xE49BFE92, utility_unload_module);
-				hook_import_bynid((SceModule *)module, "sceUtility", 0x1579a159, utility_load_netmodule);
-				hook_import_bynid((SceModule *)module, "sceUtility", 0x64d50c56, utility_unload_netmodule);
+			if (partition_to_use() == 5)
+			{
+				/*
+				 * When using partition 5, save as much partition 2
+				 * memory as possible.
+				 */
+				/* Skip simple dialogs to fix some games. */
+				hook_import_bynid(
+					(SceModule *)module,
+					"sceUtility",
+					0x2AD8E239,
+					utility_msg_dialog_init_start
+				);
 
-				// we also want to skip simple dialogs to fix some games
-				hook_import_bynid((SceModule *)module, "sceUtility", 0x2AD8E239, utility_msg_dialog_init_start);
-				hook_import_bynid((SceModule *)module, "sceUtility", 0x95FC253B, utility_msg_dialog_update);
-				hook_import_bynid((SceModule *)module, "sceUtility", 0x9A1C91D7, utility_msg_dialog_get_status);
-				hook_import_bynid((SceModule *)module, "sceUtility", 0x67AF3428, utility_msg_dialog_shutdown_start);
+				hook_import_bynid(
+					(SceModule *)module,
+					"sceUtility",
+					0x95FC253B,
+					utility_msg_dialog_update
+				);
+
+				hook_import_bynid(
+					(SceModule *)module,
+					"sceUtility",
+					0x9A1C91D7,
+					utility_msg_dialog_get_status
+				);
+
+				hook_import_bynid(
+					(SceModule *)module,
+					"sceUtility",
+					0x67AF3428,
+					utility_msg_dialog_shutdown_start
+				);
 
 				char id_buf[20] = {0};
 				get_game_code(id_buf, sizeof(id_buf));
 
-				printk("%s: disc id %s struct location 0x%x\n", __func__, id_buf, SysMemGameCodeGetter());
+				printk(
+					"%s: disc id %s struct location 0x%x\n",
+					__func__,
+					id_buf,
+					SysMemGameCodeGetter()
+				);
 
-				for (int i = 0;i < sizeof(p5_patches) / sizeof(p5_patches[0]);i++){
-					if (strcmp(id_buf, p5_patches[i].disc_id) == 0){
-						printk("%s: applying p5 patch [%s] for [%s]\n", __func__, p5_patches[i].patch_name, id_buf);
-						if (p5_patches[i].custom_patcher != NULL){
+				for (
+					int i = 0;
+					i < sizeof(p5_patches) / sizeof(p5_patches[0]);
+					i++
+				)
+				{
+					if (strcmp(id_buf, p5_patches[i].disc_id) == 0)
+					{
+						printk(
+							"%s: applying p5 patch [%s] for [%s]\n",
+							__func__,
+							p5_patches[i].patch_name,
+							id_buf
+						);
+
+						if (p5_patches[i].custom_patcher != NULL)
+						{
 							p5_patches[i].custom_patcher();
-						}else{
-							memcpy(p5_patches[i].location, p5_patches[i].patch_content, p5_patches[i].patch_size);
+						}
+						else
+						{
+							memcpy(
+								p5_patches[i].location,
+								p5_patches[i].patch_content,
+								p5_patches[i].patch_size
+							);
 						}
 					}
 				}
-				// flush dcache after patching, in case the game runs that code immediately
+
+				/*
+				 * Flush dcache after patching in case the game executes
+				 * the patched code immediately.
+				 */
 				sceKernelDcacheWritebackAll();
 			}
 
-			if (netconf_override == NULL){
-				// allocate memory for netconf
-				//netconf_override = allocate_partition_memory(sizeof(allocate_partition_memory));
-				//netconf_adhoc_override = allocate_partition_memory(sizeof(struct pspUtilityNetconfAdhoc));
+			if (netconf_override == NULL)
+			{
+				/*
+				 * Allocate memory for netconf.
+				 *
+				 * netconf_override =
+				 *     allocate_partition_memory(
+				 *         sizeof(allocate_partition_memory)
+				 *     );
+				 *
+				 * netconf_adhoc_override =
+				 *     allocate_partition_memory(
+				 *         sizeof(struct pspUtilityNetconfAdhoc)
+				 *     );
+				 */
 				netconf_override = allocate_partition_memory(128);
-				netconf_adhoc_override = (void *)(((uint32_t)netconf_override) + 72);
+
+				netconf_adhoc_override =
+					(void *)(((uint32_t)netconf_override) + 72);
 			}
 
-			if (thread_px_stack_opt == NULL){
-				// allocate memory for p5 thread create
-				thread_px_stack_opt = allocate_partition_memory(sizeof(struct SceKernelThreadOptParam));
-				thread_px_stack_opt->size = sizeof(struct SceKernelThreadOptParam);
+			if (thread_px_stack_opt == NULL)
+			{
+				/* Allocate memory for the partition-5 thread option. */
+				thread_px_stack_opt = allocate_partition_memory(
+					sizeof(struct SceKernelThreadOptParam)
+				);
+
+				thread_px_stack_opt->size =
+					sizeof(struct SceKernelThreadOptParam);
+
 				thread_px_stack_opt->stackMpid = partition_to_use();
 			}
 
-			if (strcmp(module->modname, "MonsterHunterPortable3rd") == 0){
-				//{.module_name = "mhp3patch", .library_name = "mhp3kernel", .nid = 0x45ACEAF2}, // codestation's monster hunter patch loader
-				for (int i = 0;i < sizeof(known_open_funcs) / sizeof(known_open_funcs[0]);i++){
-					if (strcmp(known_open_funcs[i].module_name, "mhp3patch") == 0){
+			if (
+				strcmp(
+					module->modname,
+					"MonsterHunterPortable3rd"
+				) == 0
+			)
+			{
+				/*
+				 * Codestation's Monster Hunter patch loader.
+				 * Module: mhp3patch
+				 * Library: mhp3kernel
+				 * Open NID: 0x45ACEAF2
+				 */
+				for (
+					int i = 0;
+					i < sizeof(known_open_funcs) /
+						sizeof(known_open_funcs[0]);
+					i++
+				)
+				{
+					if (
+						strcmp(
+							known_open_funcs[i].module_name,
+							"mhp3patch"
+						) == 0
+					)
+					{
 						known_open_funcs[i].nid = 0x45ACEAF2;
 						break;
 					}
 				}
 
-				//{.module_name = "mhp3patch", .library_name = "mhp3kernel", .nid = 0x35FFD283}, // codestation's monster hunter patch loader
-				for (int i = 0;i < sizeof(known_close_funcs) / sizeof(known_close_funcs[0]);i++){
-					if (strcmp(known_close_funcs[i].module_name, "mhp3patch") == 0){
+				/*
+				 * Close NID: 0x35FFD283
+				 */
+				for (
+					int i = 0;
+					i < sizeof(known_close_funcs) /
+						sizeof(known_close_funcs[0]);
+					i++
+				)
+				{
+					if (
+						strcmp(
+							known_close_funcs[i].module_name,
+							"mhp3patch"
+						) == 0
+					)
+					{
 						known_close_funcs[i].nid = 0x35FFD283;
 						break;
 					}
 				}
 			}
 
-			if (strcmp(module->modname, "PdvApp") == 0){
-				//{.module_name = "divapatch", .library_name = "divakernel", .nid = 0xDA93ACA2}, // codestation's diva patch loader
-				for (int i = 0;i < sizeof(known_open_funcs) / sizeof(known_open_funcs[0]);i++){
-					if (strcmp(known_open_funcs[i].module_name, "divapatch") == 0){
+			if (strcmp(module->modname, "PdvApp") == 0)
+			{
+				/*
+				 * Codestation's Diva patch loader.
+				 * Module: divapatch
+				 * Library: divakernel
+				 * Open NID: 0xDA93ACA2
+				 */
+				for (
+					int i = 0;
+					i < sizeof(known_open_funcs) /
+						sizeof(known_open_funcs[0]);
+					i++
+				)
+				{
+					if (
+						strcmp(
+							known_open_funcs[i].module_name,
+							"divapatch"
+						) == 0
+					)
+					{
 						known_open_funcs[i].nid = 0xDA93ACA2;
 						break;
 					}
 				}
 
-				//{.module_name = "divapatch", .library_name = "divakernel", .nid = 0xCAC4B65D}, // codestation's diva patch loader
-				for (int i = 0;i < sizeof(known_close_funcs) / sizeof(known_close_funcs[0]);i++){
-					if (strcmp(known_close_funcs[i].module_name, "divapatch") == 0){
+				/*
+				 * Close NID: 0xCAC4B65D
+				 */
+				for (
+					int i = 0;
+					i < sizeof(known_close_funcs) /
+						sizeof(known_close_funcs[0]);
+					i++
+				)
+				{
+					if (
+						strcmp(
+							known_close_funcs[i].module_name,
+							"divapatch"
+						) == 0
+					)
+					{
 						known_close_funcs[i].nid = 0xCAC4B65D;
 						break;
 					}
@@ -2575,220 +3152,401 @@ int online_patcher(SceModule2 * module)
 
 		log_memory_info();
 
-		printk("%s: hooking hud drawing and input\n", __func__);
+		/*
+		 * patch_hud_imports() already installed the normal sceDisplay
+		 * and sceCtrl hooks. Only install the GePatch-specific hook here.
+		 */
+		if (gepatch_present)
+		{
+			/*
+			 * GePatch bypasses the normal PSP display buffer and performs
+			 * its own enlarged framebuffer copy.
+			 */
+			if (ge_list_enqueue_orig == NULL)
+			{
+				printk(
+					"%s: installing GePatch HUD drawing hook\n",
+					__func__
+				);
 
-		if (!gepatch_present){
-			hook_import_bynid((SceModule *)module, "sceDisplay", 0x289D82FE, setframebuf);
-		}else{
-			// jack sceGeListEnQueue to hook gepatch copyFrameBuffer, none of the functions were exported there...
-			HIJACK_FUNCTION(GET_JUMP_TARGET(*(uint32_t*)sceGeListEnQueue), ge_list_enqueue, ge_list_enqueue_orig);
+				HIJACK_FUNCTION(
+					GET_JUMP_TARGET(*(uint32_t *)sceGeListEnQueue),
+					ge_list_enqueue,
+					ge_list_enqueue_orig
+				);
+			}
 		}
-		hook_import_bynid((SceModule *)module, "sceDisplay", 0x36CDFADE, sceDisplayWaitVblankPatched);
-		hook_import_bynid((SceModule *)module, "sceDisplay", 0x8EB9EC49, sceDisplayWaitVblankCBPatched);
-		hook_import_bynid((SceModule *)module, "sceDisplay", 0x984C27E7, sceDisplayWaitVblankStartPatched);
-		hook_import_bynid((SceModule *)module, "sceDisplay", 0x46F186C3, sceDisplayWaitVblankStartCBPatched);
-
-		hook_import_bynid((SceModule *)module, "sceCtrl", 0x1F803938, read_buffer_positive);
-		hook_import_bynid((SceModule *)module, "sceCtrl", 0x3A622550, peek_buffer_positive);
-		hook_import_bynid((SceModule *)module, "sceCtrl", 0x60B81F86, read_buffer_negative);
-		hook_import_bynid((SceModule *)module, "sceCtrl", 0xC152080A, peek_buffer_negative);
 	}
 
-	// Userspace Module
-	if((module->text_addr & 0x80000000) == 0)
+	/* Userspace module. */
+	if ((module->text_addr & 0x80000000) == 0)
 	{
 		if (game_begin == 0)
 		{
 			game_begin = sceKernelGetSystemTimeWide();
 		}
 
-		// Might be Untold Legends - Brotherhood of the Blade...
-		if(strcmp(module->modname, "etest") == 0)
+		/* Might be Untold Legends: Brotherhood of the Blade. */
+		if (strcmp(module->modname, "etest") == 0)
 		{
-			// Offsets
 			uint32_t loader = 0;
 			uint32_t unloader = 0;
-			
-			// European Version
-			if(strcmp(getGameCode(), "ULES00046") == 0)
+
+			/* European version. */
+			if (strcmp(getGameCode(), "ULES00046") == 0)
 			{
-				// Fill in Offsets
 				loader = 0x73F40;
 				unloader = 0x74334;
 			}
-			
-			// US Version
-			else if(strcmp(getGameCode(), "ULUS10003") == 0)
+			/* US version. */
+			else if (strcmp(getGameCode(), "ULUS10003") == 0)
 			{
-				// Fill in Offsets
 				loader = 0x6EB24;
 				unloader = 0x6EF18;
 			}
-			
-			// JPN Version doesn't need this fix. Sony fixed it themselves.
-			
-			// Valid Game Version
-			if(loader != 0 && unloader != 0)
+
+			/*
+			 * The Japanese version does not require this fix.
+			 * Sony fixed it themselves.
+			 */
+
+			if (loader != 0 && unloader != 0)
 			{
-				// Calculate Offsets
 				loader += module->text_addr;
 				unloader += module->text_addr;
-				
-				// Syscall Numbers
-				uint32_t loadutility = sctrlKernelQuerySystemCall((void *)sctrlHENFindFunction("sceUtility_Driver", "sceUtility", 0x2A2B3DE0));
-				uint32_t unloadutility = sctrlKernelQuerySystemCall((void *)sctrlHENFindFunction("sceUtility_Driver", "sceUtility", 0xE49BFE92));
-				
-				// Fix Module Loader
-				// C-Summary:
-				// sceUtilityLoadModule(PSP_MODULE_NET_COMMON);
-				// sceUtilityLoadModule(PSP_MODULE_NET_ADHOC);
-				// return;
-				
-				_sw(0x24040100, loader); // li $a0, 0x100 (arg1 = PSP_MODULE_NET_COMMON)
-				_sw(MAKE_SYSCALL(loadutility), loader + 4); // sceUtilityLoadModule(PSP_MODULE_NET_COMMON);
-				_sw(0x24040101, loader + 8); // li $a0, 0x101 (arg1 = PSP_MODULE_NET_ADHOC)
-				_sw(0x03E00008, loader + 12); // jr $ra
-				_sw(MAKE_SYSCALL(loadutility), loader + 16); // sceUtilityLoadModule(PSP_MODULE_NET_ADHOC);
-				
-				// Fix Module Unloader
-				// C-Summary:
-				// sceUtilityUnloadModule(PSP_MODULE_NET_COMMON);
-				// sceUtilityUnloadModule(PSP_MODULE_NET_ADHOC);
-				// return;
-				
-				_sw(0x24040101, unloader); // li $a0, 0x101 (arg1 = PSP_MODULE_NET_ADHOC)
-				_sw(MAKE_SYSCALL(unloadutility), unloader + 4); // sceUtilityUnloadModule(PSP_MODULE_NET_ADHOC);
-				_sw(0x24040100, unloader + 8); // li $a0, 0x100 (arg1 = PSP_MODULE_NET_COMMON)
-				_sw(0x03E00008, unloader + 12); // jr $ra
-				_sw(MAKE_SYSCALL(unloadutility), unloader + 16); // sceUtilityUnloadModule(PSP_MODULE_NET_COMMON);
-				
-				// Invalidate Caches
-				sceKernelDcacheWritebackInvalidateRange((void *)loader, 20);
-				sceKernelIcacheInvalidateRange((void *)loader, 20);
-				sceKernelDcacheWritebackInvalidateRange((void *)unloader, 20);
-				sceKernelIcacheInvalidateRange((void *)unloader, 20);
-				
-				// Log Game-Specific Patch
-				printk("Patched %s with updated Module Loader\n", getGameCode());
+
+				uint32_t loadutility =
+					sctrlKernelQuerySystemCall(
+						(void *)sctrlHENFindFunction(
+							"sceUtility_Driver",
+							"sceUtility",
+							0x2A2B3DE0
+						)
+					);
+
+				uint32_t unloadutility =
+					sctrlKernelQuerySystemCall(
+						(void *)sctrlHENFindFunction(
+							"sceUtility_Driver",
+							"sceUtility",
+							0xE49BFE92
+						)
+					);
+
+				/*
+				 * Fix module loader:
+				 *
+				 * sceUtilityLoadModule(PSP_MODULE_NET_COMMON);
+				 * sceUtilityLoadModule(PSP_MODULE_NET_ADHOC);
+				 * return;
+				 */
+				_sw(0x24040100, loader);
+				_sw(MAKE_SYSCALL(loadutility), loader + 4);
+				_sw(0x24040101, loader + 8);
+				_sw(0x03E00008, loader + 12);
+				_sw(MAKE_SYSCALL(loadutility), loader + 16);
+
+				/*
+				 * Fix module unloader:
+				 *
+				 * sceUtilityUnloadModule(PSP_MODULE_NET_ADHOC);
+				 * sceUtilityUnloadModule(PSP_MODULE_NET_COMMON);
+				 * return;
+				 */
+				_sw(0x24040101, unloader);
+				_sw(MAKE_SYSCALL(unloadutility), unloader + 4);
+				_sw(0x24040100, unloader + 8);
+				_sw(0x03E00008, unloader + 12);
+				_sw(MAKE_SYSCALL(unloadutility), unloader + 16);
+
+				sceKernelDcacheWritebackInvalidateRange(
+					(void *)loader,
+					20
+				);
+
+				sceKernelIcacheInvalidateRange(
+					(void *)loader,
+					20
+				);
+
+				sceKernelDcacheWritebackInvalidateRange(
+					(void *)unloader,
+					20
+				);
+
+				sceKernelIcacheInvalidateRange(
+					(void *)unloader,
+					20
+				);
+
+				printk(
+					"Patched %s with updated Module Loader\n",
+					getGameCode()
+				);
 			}
 		}
-		
-		// Might be Killzone - Liberation...
-		else if(strcmp(module->modname, "Guerrilla") == 0)
+		/* Might be Killzone: Liberation. */
+		else if (strcmp(module->modname, "Guerrilla") == 0)
 		{
-			// US / EU / KR Version
-			if(strcmp(getGameCode(), "UCUS98646") == 0 || strcmp(getGameCode(), "UCES00279") == 0 || strcmp(getGameCode(), "UCKS45041") == 0)
+			if (
+				strcmp(getGameCode(), "UCUS98646") == 0 ||
+				strcmp(getGameCode(), "UCES00279") == 0 ||
+				strcmp(getGameCode(), "UCKS45041") == 0
+			)
 			{
-				// Install Memory Allocation Limiter
-				hook_import_bynid((SceModule *)module, "ThreadManForUser", 0xC07BB470, killzone_createfpl);
-				
-				// Log Game-Specific Patch
-				printk("Patched %s with Fixed Pool Size Limiter\n", getGameCode());
+				hook_import_bynid(
+					(SceModule *)module,
+					"ThreadManForUser",
+					0xC07BB470,
+					killzone_createfpl
+				);
+
+				printk(
+					"Patched %s with Fixed Pool Size Limiter\n",
+					getGameCode()
+				);
 			}
 		}
-		
-		// Generic 1.X Game User Module Fixer
-		else if(strstr(module->modname, "Adhoc") == NULL)
+		/* Generic 1.x game user-module fixer. */
+		else if (strstr(module->modname, "Adhoc") == NULL)
 		{
 			/*
-			// sceKernelLoadModule Stub not yet created
-			if(loadmodulestub == NULL)
-			{
-				// Create sceKernelLoadModule Stub
-				loadmodulestub = create_loadmodule_stub();
-				ioopenstub = create_ioopen_stub();
-				loadmoduleiostub = create_loadmoduleio_stub();
-				ioclosestub = create_ioclose_stub();
-			}
-			*/
-			
-			// sceKernelLoadModule Stub available
-			// if(loadmodulestub != NULL)
-			{
-				// hook_weak_user_bynid is more permanent than hook_import_bynid as it can't be undone by the module manager
-				// so... more games can be affected by it... however it causes a lot of games to glitch... :(
-				
-				// Hook sceKernelLoadModule
-				// hook_weak_user_bynid(module, "ModuleMgrForUser", 0x977DE386, loadmodulestub);
-				
-				// Let stargate hide cfw files keep the rest
-				#if 0
-				// Hook sceIoOpen
-				// hook_weak_user_bynid(module, "IoFileMgrForUser", 0x109F50BC, ioopenstub);
-				hook_import_bynid((SceModule *)module, "IoFileMgrForUser", 0x109F50BC, open_plugin);
-				
-				// Hook sceKernelLoadModuleByID
-				// hook_weak_user_bynid(module, "ModuleMgrForUser", 0xB7F46618, loadmoduleiostub);
-				hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0xB7F46618, load_plugin_io);
-				
-				// Hook sceIoClose
-				// hook_weak_user_bynid(module, "IoFileMgrForUser", 0x810C4BC3, ioclosestub);
-				hook_import_bynid((SceModule *)module, "ModuleMgrForUser", 0x810C4BC3, close_plugin);
+			 * sceKernelLoadModule stub not yet created.
+			 *
+			 * if (loadmodulestub == NULL)
+			 * {
+			 *     loadmodulestub = create_loadmodule_stub();
+			 *     ioopenstub = create_ioopen_stub();
+			 *     loadmoduleiostub = create_loadmoduleio_stub();
+			 *     ioclosestub = create_ioclose_stub();
+			 * }
+			 */
 
-				// Log Patch
-				printk("Patched %s with sceKernelLoadModule Hook\n", module->modname);
-				#endif
-			}
+			/*
+			 * hook_weak_user_bynid is more permanent than
+			 * hook_import_bynid because it cannot be undone by the module
+			 * manager. It can affect more games, but it also causes many
+			 * games to glitch.
+			 */
+
+			/*
+			 * hook_weak_user_bynid(
+			 *     module,
+			 *     "ModuleMgrForUser",
+			 *     0x977DE386,
+			 *     loadmodulestub
+			 * );
+			 */
+
+#if 0
+			/* Let stargate hide CFW files and keep the rest. */
+
+			/*
+			 * Hook sceIoOpen.
+			 *
+			 * hook_weak_user_bynid(
+			 *     module,
+			 *     "IoFileMgrForUser",
+			 *     0x109F50BC,
+			 *     ioopenstub
+			 * );
+			 */
+			hook_import_bynid(
+				(SceModule *)module,
+				"IoFileMgrForUser",
+				0x109F50BC,
+				open_plugin
+			);
+
+			/*
+			 * Hook sceKernelLoadModuleByID.
+			 *
+			 * hook_weak_user_bynid(
+			 *     module,
+			 *     "ModuleMgrForUser",
+			 *     0xB7F46618,
+			 *     loadmoduleiostub
+			 * );
+			 */
+			hook_import_bynid(
+				(SceModule *)module,
+				"ModuleMgrForUser",
+				0xB7F46618,
+				load_plugin_io
+			);
+
+			/*
+			 * Hook sceIoClose.
+			 *
+			 * hook_weak_user_bynid(
+			 *     module,
+			 *     "IoFileMgrForUser",
+			 *     0x810C4BC3,
+			 *     ioclosestub
+			 * );
+			 */
+			hook_import_bynid(
+				(SceModule *)module,
+				"ModuleMgrForUser",
+				0x810C4BC3,
+				close_plugin
+			);
+
+			printk(
+				"Patched %s with sceKernelLoadModule Hook\n",
+				module->modname
+			);
+#endif
 		}
 
-		// Hook shims
+		/* Hook shims. */
 		if (onlinemode)
 		{
 			if (strstr(module->modname, "sceNetApctl_Library"))
 			{
-				void (*hijack_sceNetApctlInit)() = (void (*)())sctrlHENFindFunction("pspnet_shims", "pspnet_shims", 0x1);
+				void (*hijack_sceNetApctlInit)() =
+					(void (*)())sctrlHENFindFunction(
+						"pspnet_shims",
+						"pspnet_shims",
+						0x1
+					);
+
 				if (hijack_sceNetApctlInit != NULL)
 				{
-					printk("%s: redirecting sceNetApctlInit\n", __func__);
-					hijack_sceNetApctlInit();					
-				}else{
-					printk("%s: hijack_sceNetApctlInit is null!\n", __func__);
+					printk(
+						"%s: redirecting sceNetApctlInit\n",
+						__func__
+					);
+
+					hijack_sceNetApctlInit();
+				}
+				else
+				{
+					printk(
+						"%s: hijack_sceNetApctlInit is null!\n",
+						__func__
+					);
 				}
 			}
 			else if (strstr(module->modname, "sceNetResolver_Library"))
 			{
-				void (*hijack_sceNetResolver)() = (void (*)())sctrlHENFindFunction("pspnet_shims", "pspnet_shims", 0x2);
+				void (*hijack_sceNetResolver)() =
+					(void (*)())sctrlHENFindFunction(
+						"pspnet_shims",
+						"pspnet_shims",
+						0x2
+					);
+
 				if (hijack_sceNetResolver != NULL)
 				{
-					printk("%s: redirecting sceNetResolverInit and sceNetResolverTerm\n", __func__);
+					printk(
+						"%s: redirecting sceNetResolverInit "
+						"and sceNetResolverTerm\n",
+						__func__
+					);
+
 					hijack_sceNetResolver();
-				}else{
-					printk("%s: hijack_sceNetResolver is null!\n", __func__);
+				}
+				else
+				{
+					printk(
+						"%s: hijack_sceNetResolver is null!\n",
+						__func__
+					);
 				}
 			}
 
-			// Lie to the game about adhoc channel for at least Ridge Racer 2
-			hook_import_bynid((SceModule *)module, "sceUtility", 0xA5DA2406, get_system_param_int);
+			/*
+			 * Lie to the game about the adhoc channel.
+			 * This is required by at least Ridge Racer 2.
+			 */
+			hook_import_bynid(
+				(SceModule *)module,
+				"sceUtility",
+				0xA5DA2406,
+				get_system_param_int
+			);
 
-			// Inject placeholder nickname is empty
-			hook_import_bynid((SceModule *)module, "sceUtility", 0x34B78343, get_system_param_string);
+			/* Inject a placeholder nickname if it is empty. */
+			hook_import_bynid(
+				(SceModule *)module,
+				"sceUtility",
+				0x34B78343,
+				get_system_param_string
+			);
 
-			static const char *create_thread_px_list[] = {
+			static const char *create_thread_px_list[] =
+			{
 				"sceNet_Library",
 				"sceNetInet_Library",
 				"sceNetApctl_Library",
 				"sceNetResolver_Library",
 			};
 
-			for(int i = 0;i < sizeof(create_thread_px_list) / sizeof(create_thread_px_list[0]);i++){
-				if (strcmp(module->modname, create_thread_px_list[i]) == 0){
-					hook_import_bynid((SceModule *)module, "ThreadManForUser", 0x446D8DE6, create_thread_px);
+			for (
+				int i = 0;
+				i < sizeof(create_thread_px_list) /
+					sizeof(create_thread_px_list[0]);
+				i++
+			)
+			{
+				if (
+					strcmp(
+						module->modname,
+						create_thread_px_list[i]
+					) == 0
+				)
+				{
+					hook_import_bynid(
+						(SceModule *)module,
+						"ThreadManForUser",
+						0x446D8DE6,
+						create_thread_px
+					);
+
 					break;
 				}
 			}
 
-			if (strcmp(module->modname, "sceNet_Library") == 0){
-				hook_import_bynid((SceModule *)module, "SysMemUserForUser", 0x2A3E5280, query_memory_info);
-				//hook_import_bynid((SceModule *)module, "ThreadManForUser", 0xD6DA4BA1, create_sema);
-				//hook_import_bynid((SceModule *)module, "ThreadManForUser", 0x55C20A00, create_event_flag);
+			if (strcmp(module->modname, "sceNet_Library") == 0)
+			{
+				hook_import_bynid(
+					(SceModule *)module,
+					"SysMemUserForUser",
+					0x2A3E5280,
+					query_memory_info
+				);
+
+				/*
+				 * hook_import_bynid(
+				 *     (SceModule *)module,
+				 *     "ThreadManForUser",
+				 *     0xD6DA4BA1,
+				 *     create_sema
+				 * );
+				 *
+				 * hook_import_bynid(
+				 *     (SceModule *)module,
+				 *     "ThreadManForUser",
+				 *     0x55C20A00,
+				 *     create_event_flag
+				 * );
+				 */
 			}
 
-			// sceNet has late linking, attempt rehook
-			//hook_import_bynid((SceModule *)game_module, "sceNet", 0x39AF39A6, net_init);
+			/*
+			 * sceNet has late linking. Rehook attempt:
+			 *
+			 * hook_import_bynid(
+			 *     (SceModule *)game_module,
+			 *     "sceNet",
+			 *     0x39AF39A6,
+			 *     net_init
+			 * );
+			 */
 		}
 	}
-	
-	// Enable System Control Patching
+
 	return sysctrl_patcher_result;
 }
 
@@ -2890,62 +3648,53 @@ int input_thread(SceSize args, void * argp)
 		}
 		
 		// No-Wait State
-		if(wait == 0)
+		if (wait == 0 && !gepatch_present)
 		{
-			// Block Drawing Operation
 			wait = 1;
-			
-			// Update Canvas
-			if(getCanvas(&displayCanvas) == 0)
+
+			// Wait for the game to switch its displayed framebuffer first.
+			sceDisplayWaitVblankStart();
+
+			// getCanvas() returns non-zero when it succeeds.
+			if (getCanvas(&displayCanvas) != 0)
 			{
-				// Wait for V-Blank
-				sceDisplayWaitVblankStart();
-				
-				// Calculate Vertical Blank Times
-				int vblank = (int)(1000000.0f / sceDisplayGetFramePerSec());
-				int vblank_min = vblank / 10;
-				int vblank_max = vblank - vblank_min;
-				
-				// End Logic Timer
-				sceKernelGetSystemTime(&clock_end);
-				
-				// Calculate Time wasted on Logic
-				int calc_speed = (int)clock_end.low - (int)clock_start.low;
-				
-				// Start Rendering Timer
-				sceKernelGetSystemTime(&clock_start);
-				
-				// Draw HUD
-				if(hud_on) drawInfo(&displayCanvas);
-				
-				// Draw Chat Notification
-				else drawNotification(&displayCanvas);
-				
-				// End Rendering Timer
-				sceKernelGetSystemTime(&clock_end);
-				
-				// Calculate Time wasted on Rendering
-				int draw_speed = (int)clock_end.low - (int)clock_start.low;
-				
-				// Calculate Vertical Blank Delay
-				int delay = vblank - draw_speed*3 - calc_speed;
-				if(delay < vblank_min) delay = vblank_min;
-				if(delay > vblank_max) delay = vblank_max;
-				
-				// Apply Vertical Blank Delay
-				sceKernelDelayThread(delay);
-				
-				// Draw HUD
-				if(hud_on) drawInfo(&displayCanvas);
-				
-				// Draw Chat Notification
-				else drawNotification(&displayCanvas);
+				// Normal PSP framebuffer. GE Patch uses its separate scale-2 path.
+				displayCanvas.scale = 1;
+
+				if (hud_on)
+					drawInfo(&displayCanvas);
+				else
+					drawNotification(&displayCanvas);
+
+				/*
+				* Draw again during the frame. This helps games which continue
+				* writing directly into the displayed framebuffer.
+				*/
+				float fps = sceDisplayGetFramePerSec();
+				int half_frame_delay = fps > 1.0f
+					? (int)(500000.0f / fps)
+					: 8000;
+
+				if (half_frame_delay < 1000)
+					half_frame_delay = 1000;
+
+				sceKernelDelayThread(half_frame_delay);
+
+				// Refresh the pointer in case the game switched buffers again.
+				if (getCanvas(&displayCanvas) != 0)
+				{
+					displayCanvas.scale = 1;
+
+					if (hud_on)
+						drawInfo(&displayCanvas);
+					else
+						drawNotification(&displayCanvas);
+				}
 			}
-			
-			// Unblock Drawing Operation
+
 			wait = 0;
 		}
-		
+				
 		// Standard Thread Delay
 		sceKernelDelayThread(10000);
 	}
