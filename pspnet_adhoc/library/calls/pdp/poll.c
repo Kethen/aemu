@@ -17,27 +17,144 @@
 
 #include "../../common.h"
 
-int get_postoffice_fd(int idx){
-	AdhocSocket *internal = _sockets[idx];
-	if (internal->is_ptp){
-		if (internal->ptp.state == PTP_STATE_LISTEN){
-			void *socket = ptp_listen_postoffice_recover(idx);
-			if (socket != NULL){
-				return ptp_listen_get_native_sock(socket);
-			}
-		}else if (internal->ptp.state == PTP_STATE_ESTABLISHED){
-			void *socket = internal->postoffice_handle;
-			if (socket != NULL){
-				return ptp_get_native_sock(socket);
+static int postoffice_poll(SceNetAdhocPollSd *sds, int nsds, uint32_t timeout){
+	uint64_t begin = sceKernelGetSystemTimeWide();
+
+	bool should_delay_for_vita_speedup = false;
+
+	int num_affected_socks = 0;
+	while(true){
+		num_affected_socks = 0;
+		for (int i = 0;i < nsds;i++){
+			int idx = sds[i].id - 1;
+			AdhocSocket *internal = _sockets[idx];
+
+			if (internal->is_ptp){
+				if (internal->ptp.state == PTP_STATE_LISTEN){
+					void *ptp_listen_handle = ptp_listen_postoffice_recover(idx);
+					if (ptp_listen_handle == NULL){
+						continue;
+					}
+					if (!(sds[i].events & ADHOC_EV_ACCEPT)){
+						continue;
+					}
+					int has_request = ptp_listen_has_request(ptp_listen_handle);
+					if (has_request == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
+						// let recovery handle this
+						internal->postoffice_handle = NULL;
+						ptp_listen_close(ptp_listen_handle);
+						continue;
+					}
+					if (has_request){
+						sds[i].revents = sds[i].revents | ADHOC_EV_ACCEPT;
+						num_affected_socks++;
+					}
+				}else if (internal->ptp.state == PTP_STATE_ESTABLISHED){
+					if (_vita_speedup && begin - internal->ptp_ext.establish_timestamp < 10000000){
+						should_delay_for_vita_speedup = true;
+					}
+
+					void *ptp_handle = internal->postoffice_handle;
+					if (ptp_handle == NULL){
+						printk("%s: FIXME: PTP_STATE_ESTABLISHED but postoffice handle is NULL\n", __func__);
+						continue;
+					}
+					bool affected = false;
+					// some games probably needs a connect event
+					if (sds[i].events & ADHOC_EV_CONNECT){
+						if (!internal->ptp_ext.connect_event_fired){
+							sds[i].revents = sds[i].revents | ADHOC_EV_CONNECT;
+							affected = true;
+							// set this after send/recv instead, so that we know the game acted on the event at all
+							//internal->ptp_ext.connect_event_fired = true;
+						}
+					}
+					if (ptp_is_dead(ptp_handle)){
+						if (sds[i].events & ADHOC_EV_DISCONNECT){
+							sds[i].revents = sds[i].revents | ADHOC_EV_DISCONNECT;
+							affected = true;
+						}
+						if (affected){
+							num_affected_socks++;
+						}
+						continue;
+					}
+					if (sds[i].events & ADHOC_EV_RECV){
+						int peek_result = ptp_peek_next_size(ptp_handle);
+						if (peek_result == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
+							if (affected){
+								num_affected_socks++;
+							}
+							continue;
+						}
+						if (peek_result > 0){
+							affected = true;
+							sds[i].revents = sds[i].revents | ADHOC_EV_RECV;
+						}
+					}
+					if (sds[i].events & ADHOC_EV_SEND){
+						if (ptp_send_buf_not_full(ptp_handle)){
+							affected = true;
+							sds[i].revents = sds[i].revents | ADHOC_EV_SEND;
+						}
+					}
+					if (affected){
+						num_affected_socks++;
+					}
+				}
+			}else{
+				void *pdp_handle = pdp_postoffice_recover(idx);
+				if (pdp_handle == NULL){
+					continue;
+				}
+				if (pdp_is_dead(pdp_handle)){
+					// let recovery handle this
+					internal->postoffice_handle = NULL;
+					pdp_delete(pdp_handle);
+					continue;
+				}
+				bool affected = false;
+				if (sds[i].events & ADHOC_EV_RECV){
+					int peek_result = pdp_buffered_data_size(pdp_handle);
+					if (peek_result == AEMU_POSTOFFICE_CLIENT_SESSION_DEAD){
+						// let recovery handle this
+						internal->postoffice_handle = NULL;
+						pdp_delete(pdp_handle);
+						continue;
+					}
+					if (peek_result > 0){
+						affected = true;
+						sds[i].revents = sds[i].revents | ADHOC_EV_RECV;
+					}
+				}
+				if (sds[i].events & ADHOC_EV_SEND){
+					if (pdp_send_buf_not_full(pdp_handle)){
+						affected = true;
+						sds[i].revents = sds[i].revents | ADHOC_EV_SEND;
+					}
+				}
+				if (affected){
+					num_affected_socks++;
+				}
 			}
 		}
-	}else{
-		void *socket = pdp_postoffice_recover(idx);
-		if (socket != NULL){
-			return pdp_get_native_sock(socket);
+
+		if (num_affected_socks != 0){
+			break;
 		}
+		if (sceKernelGetSystemTimeWide() - begin > timeout){
+			break;
+		}
+		// PPSSPP does this at 500us
+		sceKernelDelayThread(100);
 	}
-	return -1;
+
+	if (should_delay_for_vita_speedup){
+		//printk("%s: slowing down for pspemu_inet_multithread\n", __func__);
+		sceKernelDelayThread(20000);
+	}
+
+	return num_affected_socks;
 }
 
 /**
@@ -57,6 +174,11 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 		// Valid Arguments
 		if(sds != NULL && nsds > 0)
 		{
+			// Nonblocking Mode
+			if(flags){
+				timeout = 0;
+			}
+
 			// Socket Check
 			int i = 0; for(; i < nsds; i++)
 			{
@@ -70,7 +192,11 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 
 				//printk("%s: adhocfd 0x%x fd 0x%x events 0x%x\n", __func__, sds[i].id, _sockets[sds[i].id - 1]->is_ptp ? _sockets[sds[i].id - 1]->ptp.id : _sockets[sds[i].id - 1]->pdp.id, sds[i].events);
 			}
-			
+
+			if (_postoffice){
+				return postoffice_poll(sds, nsds, timeout);
+			}
+
 			// Allocate Infrastructure Memory
 			SceNetInetPollfd * isds = (SceNetInetPollfd *)malloc(sizeof(SceNetInetPollfd) * nsds);
 			
@@ -82,7 +208,7 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 				// Clear Memory
 				memset(isds, 0, sizeof(SceNetInetPollfd) * nsds);
 
-				uint64_t now = sceKernelGetSystemTimeWide();
+				uint64_t begin = sceKernelGetSystemTimeWide();
 
 				//printk("%s: nsds %d\n", __func__, nsds);
 
@@ -95,13 +221,8 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 						continue;
 					}
 
-					// Fill in Infrastructure Socket ID
-					if (_postoffice){
-						isds[i].fd = get_postoffice_fd(sds[i].id - 1);
-					}else{
-						isds[i].fd = _sockets[sds[i].id - 1]->is_ptp ? _sockets[sds[i].id - 1]->ptp.id : _sockets[sds[i].id - 1]->pdp.id;
-					}
-					
+					isds[i].fd = _sockets[sds[i].id - 1]->is_ptp ? _sockets[sds[i].id - 1]->ptp.id : _sockets[sds[i].id - 1]->pdp.id;
+
 					// Send Event
 					if(sds[i].events & ADHOC_EV_SEND) isds[i].events |= INET_POLLWRNORM;
 					
@@ -121,8 +242,8 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 						isds[i].events |= INET_POLLRDNORM;
 					}
 
-					if (_vita_speedup && _sockets[sds[i].id - 1]->is_ptp && now - _sockets[sds[i].id - 1]->ptp_ext.establish_timestamp < 20000000){
-						// we slow down polling for 20 seconds so that Gran Turismo don't get confused
+					if (_vita_speedup && _sockets[sds[i].id - 1]->is_ptp && begin - _sockets[sds[i].id - 1]->ptp_ext.establish_timestamp < 10000000){
+						// we slow down polling for 10 seconds so that Gran Turismo don't get confused
 						should_delay_for_vita_speedup = 1;
 					}
 
@@ -131,27 +252,10 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 
 				//sceKernelDelayThread(1000000);
 
-				int final_timeout = timeout;
-
-				// Nonblocking Mode
-				if(flags){
-					final_timeout = 0;
-					timeout = 0;
-				// Timeout Translation (Micro to Milliseconds)
-				}else{
-					// Convert Timeout
-					final_timeout /= 1000;
-					
-					// Prevent Nonblocking Mode
-					if(final_timeout == 0) final_timeout = 1;
-				}
-
 				//printk("%s: calling poll with final timeout %u on thread 0x%x with %d free stack\n", __func__, final_timeout, sceKernelGetThreadId(), sceKernelGetThreadStackFreeSize(0));
 				
 				int affectedsockets = 0;
 
-				// mitigate multi thread poll lock up on the PSP
-				uint64_t begin = sceKernelGetSystemTimeWide();
 				do{
 					// Acquire Network Lock
 					_acquireNetworkLock();
@@ -165,7 +269,9 @@ int proNetAdhocPollSocket(SceNetAdhocPollSd * sds, int nsds, uint32_t timeout, i
 					if (affectedsockets != 0){
 						break;
 					}
-					sceKernelDelayThread(1000);
+					if (timeout != 0){
+						sceKernelDelayThread(100);
+					}
 				}while(sceKernelGetSystemTimeWide() - begin < timeout);
 				
 				//printk("%s: affected socktes %d\n", __func__, affectedsockets);
