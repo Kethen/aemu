@@ -307,7 +307,7 @@ static SceKernelLMOption mod_load_high_option = {
 	.position = PSP_SMEM_High,
 	.access = 0,
 	.creserved = {0, 0}
-};
+}; 
 
 static SceKernelLMOption mod_load_px_option = {
 	.size = sizeof(SceKernelLMOption),
@@ -1533,74 +1533,66 @@ static unsigned int hud_draw_count = 0;
 
 static void draw_hud(void)
 {
-    int mode;
-    int width;
-    int height;
+	int mode;
+	int width;
+	int height;
 
-    if (wait != 0 || displayCanvas.buffer == NULL)
+	if (wait != 0 || displayCanvas.buffer == NULL)
         return;
 
-    wait = 1;
+	wait = 1;
 
-    mode = 0;
-    width = 0;
-    height = 0;
+	mode = 0;
+	width = 0;
+	height = 0;
 
-    if (sceDisplayGetMode(&mode, &width, &height) >= 0)
-    {
-        displayCanvas.width = width;
-        displayCanvas.height = height;
+	if (sceDisplayGetMode(&mode, &width, &height) >= 0)
+	{
+		displayCanvas.width = width;
+		displayCanvas.height = height;
 
-        if (hud_on)
-            drawInfo(&displayCanvas);
-        else
-            drawNotification(&displayCanvas);
-    }
+		if (hud_on)
+			drawInfo(&displayCanvas);
+		else
+			drawNotification(&displayCanvas);
+	}
 
-    wait = 0;
+	wait = 0;
 }
 int sceDisplayWaitVblankPatched(void)
 {
-    int result = sceDisplayWaitVblank();
-
-    draw_hud();
-
-    return result;
+	int result = sceDisplayWaitVblank();
+	draw_hud();
+	return result;
 }
 
 int sceDisplayWaitVblankCBPatched(void)
 {
-    int result = sceDisplayWaitVblankCB();
-
-    draw_hud();
-
-    return result;
+	int result = sceDisplayWaitVblankCB();
+	draw_hud();
+	return result;
 }
 
 int sceDisplayWaitVblankStartPatched(void)
 {
-    int result = sceDisplayWaitVblankStart();
-
-    draw_hud();
-
-    return result;
+	int result = sceDisplayWaitVblankStart();
+	draw_hud();
+	return result;
 }
 
 int sceDisplayWaitVblankStartCBPatched(void)
 {
-    int result = sceDisplayWaitVblankStartCB();
-
-    draw_hud();
-
-    return result;
+	int result = sceDisplayWaitVblankStartCB();
+	draw_hud();
+	return result;
 }
 
 static int gepatch_present = 0;
 typedef int (*SceDisplaySetFrameBufFn)(
-    void *topaddr,
-    int bufferwidth,
-    int pixelformat,
-    int sync
+	void *topaddr,
+	int bufferwidth,
+	int pixelformat,
+	int sync
 );
 
 static SceDisplaySetFrameBufFn real_setframebuf = NULL;
@@ -1608,102 +1600,102 @@ static int display_syscall_hooked = 0;
 
 // Framebuffer Setter
 int setframebuf(
-    const void *topaddr,
-    int bufferwidth,
-    int pixelformat,
-    int sync
+	const void *topaddr,
+	int bufferwidth,
+	int pixelformat,
+	int sync
 )
 {
-    int result = sceDisplaySetFrameBuf(
-        topaddr,
-        bufferwidth,
-        pixelformat,
-        sync
-    );
+	int result = sceDisplaySetFrameBuf(
+		topaddr,
+		bufferwidth,
+		pixelformat,
+		sync
+	);
 
-    if (result < 0)
-        return result;
+	if (result < 0)
+		return result;
 
-    if (
-        topaddr != NULL &&
-        bufferwidth >= 480 &&
-        bufferwidth <= 2048 &&
-        (
-            pixelformat == PSP_DISPLAY_PIXEL_FORMAT_565  ||
-            pixelformat == PSP_DISPLAY_PIXEL_FORMAT_5551 ||
-            pixelformat == PSP_DISPLAY_PIXEL_FORMAT_4444 ||
-            pixelformat == PSP_DISPLAY_PIXEL_FORMAT_8888
-        )
-    )
-    {
-        displayCanvas.buffer = (void *)topaddr;
-        displayCanvas.lineWidth = bufferwidth;
-        displayCanvas.pixelFormat = pixelformat;
-        displayCanvas.scale = 1;
-    }
+	if (
+		topaddr != NULL &&
+		bufferwidth >= 480 &&
+		bufferwidth <= 2048 &&
+		(
+			pixelformat == PSP_DISPLAY_PIXEL_FORMAT_565  ||
+			pixelformat == PSP_DISPLAY_PIXEL_FORMAT_5551 ||
+			pixelformat == PSP_DISPLAY_PIXEL_FORMAT_4444 ||
+			pixelformat == PSP_DISPLAY_PIXEL_FORMAT_8888
+		)
+	)
+	{
+		displayCanvas.buffer = (void *)topaddr;
+		displayCanvas.lineWidth = bufferwidth;
+		displayCanvas.pixelFormat = pixelformat;
+		displayCanvas.scale = 1;
+	}
 
-    /*
-     * Do not call draw_hud() here.
-     *
-     * Some games call sceDisplaySetFrameBuf from rendering threads or
-     * switch buffers several times per frame. Drawing here can corrupt
-     * the pending framebuffer or deadlock when the PRO Online HUD opens.
-     */
+	/*
+	* Do not call draw_hud() here.
+	*
+	* Some games call sceDisplaySetFrameBuf from rendering threads or
+	* switch buffers several times per frame. Drawing here can corrupt
+	* the pending framebuffer or deadlock when the PRO Online HUD opens.
+	*/
 
-    return result;
+	return result;
 }
 static int install_system_display_hook(void)
 {
-    if (display_syscall_hooked) {
-        return 0;
-    }
+	if (display_syscall_hooked) {
+		return 0;
+	}
 
-    /*
-     * Obtain the original kernel-resolved display function.
-     *
-     * Depending on the CFW, the library may be exposed as either
-     * sceDisplay or sceDisplay_driver.
-     */
-    real_setframebuf = (SceDisplaySetFrameBufFn)sctrlHENFindFunction(
-        "sceDisplay_Service",
-        "sceDisplay",
-        0x289D82FE
-    );
+	/*
+	 * Obtain the original kernel-resolved display function.
+	 *
+	 * Depending on the CFW, the library may be exposed as either
+	 * sceDisplay or sceDisplay_driver.
+	 */
+	real_setframebuf = (SceDisplaySetFrameBufFn)sctrlHENFindFunction(
+		"sceDisplay_Service",
+		"sceDisplay",
+		0x289D82FE
+	);
 
-    if (real_setframebuf == NULL) {
-        real_setframebuf = (SceDisplaySetFrameBufFn)sctrlHENFindFunction(
-            "sceDisplay_Service",
-            "sceDisplay_driver",
-            0x289D82FE
-        );
-    }
+	if (real_setframebuf == NULL) {
+		real_setframebuf = (SceDisplaySetFrameBufFn)sctrlHENFindFunction(
+			"sceDisplay_Service",
+			"sceDisplay_driver",
+			0x289D82FE
+		);
+	}
 
-    if (real_setframebuf == NULL) {
-        printk("%s: sceDisplaySetFrameBuf not found\n", __func__);
-        return -1;
-    }
+	if (real_setframebuf == NULL) {
+		printk("%s: sceDisplaySetFrameBuf not found\n", __func__);
+		return -1;
+	}
 
-    /*
-     * Replace all user-mode syscall references to the original function.
-     * This is broader than patching one game's import table.
-     */
-    sctrlHENPatchSyscall(
-        (void *)real_setframebuf,
-        (void *)setframebuf
-    );
+	/*
+	 * Replace all user-mode syscall references to the original function.
+	 * This is broader than patching one game's import table.
+	 */
+	sctrlHENPatchSyscall(
+		(void *)real_setframebuf,
+		(void *)setframebuf
+	);
 
-    sceKernelDcacheWritebackAll();
-    sceKernelIcacheClearAll();
+	sceKernelDcacheWritebackAll();
+	sceKernelIcacheClearAll();
 
-    display_syscall_hooked = 1;
+	display_syscall_hooked = 1;
 
-    printk(
-        "%s: installed global sceDisplaySetFrameBuf hook, original=%p\n",
-        __func__,
-        real_setframebuf
-    );
+	printk(
+		"%s: installed global sceDisplaySetFrameBuf hook, original=%p\n",
+		__func__,
+		real_setframebuf
+	);
 
-    return 0;
+	return 0;
 }
 
 // Read Positive Null & Passthrough Hook
@@ -1722,7 +1714,6 @@ int read_buffer_positive(SceCtrlData * pad_data, int count)
 			pad_data[i].Buttons = 0;
 		}
 	}
-	
 	// Return Result
 	return result;
 }
@@ -2099,7 +2090,7 @@ static void memlayout_hack(){
 	SysMemPartition *(*get_partition)(int partition_id) = NULL;
 	for (u32 addr = 0x88000000;addr < 0x4000 + 0x88000000;addr+=4){
 		if (_lw(addr) == 0x2C85000D){
-		    get_partition = (SysMemPartition *(*)(int))(addr - 4);
+			get_partition = (SysMemPartition *(*)(int))(addr - 4);
 		    break;
 		}
 	}
@@ -2536,91 +2527,91 @@ int ge_list_enqueue(const void *list, void *stall, int cbid, PspGeListArgs *arg)
 }
 static void patch_hud_imports(SceModule2 *module)
 {
-    if (module == NULL) {
-        return;
-    }
+	if (module == NULL) {
+		return;
+	}
 
-    /* Kernel modules have the high address bit set. */
-    if ((module->text_addr & 0x80000000) != 0) {
-        return;
-    }
+	/* Kernel modules have the high address bit set. */
+	if ((module->text_addr & 0x80000000) != 0) {
+		return;
+	}
 
-    /* Do not patch the plugin itself. Adjust this name if your PRX differs. */
-    if (strcmp(module->modname, "atpro") == 0) {
-        return;
-    }
+	/* Do not patch the plugin itself. Adjust this name if your PRX differs. */
+	if (strcmp(module->modname, "atpro") == 0) {
+		return;
+	}
 
-    printk(
-        "%s: patching module %s at 0x%08X\n",
-        __func__,
-        module->modname,
-        module->text_addr
-    );
+	printk(
+		"%s: patching module %s at 0x%08X\n",
+		__func__,
+		module->modname,
+		module->text_addr
+	);
 
-    if (!gepatch_present) {
-        hook_import_bynid(
-            (SceModule *)module,
-            "sceDisplay",
-            0x289D82FE,
-            setframebuf
-        );
-    }
+	if (!gepatch_present) {
+		hook_import_bynid(
+			(SceModule *)module,
+			"sceDisplay",
+			0x289D82FE,
+			setframebuf
+		);
+	}
 
-    hook_import_bynid(
-        (SceModule *)module,
-        "sceDisplay",
-        0x36CDFADE,
-        sceDisplayWaitVblankPatched
-    );
+	hook_import_bynid(
+		(SceModule *)module,
+		"sceDisplay",
+		0x36CDFADE,
+		sceDisplayWaitVblankPatched
+	);
 
-    hook_import_bynid(
-        (SceModule *)module,
-        "sceDisplay",
-        0x8EB9EC49,
-        sceDisplayWaitVblankCBPatched
-    );
+	hook_import_bynid(
+		(SceModule *)module,
+		"sceDisplay",
+		0x8EB9EC49,
+		sceDisplayWaitVblankCBPatched
+	);
 
-    hook_import_bynid(
-        (SceModule *)module,
-        "sceDisplay",
-        0x984C27E7,
-        sceDisplayWaitVblankStartPatched
-    );
+	hook_import_bynid(
+		(SceModule *)module,
+		"sceDisplay",
+		0x984C27E7,
+		sceDisplayWaitVblankStartPatched
+	);
 
-    hook_import_bynid(
-        (SceModule *)module,
-        "sceDisplay",
-        0x46F186C3,
-        sceDisplayWaitVblankStartCBPatched
-    );
+	hook_import_bynid(
+		(SceModule *)module,
+		"sceDisplay",
+		0x46F186C3,
+		sceDisplayWaitVblankStartCBPatched
+	);
 
-    hook_import_bynid(
-        (SceModule *)module,
-        "sceCtrl",
-        0x1F803938,
-        read_buffer_positive
-    );
+	hook_import_bynid(
+		(SceModule *)module,
+		"sceCtrl",
+		0x1F803938,
+		read_buffer_positive
+	);
 
-    hook_import_bynid(
-        (SceModule *)module,
-        "sceCtrl",
-        0x3A622550,
-        peek_buffer_positive
-    );
+	hook_import_bynid(
+		(SceModule *)module,
+		"sceCtrl",
+		0x3A622550,
+		peek_buffer_positive
+	);
 
-    hook_import_bynid(
-        (SceModule *)module,
-        "sceCtrl",
-        0x60B81F86,
-        read_buffer_negative
-    );
+	hook_import_bynid(
+		(SceModule *)module,
+		"sceCtrl",
+		0x60B81F86,
+		read_buffer_negative
+	);
 
-    hook_import_bynid(
-        (SceModule *)module,
-        "sceCtrl",
-        0xC152080A,
-        peek_buffer_negative
-    );
+	hook_import_bynid(
+		(SceModule *)module,
+		"sceCtrl",
+		0xC152080A,
+		peek_buffer_negative
+	);
 }
 
 /*
@@ -2637,7 +2628,6 @@ static void patch_module_loader_imports(SceModule2 *module)
 	{
 		return;
 	}
-
 	hook_import_bynid(
 		(SceModule *)module,
 		"ModuleMgrForUser",
@@ -2679,8 +2669,7 @@ static void patch_module_loader_imports(SceModule2 *module)
 		"ModuleMgrForUser",
 		0xB7F46618,
 		load_module_by_id
-	);
-
+	);	
 	/*
 	 * Some games ask sceUtility to load the whole network stack instead of
 	 * loading individual PRXs. These hooks are required on slim models too;
@@ -2776,28 +2765,24 @@ int online_patcher(SceModule2 *module)
 				"SysMemUserForUser",
 				0x237DBD4F,
 				alloc_partition_memory
-			);
 
 			hook_import_bynid(
 				(SceModule *)module,
 				"SysMemUserForUser",
 				0xB6D61D02,
 				free_partition_memory
-			);
 
 			hook_import_bynid(
 				(SceModule *)module,
 				"SysMemUserForUser",
 				0xFE707FDF,
 				alloc_memory_block
-			);
 
 			hook_import_bynid(
 				(SceModule *)module,
 				"SysMemUserForUser",
 				0x50F61D8A,
 				free_memory_block
-			);
 
 			hook_import_bynid(
 				(SceModule *)module,
@@ -2842,84 +2827,72 @@ int online_patcher(SceModule2 *module)
 					0x737486F2,
 					set_clock_frequency
 				);
-
 				hook_import_bynid(
 					(SceModule *)module,
 					"scePower",
 					0xEBD177D6,
 					set_clock_frequency
 				);
-
 				hook_import_bynid(
 					(SceModule *)module,
 					"scePower",
 					0x469989AD,
 					set_clock_frequency
 				);
-
 				hook_import_bynid(
 					(SceModule *)module,
 					"scePower",
 					0x843FBF43,
 					set_cpu_clock_frequency
 				);
-
 				hook_import_bynid(
 					(SceModule *)module,
 					"scePower",
 					0xB8D7B3FB,
 					set_bus_clock_frequency
 				);
-
 				hook_import_bynid(
 					(SceModule *)module,
 					"scePower",
 					0x34F9C463,
 					get_pll_clock_frequency_int
 				);
-
 				hook_import_bynid(
 					(SceModule *)module,
 					"scePower",
 					0xFEE03A2F,
 					get_cpu_clock_frequency_int
 				);
-
 				hook_import_bynid(
 					(SceModule *)module,
 					"scePower",
 					0xFDB5BFE9,
 					get_cpu_clock_frequency_int
 				);
-
 				hook_import_bynid(
 					(SceModule *)module,
 					"scePower",
 					0x478FE6F5,
 					get_bus_clock_frequency_int
 				);
-
 				hook_import_bynid(
 					(SceModule *)module,
 					"scePower",
 					0xBD681969,
 					get_bus_clock_frequency_int
 				);
-
 				hook_import_bynid(
 					(SceModule *)module,
 					"scePower",
 					0xEA382A27,
 					get_pll_clock_frequency_float
 				);
-
 				hook_import_bynid(
 					(SceModule *)module,
 					"scePower",
 					0xB1A52C83,
 					get_cpu_clock_frequency_float
 				);
-
 				hook_import_bynid(
 					(SceModule *)module,
 					"scePower",
