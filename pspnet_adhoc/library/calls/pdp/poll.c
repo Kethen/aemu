@@ -70,10 +70,8 @@ static int postoffice_poll(SceNetAdhocPollSd *sds, int nsds, uint32_t timeout){
 						}
 					}
 					if (ptp_is_dead(ptp_handle)){
-						if (sds[i].events & ADHOC_EV_DISCONNECT){
-							sds[i].revents = sds[i].revents | ADHOC_EV_DISCONNECT;
-							affected = true;
-						}
+						sds[i].revents = sds[i].revents | ADHOC_EV_DISCONNECT;
+						affected = true;
 						if (affected){
 							num_affected_socks++;
 						}
