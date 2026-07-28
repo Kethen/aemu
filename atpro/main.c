@@ -159,8 +159,8 @@ SceUID module_io_uids[MODULE_LIST_SIZE] = {
 SceUID shim_uid = -1;
 static const char *shim_path = "ms0:/kd/pspnet_shims.prx";
 
-static int is_standalone(){
-	int test_file = sceIoOpen("flash0:/kd/kermit.prx", PSP_O_RDONLY, 0777);
+static int file_exists(const char *path){
+	int test_file = sceIoOpen(path, PSP_O_RDONLY, 0777);
 	if (test_file >= 0){
 		sceIoClose(test_file);
 		return 1;
@@ -171,15 +171,17 @@ static int is_standalone(){
 int is_vita(){
 	static int vita = -1;
 	if (vita == -1){
-		int test_file = sceIoOpen("flash0:/kd/usb.prx", PSP_O_RDONLY, 0777);
-		if (test_file >= 0){
-			sceIoClose(test_file);
-			vita = 0;
-		}else{
-			vita = 1;
-		}
+		vita = !file_exists("flash0:/kd/usb.prx");
 	}
 	return vita;
+}
+
+int is_ark_standalone(){
+	static int ark_standalone = -1;
+	if (ark_standalone == -1){
+		ark_standalone = !file_exists("flash0:/vsh/module/vshmain.prx");
+	}
+	return ark_standalone;
 }
 
 static int is_go(){
@@ -2829,7 +2831,7 @@ int input_thread(SceSize args, void * argp)
 		curr_buttons = ctrl.Buttons;
 		
 		// Home Button pressed (and not pressing exit button)
-		if(!is_exit_button_pressed && (prev_buttons & PSP_CTRL_HOME) == 0 && (curr_buttons & PSP_CTRL_HOME) != 0)
+		if(!is_ark_standalone() && !is_exit_button_pressed && (prev_buttons & PSP_CTRL_HOME) == 0 && (curr_buttons & PSP_CTRL_HOME) != 0)
 		{
 			// Enable or Disable GUI Overlay
 			hud_on = !hud_on;
@@ -3148,6 +3150,30 @@ int module_start(SceSize args, void * argp)
 	// Log WLAN Switch State
 	printk("WLAN Switch: %d\n", onlinemode);
 	
+	if (is_vita()){
+		printk("%s: psvita detected\n", __func__);
+	}else{
+		printk("%s: psvita not detected\n", __func__);
+	}
+
+	if (is_ark_standalone()){
+		printk("%s: ark standalone detected\n", __func__);
+	}else{
+		printk("%s: ark standalone not detected\n", __func__);
+	}
+
+	if (is_go()){
+		printk("%s: pspgo detected\n", __func__);
+	}else{
+		printk("%s: pspgo not detected\n", __func__);
+	}
+
+	if (has_high_mem()){
+		printk("%s: device has extra memory\n", __func__);
+	}else{
+		printk("%s: device does not have extra memory\n", __func__);
+	}
+
 	// Grab API Type
 	// int api = sceKernelInitApitype();
 
