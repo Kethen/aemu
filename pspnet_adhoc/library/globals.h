@@ -119,5 +119,5 @@ extern SceUID _server_resolve_mutex;
 extern int _is_ppsspp;
 extern int _postoffice;
 extern int _vita_speedup;
-
+extern int _game_initialized_inet;
 #endif

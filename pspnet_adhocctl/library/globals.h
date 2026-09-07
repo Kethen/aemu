@@ -109,5 +109,6 @@ extern uint64_t _gamemode_join_timestamp;
 
 extern SceUID _disconnect_thread;
 
+extern int _game_initialized_apctl;
 
 #endif

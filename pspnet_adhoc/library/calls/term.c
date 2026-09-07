@@ -31,6 +31,12 @@ static int should_term_inet(){
 		return 1;
 	}
 
+	if (_game_initialized_inet){
+		// sometimes game initialized inet before we do, in those cases we really don't want to touch it
+		// eg. UNO psp minis
+		return 0;
+	}
+
 	char name_buf[20] = {0};
 	get_game_code(name_buf, sizeof(name_buf));
 

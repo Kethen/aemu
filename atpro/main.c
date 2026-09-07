@@ -3174,6 +3174,8 @@ int module_start(SceSize args, void * argp)
 		printk("%s: device does not have extra memory\n", __func__);
 	}
 
+	printk("%s: going to use make use of partition %d\n", __func__, partition_to_use());
+
 	// Grab API Type
 	// int api = sceKernelInitApitype();
 

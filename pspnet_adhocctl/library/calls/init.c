@@ -67,6 +67,7 @@ int _networklock = 0;
 int _one = 1;
 int _zero = 0;
 
+int _game_initialized_apctl = 0;
 
 // Function Prototypes
 int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id);
@@ -235,10 +236,21 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 		return -1;
 	}
 
-	int apctl_init_status = sceNetApctlInit(0x1800, 0x30);
+	int apctl_init_status = 0;
+	if (_game_initialized_apctl){
+		printk("%s: cowardly not initializing apctl again since the game did it\n", __func__);
+	} else {
+		apctl_init_status = sceNetApctlInit(0x1800, 0x30);
+		printk("%s: sceNetApctlInit(), 0x%x\n", __func__, apctl_init_status);
+	}
 	if (apctl_init_status != 0){
-		printk("%s: sceNetApctlInit failed, 0x%x\n", __func__, apctl_init_status);
-		return -1;
+		if (*(uint32_t *)&apctl_init_status == 0x80410a01){
+			printk("%s: sceNetApctlInit was initialized by the game, 0x%x, there be dragons\n", __func__, apctl_init_status);
+			_game_initialized_apctl = 1;
+		} else {
+			printk("%s: sceNetApctlInit failed, 0x%x\n", __func__, apctl_init_status);
+			return -1;
+		}
 	}
 
 	// Attempt Counter
