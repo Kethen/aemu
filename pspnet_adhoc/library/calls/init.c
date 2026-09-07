@@ -45,6 +45,8 @@ static int postoffice_handle = -1;
 // kernel module assisted load
 void load_inet_modules();
 
+int _game_initialized_inet = 0;
+
 /**
  * Adhoc Emulator Socket Library Init-Call
  * @return 0 on success or... ADHOC_ALREADY_INITIALIZED
@@ -113,27 +115,34 @@ int proNetAdhocInit(void)
 		_manage_modules = 1;
 
 		// Initialize Internet Library
-		result = sceNetInetInit();
-		printk("%s: initializing internet lib, 0x%x\n", __func__, result);
+		int inet_init_status = 0;
+		if (_game_initialized_inet){
+			printk("%s: corwardly not initializing inet again since the game did it\n", __func__);
+		} else {
+			inet_init_status = sceNetInetInit();
+			printk("%s: sceNetInetInit(), 0x%x\n", __func__, inet_init_status);
+		}
+
+		if (inet_init_status != 0){
+			if (*(uint32_t *)&inet_init_status == 0x80410201){
+				printk("%s: game initialized inet already, there be dragons\n", __func__);
+				_game_initialized_inet = 1;
+			} else {
+				return -1;
+			}
+		}
 
 		// redo inet hooks
 		rehook_inet();
 
-		// Initialized Internet Library
-		//if(result == 0)
-		{
-			// Clear Translator Memory
-			memset(&_sockets, 0, sizeof(_sockets));
-			
-			// Library initialized
-			_init = 1;
+		// Clear Translator Memory
+		memset(&_sockets, 0, sizeof(_sockets));
 
-			// Return Success
-			return 0;
-		}
-		
-		// Generic Error
-		return -1;
+		// Library initialized
+		_init = 1;
+
+		// Return Success
+		return 0;
 	}
 	
 	// Already initialized
