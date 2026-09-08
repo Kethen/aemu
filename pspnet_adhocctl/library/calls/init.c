@@ -530,38 +530,57 @@ void _readHotspotConfig(void)
  */
 int _findHotspotConfigId(char * ssid)
 {
-	// Find Hotspot by SSID
+	static struct {
+		char ssid[64];
+		int valid;
+	} profiles[10];
+	static int cached = 0;
+
+	if(!cached)
+	{
+		for(int i = 1; i <= 10; i++)
+		{
+			netData entry;
+			if(sceUtilityGetNetParam(i, PSP_NETPARAM_SSID, &entry) == 0)
+			{
+				size_t len = strlen(entry.asString);
+				if(len >= sizeof(profiles[i - 1].ssid))
+					len = sizeof(profiles[i - 1].ssid) - 1;
+				memcpy(profiles[i - 1].ssid, entry.asString, len);
+				profiles[i - 1].ssid[len] = '\0';
+				profiles[i - 1].valid = 1;
+				printk("%s: available profile %d ssid %s\n", __func__, i, profiles[i - 1].ssid);
+			}
+			else
+			{
+				profiles[i - 1].valid = 0;
+			}
+		}
+		cached = 1;
+	}
+
 	int fallback = 0;
-	#ifdef DEBUG
-	netData fallback_entry;
-	#endif
+	int fallback_idx = -1;
+
 	for(int i = 1; i <= 10; i++)
 	{
-		// Parameter Container
-		netData entry;
-		
-		// Acquire SSID for Configuration
-		if(sceUtilityGetNetParam(i, PSP_NETPARAM_SSID, &entry) == 0)
-		{
-			// Log Parameter
-			printk("%s: profile %d ssid %s\n", __func__, i, entry.asString);
-			
-			// Hotspot Configuration found
-			if(strcmp(entry.asString, ssid) == 0){
-				printk("%s: found profile %d with ssid %s\n", __func__, i, entry.asString);
-				return i;
-			}
+		if(!profiles[i - 1].valid) continue;
 
-			if (fallback == 0 && strlen(entry.asString) != 0){
-				fallback = i;
-				#ifdef DEBUG
-				fallback_entry = entry;
-				#endif
-			}
+		if(strcmp(profiles[i - 1].ssid, ssid) == 0)
+		{
+			printk("%s: matched profile %d with ssid %s\n", __func__, i, profiles[i - 1].ssid);
+			return i;
+		}
+
+		if(fallback == 0 && strlen(profiles[i - 1].ssid) != 0)
+		{
+			fallback = i;
+			fallback_idx = i - 1;
 		}
 	}
 
-	printk("%s: warning: couldn't find profile with ssid %s, falling back to hotspot id %d ssid %s\n", __func__, ssid, fallback, fallback_entry.asString);
+	const char *fallback_ssid = (fallback_idx >= 0) ? profiles[fallback_idx].ssid : "";
+	printk("%s: warning: couldn't find profile with ssid %s, falling back to hotspot id %d ssid %s\n", __func__, ssid, fallback, fallback_ssid);
 	return fallback;
 }
 
