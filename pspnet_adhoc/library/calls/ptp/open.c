@@ -17,6 +17,36 @@
 
 #include "../../common.h"
 
+static struct SceKernelThreadOptParam thread_px_stack_opt = {
+	.size = sizeof(struct SceKernelThreadOptParam),
+	.stackMpid = 5,
+};
+
+static int ptp_connect_postoffice_thread_func(SceSize args, void *argp){
+	int idx = *(int *)argp;
+	AdhocSocket *internal = _sockets[idx];
+
+	struct aemu_post_office_sock_addr addr = {
+		.addr = resolve_server_ip(),
+		.port = htons(POSTOFFICE_PORT)
+	};
+
+	int state;
+	SceNetEtherAddr fixed_daddr = internal->ptp.paddr;
+	fix_game_mac(&fixed_daddr);
+
+	void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->ptp.laddr, internal->ptp.lport, (const char *)&fixed_daddr, internal->ptp.pport, &state);
+	if (ptp_socket == NULL){
+		printk("%s: failed connecting to ptp socket on id %d, %d\n", __func__, idx + 1, state);
+		internal->ptp.state = PTP_STATE_CLOSED;
+		return 0;
+	}
+	internal->postoffice_handle = ptp_socket;
+	internal->ptp.state = PTP_STATE_ESTABLISHED;
+	printk("%s: id %d connected\n", __func__, idx + 1);
+	return 0;
+}
+
 static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, const SceNetEtherAddr *daddr, uint16_t dport, uint32_t bufsize){
 	AdhocSocket *internal = (AdhocSocket *)malloc(sizeof(AdhocSocket));
 	if (internal == NULL){
@@ -57,7 +87,32 @@ static int ptp_open_postoffice(const SceNetEtherAddr *saddr, uint16_t sport, con
 	sceKernelSignalSema(_socket_mapper_mutex, 1);
 
 	// trigger connect, it seems that "connect" means something else in this API, this is required by the warriors
-	proNetAdhocPtpConnect(i + 1, 0, 1);
+	thread_px_stack_opt.stackMpid = partition_to_use();
+	internal->connect_thread = sceKernelCreateThread("ptp connect thread", ptp_connect_postoffice_thread_func, 100, 0x4000, 0, &thread_px_stack_opt);
+	if (internal->connect_thread < 0){
+		printk("%s: failed creating connect thread, 0x%x\n", __func__, internal->connect_thread);
+		internal->connect_thread = -1;
+		return i + 1;
+	}
+	internal->ptp.state = PTP_STATE_SYN_SENT;
+	int start_result = sceKernelStartThread(internal->connect_thread, sizeof(i), &i);
+	if (start_result < 0){
+		printk("%s: failed starting connect thread, 0x%x\n", __func__, start_result);
+		sceKernelDeleteThread(internal->connect_thread);
+		internal->connect_thread = -1;
+		internal->ptp.state = PTP_STATE_CLOSED;
+		return i + 1;
+	}
+
+	#if 1
+	// opportunistic fast connect, some games somewhat needs this
+	for(int i = 0;i < 30;i++){
+		if (internal->ptp.state == PTP_STATE_ESTABLISHED){
+			break;
+		}
+		sceKernelDelayThread(10000);
+	}
+	#endif
 
 	return i + 1;
 }
