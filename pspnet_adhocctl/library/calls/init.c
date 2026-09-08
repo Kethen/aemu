@@ -48,7 +48,8 @@ int _event_handler_gp[ADHOCCTL_MAX_HANDLER];
 void * _event_args[ADHOCCTL_MAX_HANDLER];
 
 // Access Point Setting Name
-int _hotspot = -1;
+int _hotspots[MAX_HOTSPOTS];
+int _hotspot_count = 0;
 
 // Meta Socket
 int _metasocket = -1;
@@ -256,188 +257,196 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 	// Attempt Counter
 	int attemptmax = 20;
 
-	// Attempt Number
-	int attempt = 0;
-
-	// Attempt Connection Setup
-	for(; attempt < attemptmax; attempt++)
+	// Loop through all hotspots
+	int h = 0;
+	
+	for(; h < _hotspot_count; h++)
 	{
-		int apctl_connect_status = sceNetApctlConnect(_hotspot);
-		if (apctl_connect_status != 0)
-		{
-			printk("%s: sceNetApctlConnect failed on attempt %d, 0x%x\n", __func__, attempt, apctl_connect_status);
-			continue;
-		}
+		int current_hotspot = _hotspots[h];
 
-		// Wait for Connection
-		int statebefore = 0;
-		int state = 0; while(state != 4)
+		// Attempt Number
+		int attempt = 0;
+
+		// Attempt Connection Setup
+		for(; attempt < attemptmax; attempt++)
 		{
-			// Query State
-			int getstate = sceNetApctlGetState(&state);
-			
-			// Log State Change
-			if(statebefore != state) printk("New Connection State: %d\n", state);
-			
-			// Query Success
-			if(getstate == 0 && state != 4)
+			int apctl_connect_status = sceNetApctlConnect(current_hotspot);
+			if (apctl_connect_status != 0)
 			{
-				// Wait for Retry
-				sceKernelDelayThread(1000000);
+				printk("%s: sceNetApctlConnect failed for hotspot %d on attempt %d, 0x%x\n", __func__, current_hotspot, attempt, apctl_connect_status);
+				continue;
+			}
+
+			// Wait for Connection
+			int statebefore = 0;
+			int state = 0; while(state != 4)
+			{
+				// Query State
+				int getstate = sceNetApctlGetState(&state);
+				
+				// Log State Change
+				if(statebefore != state) printk("New Connection State: %d\n", state);
+				
+				// Query Success
+				if(getstate == 0 && state != 4)
+				{
+					// Wait for Retry
+					sceKernelDelayThread(1000000);
+				}
+				
+				// Query Error
+				else
+				{
+					printk("%s: sceNetApctlGetState returned 0x%x\n", __func__, getstate);
+					break;
+				}
+
+				if (state == 0 && statebefore != 0){
+					printk("%s: sceNetApctlGetState got disconnect state\n", __func__);
+					break;
+				}
+				
+				// Save Before State
+				statebefore = state;
+			}
+
+			if (state != 4)
+			{
+				printk("%s: failed connecting to ap %d on attempt %d, state %d\n", __func__, current_hotspot, attempt, state);
+				// Close Hotspot Connection
+				apctl_disconnect_and_wait_till_disconnected();
+				continue;
+			}
+
+			// PSVita 1000 seems to have issues connecting right after adhocctl
+			sceKernelDelayThread(100000 * attempt);
+
+			// Server IP
+			uint32_t ip = resolve_server_ip();
+			if (ip == 0xFFFFFFFF){
+				printk("%s: failed resolving server ip address on attempt %d\n", __func__, attempt);
+				apctl_disconnect_and_wait_till_disconnected();
+				continue;
+			}
+
+			// Create Friend Finder Socket
+			int socket = sceNetInetSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			if (socket <= 0)
+			{
+				printk("%s: failed creating internet socket on attempt %d, 0x%x\n", __func__, attempt, socket);
+				// Close Hotspot Connection
+				apctl_disconnect_and_wait_till_disconnected();
+				continue;
+			}
+
+			// Enable Port Re-use
+			sceNetInetSetsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &_one, sizeof(_one));
+			sceNetInetSetsockopt(socket, SOL_SOCKET, SO_REUSEPORT, &_one, sizeof(_one));
+			
+			// Apply Receive Timeout Settings to Socket
+			// uint32_t timeout = ADHOCCTL_RECV_TIMEOUT;
+			// sceNetInetSetsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+
+			// Prepare Server Address
+			SceNetInetSockaddrIn addr;
+			addr.sin_len = sizeof(addr);
+			addr.sin_family = AF_INET;
+			addr.sin_addr = ip;
+			addr.sin_port = sceNetHtons(ADHOCCTL_METAPORT);
+
+			int connect_status = sceNetInetConnect(socket, (SceNetInetSockaddr *)&addr, sizeof(addr));
+			if (connect_status != 0)
+			{
+				printk("%s: failed connecting to server 0x%x on attempt %d, 0x%x\n", __func__, ip, attempt, connect_status);
+				// Delete Socket
+				sceNetInetClose(socket);
+				// Close Hotspot Connection
+				apctl_disconnect_and_wait_till_disconnected();
+				continue;
 			}
 			
-			// Query Error
+			// Save Meta Socket
+			_metasocket = socket;
+			
+			// Save Product Code
+			_product_code = *adhoc_id;
+			
+			// Clear Event Handler
+			memset(_event_handler, 0, sizeof(_event_handler[0]) * ADHOCCTL_MAX_HANDLER);
+			memset(_event_args, 0, sizeof(_event_args[0]) * ADHOCCTL_MAX_HANDLER);
+			
+			// Clear Internal Control Status
+			memset(&_parameter, 0, sizeof(_parameter));
+			
+			// Read PSP Player Name
+			sceUtilityGetSystemParamString(PSP_SYSTEMPARAM_ID_STRING_NICKNAME, (char *)_parameter.nickname.data, ADHOCCTL_NICKNAME_LEN);
+			sanitize_nickname(&_parameter.nickname);
+			
+			#if 0
+			// Read Adhoc Channel
+			sceUtilityGetSystemParamInt(PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL, &_parameter.channel);
+			
+			// Fake Channel Number 1 on Automatic Channel
+			if(_parameter.channel == 0) _parameter.channel = 1;
+			#else
+			// Forcing channel 1 for now
+			printk("%s: forcing channel 1 for now\n", __func__);
+			_parameter.channel = 1;
+			#endif
+
+			// Read PSP MAC Address
+			sceWlanGetEtherAddr((void *)&_parameter.bssid.mac_addr.data);
+			
+			// Prepare Login Packet
+			SceNetAdhocctlLoginPacketC2S packet;
+			
+			// Set Packet Opcode
+			packet.base.opcode = OPCODE_LOGIN;
+			
+			// Set MAC Address
+			packet.mac = _parameter.bssid.mac_addr;
+			
+			// Set Nickname
+			copy_nickname(&packet.name, &_parameter.nickname);
+			
+			// Set Game Product ID
+			memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
+			
+			// Acquire Network Layer Lock
+			_acquireNetworkLock();
+			
+			// Send Login Packet
+			sceNetInetSend(_metasocket, &packet, sizeof(packet), INET_MSG_DONTWAIT);
+			
+			// Free Network Layer Lock
+			_freeNetworkLock();
+			
+			// Load and start UPNP Library, optional
+			if (_upnp_uid < 0)
+				_upnp_uid = sceKernelLoadModule("ms0:/kd/pspnet_miniupnc.prx", 0, NULL);
+
+			int _upnp_start_status = -1;
+			if (_upnp_uid >= 0 && _upnp_start_status < 0)
+			{
+				int status;
+				_upnp_start_status = sceKernelStartModule(_upnp_uid, 0, NULL, &status, NULL);
+			}
 			else
 			{
-				printk("%s: sceNetApctlGetState returned 0x%x\n", __func__, getstate);
-				break;
+				printk("%s: failed loading upnp module, 0x%x\n", __func__, _upnp_uid);
 			}
 
-			if (state == 0 && statebefore != 0){
-				printk("%s: sceNetApctlGetState got disconnect state\n", __func__);
-				break;
+			if (_upnp_start_status < 0)
+			{
+				printk("%s: failed starting upnp module, 0x%x\n", __func__, _upnp_start_status);
 			}
-			
-			// Save Before State
-			statebefore = state;
+
+			// Best effort
+			miniupnc_start();
+
+			// Return Success
+			return 0;
 		}
-
-		if (state != 4)
-		{
-			printk("%s: failed connecting to ap on attempt %d, state %d\n", __func__, attempt, state);
-			// Close Hotspot Connection
-			apctl_disconnect_and_wait_till_disconnected();
-			continue;
-		}
-
-		// PSVita 1000 seems to have issues connecting right after adhocctl
-		sceKernelDelayThread(100000 * attempt);
-
-		// Server IP
-		uint32_t ip = resolve_server_ip();
-		if (ip == 0xFFFFFFFF){
-			printk("%s: failed resolving server ip address on attempt %d\n", __func__, attempt);
-			apctl_disconnect_and_wait_till_disconnected();
-			continue;
-		}
-
-		// Create Friend Finder Socket
-		int socket = sceNetInetSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-		if (socket <= 0)
-		{
-			printk("%s: failed creating internet socket on attempt %d, 0x%x\n", __func__, attempt, socket);
-			// Close Hotspot Connection
-			apctl_disconnect_and_wait_till_disconnected();
-			continue;
-		}
-
-		// Enable Port Re-use
-		sceNetInetSetsockopt(socket, SOL_SOCKET, SO_REUSEADDR, &_one, sizeof(_one));
-		sceNetInetSetsockopt(socket, SOL_SOCKET, SO_REUSEPORT, &_one, sizeof(_one));
-		
-		// Apply Receive Timeout Settings to Socket
-		// uint32_t timeout = ADHOCCTL_RECV_TIMEOUT;
-		// sceNetInetSetsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-
-		// Prepare Server Address
-		SceNetInetSockaddrIn addr;
-		addr.sin_len = sizeof(addr);
-		addr.sin_family = AF_INET;
-		addr.sin_addr = ip;
-		addr.sin_port = sceNetHtons(ADHOCCTL_METAPORT);
-
-		int connect_status = sceNetInetConnect(socket, (SceNetInetSockaddr *)&addr, sizeof(addr));
-		if (connect_status != 0)
-		{
-			printk("%s: failed connecting to server 0x%x on attempt %d, 0x%x\n", __func__, ip, attempt, connect_status);
-			// Delete Socket
-			sceNetInetClose(socket);
-			// Close Hotspot Connection
-			apctl_disconnect_and_wait_till_disconnected();
-			continue;
-		}
-		
-		// Save Meta Socket
-		_metasocket = socket;
-		
-		// Save Product Code
-		_product_code = *adhoc_id;
-		
-		// Clear Event Handler
-		memset(_event_handler, 0, sizeof(_event_handler[0]) * ADHOCCTL_MAX_HANDLER);
-		memset(_event_args, 0, sizeof(_event_args[0]) * ADHOCCTL_MAX_HANDLER);
-		
-		// Clear Internal Control Status
-		memset(&_parameter, 0, sizeof(_parameter));
-		
-		// Read PSP Player Name
-		sceUtilityGetSystemParamString(PSP_SYSTEMPARAM_ID_STRING_NICKNAME, (char *)_parameter.nickname.data, ADHOCCTL_NICKNAME_LEN);
-		sanitize_nickname(&_parameter.nickname);
-		
-		#if 0
-		// Read Adhoc Channel
-		sceUtilityGetSystemParamInt(PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL, &_parameter.channel);
-		
-		// Fake Channel Number 1 on Automatic Channel
-		if(_parameter.channel == 0) _parameter.channel = 1;
-		#else
-		// Forcing channel 1 for now
-		printk("%s: forcing channel 1 for now\n", __func__);
-		_parameter.channel = 1;
-		#endif
-
-		// Read PSP MAC Address
-		sceWlanGetEtherAddr((void *)&_parameter.bssid.mac_addr.data);
-		
-		// Prepare Login Packet
-		SceNetAdhocctlLoginPacketC2S packet;
-		
-		// Set Packet Opcode
-		packet.base.opcode = OPCODE_LOGIN;
-		
-		// Set MAC Address
-		packet.mac = _parameter.bssid.mac_addr;
-		
-		// Set Nickname
-		copy_nickname(&packet.name, &_parameter.nickname);
-		
-		// Set Game Product ID
-		memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
-		
-		// Acquire Network Layer Lock
-		_acquireNetworkLock();
-		
-		// Send Login Packet
-		sceNetInetSend(_metasocket, &packet, sizeof(packet), INET_MSG_DONTWAIT);
-		
-		// Free Network Layer Lock
-		_freeNetworkLock();
-		
-		// Load and start UPNP Library, optional
-		if (_upnp_uid < 0)
-			_upnp_uid = sceKernelLoadModule("ms0:/kd/pspnet_miniupnc.prx", 0, NULL);
-
-		int _upnp_start_status = -1;
-		if (_upnp_uid >= 0 && _upnp_start_status < 0)
-		{
-			int status;
-			_upnp_start_status = sceKernelStartModule(_upnp_uid, 0, NULL, &status, NULL);
-		}
-		else
-		{
-			printk("%s: failed loading upnp module, 0x%x\n", __func__, _upnp_uid);
-		}
-
-		if (_upnp_start_status < 0)
-		{
-			printk("%s: failed starting upnp module, 0x%x\n", __func__, _upnp_start_status);
-		}
-
-		// Best effort
-		miniupnc_start();
-
-		// Return Success
-		return 0;
 	}
 
 	// Terminate Access Point Control
@@ -447,12 +456,23 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 	return -1;
 }
 
+int is_vita();
+
 /**
  * Read Access Point Configuration Name
  * @return 0 on success or... -1
  */
 void _readHotspotConfig(void)
 {
+	_hotspot_count = 0;
+
+	if (is_vita())
+	{
+		printk("%s: psvita detected, using hotspot id 0\n", __func__);
+		_hotspots[_hotspot_count++] = 0;
+		return;
+	}
+
 	// Open Configuration File
 	int fd = sceIoOpen("ms0:/seplugins/hotspot.txt", PSP_O_RDONLY, 0777);
 	
@@ -462,21 +482,46 @@ void _readHotspotConfig(void)
 		// Line Buffer
 		char line[128];
 		
-		// Read Line
-		_readLine(fd, line, sizeof(line));
-		
-		// Find Hotspot Configuration
-		_hotspot = _findHotspotConfigId(line);
+		// Read lines until EOF
+		while(_readLine(fd, line, sizeof(line)) > 0 && _hotspot_count < MAX_HOTSPOTS)
+		{
+			// Skip empty lines or whitespace if any
+			if(strlen(line) == 0) continue;
+
+			int id = _findHotspotConfigId(line);
+
+			if(id >= 0)
+			{
+				int exists = 0;
+				int i = 0;
+				
+				for(; i < _hotspot_count; i++)
+				{
+					if(_hotspots[i] == id)
+					{
+						exists = 1;
+						break;
+					}
+				}
+
+				if(!exists)
+					_hotspots[_hotspot_count++] = id;
+			}
+		}
 		
 		// Close Configuration File
 		sceIoClose(fd);
-		return;
 	}
 
-	_hotspot = _findHotspotConfigId("");
-}
+	// Fallback to default 0 hotspot id
+	if(_hotspot_count == 0)
+	{
+		int id = _findHotspotConfigId("");
 
-int is_vita();
+		if(id >= 0) 
+			_hotspots[_hotspot_count++] = id;
+	}
+}
 
 /**
  * Find Infrastructure Configuration ID for SSID
@@ -485,11 +530,6 @@ int is_vita();
  */
 int _findHotspotConfigId(char * ssid)
 {
-	if (is_vita()){
-		printk("%s: psvita detected, using hotspot id 0\n", __func__);
-		return 0;
-	}
-
 	// Find Hotspot by SSID
 	int fallback = 0;
 	#ifdef DEBUG
@@ -512,7 +552,7 @@ int _findHotspotConfigId(char * ssid)
 				return i;
 			}
 
-			if (!is_vita() && fallback == 0 && strlen(entry.asString) != 0){
+			if (fallback == 0 && strlen(entry.asString) != 0){
 				fallback = i;
 				#ifdef DEBUG
 				fallback_entry = entry;

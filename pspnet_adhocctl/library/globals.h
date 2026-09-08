@@ -64,7 +64,9 @@ extern int _event_handler_gp[ADHOCCTL_MAX_HANDLER];
 extern void * _event_args[ADHOCCTL_MAX_HANDLER];
 
 // Access Point Setting
-extern int _hotspot;
+#define MAX_HOTSPOTS 10
+extern int _hotspots[MAX_HOTSPOTS];
+extern int _hotspot_count;
 
 // Meta Socket
 extern int _metasocket;
