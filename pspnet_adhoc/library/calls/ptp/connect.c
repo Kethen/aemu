@@ -17,37 +17,6 @@
 
 #include "../../common.h"
 
-void fix_game_mac(SceNetEtherAddr *mac);
-static int ptp_connect_postoffice_thread_func(SceSize args, void *argp){
-	int idx = *(int *)argp;
-	AdhocSocket *internal = _sockets[idx];
-
-	struct aemu_post_office_sock_addr addr = {
-		.addr = resolve_server_ip(),
-		.port = htons(POSTOFFICE_PORT)
-	};
-
-	int state;
-	SceNetEtherAddr fixed_daddr = internal->ptp.paddr;
-	fix_game_mac(&fixed_daddr);
-
-	void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->ptp.laddr, internal->ptp.lport, (const char *)&fixed_daddr, internal->ptp.pport, &state);
-	if (ptp_socket == NULL){
-		printk("%s: failed connecting to ptp socket on id %d, %d\n", __func__, idx + 1, state);
-		internal->ptp.state = PTP_STATE_CLOSED;
-		return 0;
-	}
-	internal->postoffice_handle = ptp_socket;
-	internal->ptp.state = PTP_STATE_ESTABLISHED;
-	printk("%s: id %d connected\n", __func__, idx + 1);
-	return 0;
-}
-
-static struct SceKernelThreadOptParam thread_px_stack_opt = {
-	.size = sizeof(struct SceKernelThreadOptParam),
-	.stackMpid = 5,
-};
-
 static int ptp_connect_postoffice(int idx, uint32_t timeout, int nonblock){
 	struct aemu_post_office_sock_addr addr = {
 		.addr = resolve_server_ip(),
@@ -56,79 +25,37 @@ static int ptp_connect_postoffice(int idx, uint32_t timeout, int nonblock){
 
 	AdhocSocket *internal = _sockets[idx];
 
-	internal->ptp_ext.establish_timestamp = sceKernelGetSystemTimeWide();
-
-	// we need to actually connect in background for games that want to connect to itself
-	if (nonblock){
+	uint64_t end = sceKernelGetSystemTimeWide() + timeout;
+	while (true){
+		if (internal->ptp.state == PTP_STATE_ESTABLISHED){
+			if (internal->connect_thread >= 0){
+				sceKernelWaitThreadEnd(internal->connect_thread, NULL);
+				sceKernelDeleteThread(internal->connect_thread);
+				internal->connect_thread = -1;
+			}
+			return 0;
+		}
 		if (internal->ptp.state == PTP_STATE_CLOSED){
 			if (internal->connect_thread >= 0){
 				sceKernelWaitThreadEnd(internal->connect_thread, NULL);
 				sceKernelDeleteThread(internal->connect_thread);
 				internal->connect_thread = -1;
 			}
-
-			thread_px_stack_opt.stackMpid = partition_to_use();
-			internal->connect_thread = sceKernelCreateThread("ptp nonblock connect thread", ptp_connect_postoffice_thread_func, 100, 0x4000, 0, &thread_px_stack_opt);
-			if (internal->connect_thread < 0){
-				printk("%s: failed creating connect thread, 0x%x\n", __func__, internal->connect_thread);
-				internal->ptp.state = PTP_STATE_CLOSED;
-				return ADHOC_WOULD_BLOCK;
-			}
-			int start_result = sceKernelStartThread(internal->connect_thread, sizeof(idx), &idx);
-			if (start_result < 0){
-				printk("%s: failed starting connect thread, 0x%x\n", __func__, start_result);
-				sceKernelDeleteThread(internal->connect_thread);
-				internal->connect_thread = -1;
-				internal->ptp.state = PTP_STATE_CLOSED;
-				return ADHOC_WOULD_BLOCK;
-			}
-
-			internal->ptp.state = PTP_STATE_SYN_SENT;
-
-			#if 1
-			// opportunistic fast connect, some games somewhat needs this
-			for(int i = 0;i < 30;i++){
-				if (internal->ptp.state == PTP_STATE_ESTABLISHED){
-					break;
-				}
-				sceKernelDelayThread(10000);
-			}
-			#endif
+			return ADHOC_CONNECTION_REFUSED;
 		}
-		if (internal->ptp.state == PTP_STATE_ESTABLISHED){
-			return 0;
+
+		// internal->ptp.state == PTP_STATE_SYN_SENT
+		if (nonblock){
+			return ADHOC_WOULD_BLOCK;
 		}
-		// PTP_STATE_SYN_SENT
-		return ADHOC_WOULD_BLOCK;
+		if (timeout != 0 && sceKernelGetSystemTimeWide() >= end){
+			break;
+		}
+		// yield, we want the connect thread to have cpu time
+		sceKernelDelayThread(0);
 	}
 
-	if (timeout != 0){
-		uint64_t end = sceKernelGetSystemTimeWide() + timeout;
-		do{
-			int connect_result = ptp_connect_postoffice(idx, 0, 1);
-			if (connect_result == 0){
-				return 0;
-			}
-			// yield in case of closed loop
-			sceKernelDelayThread(0);
-		}while(sceKernelGetSystemTimeWide() < end);
-		return ADHOC_TIMEOUT;
-	}
-
-	// block mode
-	int state;
-	internal->ptp.state = PTP_STATE_SYN_SENT;
-	void *ptp_socket = ptp_connect_v4(&addr, (const char *)&internal->ptp.laddr, internal->ptp.lport, (const char *)&internal->ptp.paddr, internal->ptp.pport, &state);
-	if (ptp_socket == NULL){
-		printk("%s: failed connecting to ptp socket, %d\n", __func__, state);
-		internal->ptp.state = PTP_STATE_CLOSED;
-		return ADHOC_CONNECTION_REFUSED;
-	}
-
-	// we got a new socket
-	internal->postoffice_handle = ptp_socket;
-	internal->ptp.state = PTP_STATE_ESTABLISHED;
-	return 0;
+	return ADHOC_TIMEOUT;
 }
 
 /**

@@ -141,5 +141,6 @@ int pdp_peek_next_size_postoffice(int idx);
 int ptp_peek_next_size_postoffice(int idx);
 
 uint16_t reverse_port(uint16_t port);
+void fix_game_mac(SceNetEtherAddr *mac);
 
 #endif
