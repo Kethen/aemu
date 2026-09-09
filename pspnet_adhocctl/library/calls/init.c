@@ -255,21 +255,17 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 	}
 
 	// Attempt Counter
-	int attemptmax = 20;
+	int attemptmax = 5;
 
-	// Loop through all hotspots
-	int h = 0;
-	
-	for(; h < _hotspot_count; h++)
+	// Loop through all hotspots with round-robin attempts
+	int attempt = 0;
+	for(; attempt < attemptmax; attempt++)
 	{
-		int current_hotspot = _hotspots[h];
-
-		// Attempt Number
-		int attempt = 0;
-
-		// Attempt Connection Setup
-		for(; attempt < attemptmax; attempt++)
+		int h = 0;
+		for(; h < _hotspot_count; h++)
 		{
+			int current_hotspot = _hotspots[h];
+
 			int apctl_connect_status = sceNetApctlConnect(current_hotspot);
 			if (apctl_connect_status != 0)
 			{
@@ -533,12 +529,12 @@ int _findHotspotConfigId(char * ssid)
 	static struct {
 		char ssid[64];
 		int valid;
-	} profiles[10];
+	} profiles[MAX_HOTSPOTS];
 	static int cached = 0;
 
 	if(!cached)
 	{
-		for(int i = 1; i <= 10; i++)
+		for(int i = 1; i <= MAX_HOTSPOTS; i++)
 		{
 			netData entry;
 			if(sceUtilityGetNetParam(i, PSP_NETPARAM_SSID, &entry) == 0)
@@ -562,7 +558,7 @@ int _findHotspotConfigId(char * ssid)
 	int fallback = 0;
 	int fallback_idx = -1;
 
-	for(int i = 1; i <= 10; i++)
+	for(int i = 1; i <= MAX_HOTSPOTS; i++)
 	{
 		if(!profiles[i - 1].valid) continue;
 

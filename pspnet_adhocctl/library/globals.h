@@ -64,7 +64,7 @@ extern int _event_handler_gp[ADHOCCTL_MAX_HANDLER];
 extern void * _event_args[ADHOCCTL_MAX_HANDLER];
 
 // Access Point Setting
-#define MAX_HOTSPOTS 10
+#define MAX_HOTSPOTS 10 // Max available hotspots in PSP
 extern int _hotspots[MAX_HOTSPOTS];
 extern int _hotspot_count;
 
