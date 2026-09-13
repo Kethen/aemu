@@ -454,12 +454,32 @@ int _initNetwork(const SceNetAdhocctlAdhocId * adhoc_id)
 
 int is_vita();
 
+#ifdef DEBUG
+static void debug_log_profiles(void)
+{
+	for(int i = 1; i <= MAX_HOTSPOTS; i++)
+	{
+		netData entry;
+		int fetch_status = sceUtilityGetNetParam(i, PSP_NETPARAM_SSID, &entry);
+		if (fetch_status != 0)
+			continue;
+		size_t len = strlen(entry.asString);
+		if (len == 0)
+			continue;
+		printk("%s: available profile %d ssid %s\n", __func__, i, entry.asString);
+	}
+}
+#else
+#define debug_log_profiles()
+#endif
+
 /**
  * Read Access Point Configuration Name
  * @return 0 on success or... -1
  */
 void _readHotspotConfig(void)
 {
+	debug_log_profiles();
 	_hotspot_count = 0;
 
 	if (is_vita())
@@ -526,57 +546,25 @@ void _readHotspotConfig(void)
  */
 int _findHotspotConfigId(char * ssid)
 {
-	static struct {
-		char ssid[64];
-		int valid;
-	} profiles[MAX_HOTSPOTS];
-	static int cached = 0;
-
-	if(!cached)
-	{
-		for(int i = 1; i <= MAX_HOTSPOTS; i++)
-		{
-			netData entry;
-			if(sceUtilityGetNetParam(i, PSP_NETPARAM_SSID, &entry) == 0)
-			{
-				size_t len = strlen(entry.asString);
-				if(len >= sizeof(profiles[i - 1].ssid))
-					len = sizeof(profiles[i - 1].ssid) - 1;
-				memcpy(profiles[i - 1].ssid, entry.asString, len);
-				profiles[i - 1].ssid[len] = '\0';
-				profiles[i - 1].valid = 1;
-				printk("%s: available profile %d ssid %s\n", __func__, i, profiles[i - 1].ssid);
-			}
-			else
-			{
-				profiles[i - 1].valid = 0;
-			}
-		}
-		cached = 1;
-	}
-
 	int fallback = 0;
-	int fallback_idx = -1;
 
 	for(int i = 1; i <= MAX_HOTSPOTS; i++)
 	{
-		if(!profiles[i - 1].valid) continue;
+		netData entry;
+		if(sceUtilityGetNetParam(i, PSP_NETPARAM_SSID, &entry) != 0)
+			continue;
 
-		if(strcmp(profiles[i - 1].ssid, ssid) == 0)
+		if(strcmp(entry.asString, ssid) == 0)
 		{
-			printk("%s: matched profile %d with ssid %s\n", __func__, i, profiles[i - 1].ssid);
+			printk("%s: matched profile %d with ssid %s\n", __func__, i, entry.asString);
 			return i;
 		}
 
-		if(fallback == 0 && strlen(profiles[i - 1].ssid) != 0)
-		{
+		if(fallback == 0 && strlen(entry.asString) != 0)
 			fallback = i;
-			fallback_idx = i - 1;
-		}
 	}
 
-	const char *fallback_ssid = (fallback_idx >= 0) ? profiles[fallback_idx].ssid : "";
-	printk("%s: warning: couldn't find profile with ssid %s, falling back to hotspot id %d ssid %s\n", __func__, ssid, fallback, fallback_ssid);
+	printk("%s: warning: couldn't find profile with ssid %s, falling back to hotspot id %d\n", __func__, ssid, fallback);
 	return fallback;
 }
 
