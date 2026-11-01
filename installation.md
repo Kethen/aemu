@@ -143,7 +143,9 @@ game, ef0:/seplugins/atpro.prx, on
   hotspot = MyProfileName
   # hotspot = MyOtherProfile
   nickname = Hunter
+  hud_on_home = 1
   ```
+  `hud_on_home = 0` makes the plugin leave the HOME button alone: HOME then neither toggles the chat HUD nor gets the system home menu blocked, so custom home menu plugins keep working. Use L+R+SELECT to open the HUD instead.
 - On PSVita, https://github.com/Kethen/pspemu_inet_multithread can be used on top to make some games run faster during adhoc multiplayer
 
 - <details>

@@ -1374,6 +1374,15 @@ void get_game_code(char *buf, int len){
 	strncpy(buf, getGameCode(), len - 1);
 }
 
+// HOME Button Usage (0 = never touch HOME, set via hud_on_home = 0 in atpro.ini)
+static int use_home_button = 1;
+
+// HOME toggles the HUD (otherwise only L+R+SELECT does), used for the HUD help text
+int hud_toggled_by_home(void)
+{
+	return use_home_button && !is_ark_standalone();
+}
+
 // Callback Deny Function
 int cbdeny(int cbid)
 {
@@ -2831,14 +2840,14 @@ int input_thread(SceSize args, void * argp)
 		// Register Button
 		curr_buttons = ctrl.Buttons;
 		
-		// Home Button pressed (and not pressing exit button)
-		if(!is_ark_standalone() && !is_exit_button_pressed && (prev_buttons & PSP_CTRL_HOME) == 0 && (curr_buttons & PSP_CTRL_HOME) != 0)
+		// Home Button pressed (and not pressing exit button), unless disabled via hud_on_home = 0
+		if(use_home_button && !is_ark_standalone() && !is_exit_button_pressed && (prev_buttons & PSP_CTRL_HOME) == 0 && (curr_buttons & PSP_CTRL_HOME) != 0)
 		{
 			// Enable or Disable GUI Overlay
 			hud_on = !hud_on;
 		}
 
-		// New hud hotkey for standalone ARK
+		// HUD hotkey: SELECT while holding L+R (always available)
 		if(!is_exit_button_pressed &&
 			(prev_buttons & PSP_CTRL_SELECT) == 0 && (curr_buttons & PSP_CTRL_SELECT) != 0 &&
 			(curr_buttons & PSP_CTRL_LTRIGGER) != 0 &&
@@ -3111,6 +3120,14 @@ s32 sceKernelPowerUnlockForUserPatched(s32 lockType)
 	#endif
 }
 
+static void load_home_button_setting(){
+	int hud_on_home = atpro_config_get_bool("hud_on_home");
+	if (hud_on_home >= 0){
+		use_home_button = hud_on_home;
+	}
+	printk("%s: home button %s\n", __func__, use_home_button ? "used for hud and home menu blocking" : "left alone");
+}
+
 static void load_nickname_override(){
 	if (atpro_config_get("nickname", 0, nickname, sizeof(nickname)) && nickname[0] != '\0'){
 		printk("%s: loaded nickname (%s) from atpro.ini\n", __func__, nickname);
@@ -3153,6 +3170,7 @@ int module_start(SceSize args, void * argp)
 	printk("ATPRO - ALPHA VERSION %s %s\n", __DATE__, __TIME__);
 
 	load_nickname_override();
+	load_home_button_setting();
 
 	// Enable Online Mode
 	onlinemode = sceWlanGetSwitchState();
@@ -3232,9 +3250,11 @@ int module_start(SceSize args, void * argp)
 				result = hook_import_bynid(utility, "ModuleMgrForKernel", nid[1], load_plugin_alt);
 				printk("User Loader Hook: %d\n", result);
 				if(result == 0) {
-					// Disable Home Menu
-					sctrlHENPatchSyscall((void*)sctrlHENFindFunction("sceLoadExec", "LoadExecForUser", 0x4AC57943), cbdeny);
-					printk("Disabled Home Menu!\n");
+					// Disable Home Menu (unless HOME is left to the system / custom home menu plugins)
+					if (use_home_button){
+						sctrlHENPatchSyscall((void*)sctrlHENFindFunction("sceLoadExec", "LoadExecForUser", 0x4AC57943), cbdeny);
+						printk("Disabled Home Menu!\n");
+					}
 					
 					// Enable Module Start Patching
 					sysctrl_patcher = sctrlHENSetStartModuleHandler(online_patcher);
