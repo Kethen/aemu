@@ -135,6 +135,7 @@ game, ef0:/seplugins/atpro.prx, on
 
 - `ms0:/seplugins/port_offset.txt` / `ef0:/seplugins/port_offset.txt` / `ux0:/pspemu/seplugins/port_offset.txt` can be changed if you wish to change your port offset, mirrors the port offset option in PPSSPP
 - `ms0:/seplugins/nickname.txt` / `ef0:/seplugins/nickname.txt` / `ux0:/pspemu/seplugins/nickname.txt` can be added to override your system nickname, mostly useful for PSVita ARK Standalone if games don't work with your nickname generated from PSVita PSN
+- `ms0:/seplugins/atpro_disable_home.txt` / `ef0:/seplugins/atpro_disable_home.txt` / `ux0:/pspemu/seplugins/atpro_disable_home.txt` can be added with the content `1` to make the plugin leave the HOME button alone: HOME then neither toggles the chat HUD nor gets the system home menu blocked, so custom home menu plugins keep working. Use L+R+SELECT to open the HUD instead
 - On PSVita, https://github.com/Kethen/pspemu_inet_multithread can be used on top to make some games run faster during adhoc multiplayer
 
 - <details>
