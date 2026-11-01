@@ -540,13 +540,47 @@ void _readHotspotConfig(void)
 }
 
 /**
+ * Find Infrastructure Configuration ID by Profile Name
+ * @param name Target Profile Name (as shown in XMB Network Settings)
+ * @return Configuration ID > 0 or... 0 if not found
+ */
+static int _findHotspotConfigIdByName(const char * name)
+{
+	if(name == NULL || name[0] == '\0')
+		return 0;
+
+	for(int i = 1; i <= MAX_HOTSPOTS; i++)
+	{
+		netData entry;
+		if(sceUtilityGetNetParam(i, PSP_NETPARAM_NAME, &entry) != 0)
+			continue;
+
+		if(strcmp(entry.asString, name) == 0)
+		{
+			printk("%s: matched profile %d with name %s\n", __func__, i, entry.asString);
+			return i;
+		}
+	}
+
+	return 0;
+}
+
+/**
  * Find Infrastructure Configuration ID for SSID
- * @param ssid Target SSID
+ *
+ * A unique SSID match wins. If no profile, or more than one profile, uses
+ * that SSID, the value is also tried as a profile name, since profile names
+ * are unique while SSIDs are not. Without a name match the SSID behaviour
+ * applies (first SSID match, else first usable profile).
+ *
+ * @param ssid Target SSID or Profile Name
  * @return Configuration ID > -1 or... -1
  */
 int _findHotspotConfigId(char * ssid)
 {
 	int fallback = 0;
+	int first_match = 0;
+	int match_count = 0;
 
 	for(int i = 1; i <= MAX_HOTSPOTS; i++)
 	{
@@ -557,14 +591,33 @@ int _findHotspotConfigId(char * ssid)
 		if(strcmp(entry.asString, ssid) == 0)
 		{
 			printk("%s: matched profile %d with ssid %s\n", __func__, i, entry.asString);
-			return i;
+			if(first_match == 0)
+				first_match = i;
+			match_count++;
 		}
 
 		if(fallback == 0 && strlen(entry.asString) != 0)
 			fallback = i;
 	}
 
-	printk("%s: warning: couldn't find profile with ssid %s, falling back to hotspot id %d\n", __func__, ssid, fallback);
+	// Unique SSID Match
+	if(match_count == 1)
+		return first_match;
+
+	// Ambiguous or missing SSID, try it as a Profile Name
+	printk("%s: %d profiles with ssid %s, trying it as a profile name\n", __func__, match_count, ssid);
+	int by_name = _findHotspotConfigIdByName(ssid);
+	if(by_name > 0)
+		return by_name;
+
+	// Ambiguous SSID without Name Match
+	if(match_count > 1)
+	{
+		printk("%s: no profile named %s, using first profile %d with that ssid\n", __func__, ssid, first_match);
+		return first_match;
+	}
+
+	printk("%s: warning: couldn't find profile with ssid or name %s, falling back to hotspot id %d\n", __func__, ssid, fallback);
 	return fallback;
 }
 
