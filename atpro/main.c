@@ -1383,6 +1383,9 @@ int hud_toggled_by_home(void)
 	return use_home_button && !is_ark_standalone();
 }
 
+// Sleep Mode Blocking (0 = leave sleep mode alone, set via allow_sleep in atpro.ini)
+static int block_sleep = 1;
+
 // Callback Deny Function
 int cbdeny(int cbid)
 {
@@ -3128,6 +3131,14 @@ static void load_home_button_setting(){
 	printk("%s: home button %s\n", __func__, use_home_button ? "used for hud and home menu blocking" : "left alone");
 }
 
+static void load_sleep_setting(){
+	int allow_sleep = atpro_config_get_bool("allow_sleep");
+	if (allow_sleep >= 0){
+		block_sleep = !allow_sleep;
+	}
+	printk("%s: sleep mode %s\n", __func__, block_sleep ? "blocked while wlan is on" : "left alone");
+}
+
 static void load_nickname_override(){
 	if (atpro_config_get("nickname", 0, nickname, sizeof(nickname)) && nickname[0] != '\0'){
 		printk("%s: loaded nickname (%s) from atpro.ini\n", __func__, nickname);
@@ -3171,6 +3182,7 @@ int module_start(SceSize args, void * argp)
 
 	load_nickname_override();
 	load_home_button_setting();
+	load_sleep_setting();
 
 	// Enable Online Mode
 	onlinemode = sceWlanGetSwitchState();
@@ -3264,9 +3276,11 @@ int module_start(SceSize args, void * argp)
 					if(onlinemode)
 					{
 						if(!is_vita()){
-							// Disable Sleep Mode
-							scePowerLock(0);
-							printk("Disabled Power Button!\n");
+							// Disable Sleep Mode (unless allow_sleep is set)
+							if (block_sleep){
+								scePowerLock(0);
+								printk("Disabled Power Button!\n");
+							}
 
 							if (partition_to_use() == 5){
 								// Keep volatile lock locked, and return fake results to calls

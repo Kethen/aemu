@@ -144,8 +144,10 @@ game, ef0:/seplugins/atpro.prx, on
   # hotspot = MyOtherProfile
   nickname = Hunter
   hud_on_home = 1
+  allow_sleep = 0
   ```
   `hud_on_home = 0` makes the plugin leave the HOME button alone: HOME then neither toggles the chat HUD nor gets the system home menu blocked, so custom home menu plugins keep working. Use L+R+SELECT to open the HUD instead.
+  `allow_sleep = 1` keeps sleep mode available while the WLAN switch is on. By default the plugin blocks sleep for the whole game session, because sleeping drops the network connection; sleeping while connected will most likely end the session
 - On PSVita, https://github.com/Kethen/pspemu_inet_multithread can be used on top to make some games run faster during adhoc multiplayer
 
 - <details>
