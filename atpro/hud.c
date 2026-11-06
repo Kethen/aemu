@@ -24,6 +24,7 @@
 #include <psprtc.h>
 #include <pspimpose_driver.h>
 #include "hud.h"
+#include "atpro_config.h"
 
 // Logical Constants
 #define NICKNAME_TRUNCATE 8
@@ -44,6 +45,8 @@
 #define MIDDLE_MESSAGE_X 90
 #define CHAT_BINDING_X 221
 #define INPUT_LINE_Y 140
+#define PROFILE_SWITCH_Y 152
+#define PROFILE_CONNECTED_Y 176
 
 // Graphical Macros
 #define GET_MIDDLE_ALIGN_X(t) (240 - strlen(t) * FONT_WIDTH / 2)
@@ -120,6 +123,84 @@ SceKernelSysClock delete_press_start, delete_press_end;
 
 // Last Time Battery got queried
 uint64_t lastbatteryquery = 0;
+
+// atpro.ini Profiles (switched with LEFT/RIGHT while not connected)
+static char profiles[ATPRO_PROFILE_MAX][ATPRO_PROFILE_NAME_MAX];
+static int profile_count = -1;
+static int profile_active = 0;
+static int profile_switched = 0; // 1 saved, -1 saving failed
+static uint64_t profile_last_try = 0;
+
+// Read the profile list and the active profile from atpro.ini. Called from
+// the input thread only (drawInfo also runs in game threads via the vblank
+// hooks, where file access isn't allowed); until atpro.ini could be opened
+// it is retried at most once per second.
+static void loadProfiles(void)
+{
+	if(profile_count >= 0) return;
+	uint64_t now = sceKernelGetSystemTimeWide();
+	if(profile_last_try != 0 && now - profile_last_try < 1000000) return;
+	profile_last_try = now;
+
+	// path strings and buffers live in kernel memory
+	uint32_t k1 = pspSdkSetK1(0);
+	int fd = atpro_config_open(NULL);
+	if(fd >= 0)
+	{
+		sceIoClose(fd);
+		char active[ATPRO_PROFILE_NAME_MAX];
+		int count = atpro_config_profiles(profiles, ATPRO_PROFILE_MAX, NULL);
+		atpro_config_active_profile(active, sizeof(active));
+		profile_active = 0;
+		int i = 0; for(; i < count; i++)
+		{
+			if(strcmp(profiles[i], active) == 0) profile_active = i;
+		}
+		profile_count = count;
+	}
+	pspSdkSetK1(k1);
+}
+
+// Select the previous/next profile and save it to kd/atpro_profile.txt
+static void switchProfile(int step)
+{
+	if(profile_count < 2) return;
+	profile_active = (profile_active + step + profile_count) % profile_count;
+	uint32_t k1 = pspSdkSetK1(0);
+	profile_switched = (atpro_config_save_profile(profiles[profile_active]) == 0) ? 1 : -1;
+	pspSdkSetK1(k1);
+}
+
+// Draw "PROFILE: NAME" centered at y, with arrows and help text when switchable
+static void drawProfile(CANVAS * canvas, int y, int switchable)
+{
+	// list is loaded by the input thread (loadProfiles), never while drawing
+	if(profile_count <= 0) return;
+
+	char name[17];
+	int i = 0; for(; i < sizeof(name) - 1 && profiles[profile_active][i] != 0; i++)
+	{
+		name[i] = convertChar((uint8_t)profiles[profile_active][i]);
+	}
+	name[i] = 0;
+
+	char text[48];
+	if(switchable && profile_count > 1) sprintf(text, "PROFILE: < %s >", name);
+	else sprintf(text, "PROFILE: %s", name);
+	drawSmallFont(canvas, text, GET_MIDDLE_ALIGN_X(text), y, RGB_8888(0xFF, 0xD7, 0x00));
+
+	if(switchable && profile_count > 1)
+	{
+		char * help = "LEFT/RIGHT: CHANGE PROFILE";
+		uint32_t color = RGB_8888(0xDE, 0xDE, 0xDE);
+		if(profile_switched < 0)
+		{
+			help = "COULD NOT SAVE KD/ATPRO_PROFILE.TXT";
+			color = RGB_8888(0xFF, 0x40, 0x40);
+		}
+		drawSmallFont(canvas, help, GET_MIDDLE_ALIGN_X(help), y + FONT_WIDTH * 2, color);
+	}
+}
 
 // Paint HUD Overlay
 void drawInfo(CANVAS * canvas)
@@ -211,6 +292,9 @@ void drawInfo(CANVAS * canvas)
 			
 			// Chat Button Binding
 			drawSmallFont(canvas, "SELECT: CLEAR CHAT   TAP START: SEND TEXT", CHAT_BINDING_X, VERTICAL_PADDING, RGB_8888(0x00, 0xFF, 0x00));
+
+			// Active Profile (switching only between sessions)
+			drawProfile(canvas, PROFILE_CONNECTED_Y, 0);
 		}
 		
 		// Currently Waiting for Network SSID Assignment
@@ -218,6 +302,9 @@ void drawInfo(CANVAS * canvas)
 		{
 			// Write Waiting Headline
 			drawSmallFont(canvas, "WAITING FOR ADHOC SSID SETUP...", HORIZONTAL_PADDING + 48, VERTICAL_PADDING, RGB_8888(0xDE, 0xDE, 0xDE));
+
+			// Profile Switcher
+			drawProfile(canvas, PROFILE_SWITCH_Y, 1);
 		}
 		
 		// Show WLAN Reception
@@ -230,6 +317,9 @@ void drawInfo(CANVAS * canvas)
 	{
 		// Offline Mode Headline
 		drawSmallFont(canvas, "YOU'RE IN OFFLINE MODE! CHATROOM HAS BEEN DISABLED!", MIDDLE_MESSAGE_X, MIDDLE_MESSAGE_Y, RGB_8888(0xDE, 0xDE, 0xDE));
+
+		// Profile Switcher (used from the next game start with WLAN on)
+		drawProfile(canvas, PROFILE_SWITCH_Y, 1);
 	}
 	
 	// Battery Query required
@@ -454,6 +544,18 @@ void setUserCount(int count)
 // Handle Key Event
 void handleKeyEvent(uint32_t prev, uint32_t curr)
 {
+	// Runs in the input thread while the HUD is open: load the profile list here
+	loadProfiles();
+
+	// Not in a session: LEFT/RIGHT switch the atpro.ini profile (the chat
+	// keys are only active while connected)
+	if(!onlinemode || !connected_to_prometheus)
+	{
+		if((prev & PSP_CTRL_LEFT) == 0 && (curr & PSP_CTRL_LEFT) != 0) switchProfile(-1);
+		else if((prev & PSP_CTRL_RIGHT) == 0 && (curr & PSP_CTRL_RIGHT) != 0) switchProfile(1);
+		return;
+	}
+
 	// Online Mode
 	if(onlinemode)
 	{

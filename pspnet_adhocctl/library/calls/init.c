@@ -141,6 +141,9 @@ static struct SceKernelThreadOptParam thread_px_stack_opt = {
 
 int partition_to_use();
 
+// pspnet_adhoc: re-read profile dependent settings if the active atpro.ini profile changed
+int atpro_profile_refresh();
+
 /**
  * Initialize the Adhoc-Control Emulator
  * @param stacksize Stacksize of the Internal Thread
@@ -156,6 +159,9 @@ int proNetAdhocctlInit(int stacksize, int prio, const SceNetAdhocctlAdhocId * ad
 		// Minimum Stacksize (just to fake SCE behaviour)
 		if(stacksize >= 3072)
 		{
+			// pick up a profile switch from the L+R+SELECT menu before using server and hotspots
+			atpro_profile_refresh();
+
 			_readHotspotConfig();
 
 			if (_initNetwork(adhoc_id) != 0)

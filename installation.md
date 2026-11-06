@@ -147,7 +147,30 @@ game, ef0:/seplugins/atpro.prx, on
   allow_sleep = 0
   ```
   `hud_on_home = 0` makes the plugin leave the HOME button alone: HOME then neither toggles the chat HUD nor gets the system home menu blocked, so custom home menu plugins keep working. Use L+R+SELECT to open the HUD instead.
-  `allow_sleep = 1` keeps sleep mode available while the WLAN switch is on. By default the plugin blocks sleep for the whole game session, because sleeping drops the network connection; sleeping while connected will most likely end the session
+  `allow_sleep = 1` keeps sleep mode available while the WLAN switch is on. By default the plugin blocks sleep for the whole game session, because sleeping drops the network connection; sleeping while connected will most likely end the session.
+  `postoffice = 1` / `postoffice = 0` turns postoffice (relay) mode on or off, see [Classic P2P mode](#classic-p2p-mode). Without this key, postoffice mode is used whenever `kd/aemu_postoffice.prx` exists
+- `atpro.ini` can hold several **profiles**, e.g. one per adhoc server, and you can switch between them in the HUD. A `[name]` line starts a profile; keys before the first profile apply to all of them. A key set in the active profile replaces the global one (for `hotspot`, the profile's whole list replaces the global list):
+  ```
+  nickname = Hunter
+  hud_on_home = 0
+
+  [socom]
+  server = socom.cc
+  port_offset = 10000
+  hotspot = HomeWifi
+  postoffice = 1
+
+  [other]
+  server = adhoc.example.com
+  port_offset = 0
+  hotspot = OtherWifi
+  postoffice = 0
+  ```
+  - To switch, open the HUD (L+R+SELECT, or HOME) while not connected, e.g. in the village or the game menu, and press LEFT/RIGHT on the `PROFILE: < NAME >` line. While connected the HUD only shows the active profile, the chat keeps all buttons
+  - The new profile is used from the next connection (`sceNetAdhocInit` / `sceNetAdhocctlInit`): leave the online area and enter it again. No game restart is needed. Server address, port offset and postoffice mode are only re-read when the profile actually changed; the hotspot list is read on every connection
+  - The choice is saved in `kd/atpro_profile.txt` on the same storage as the `atpro.ini` that was used (`ms0:/kd/`, `ef0:/kd/`, PPSSPP: `ms0:/PSP/PLUGINS/atpro/`), so it is kept across game starts. Without that file, or if it names a profile that doesn't exist anymore, the first profile is used
+  - `nickname`, `hud_on_home` and `allow_sleep` are only read when the game starts. Put them before the first profile; set inside a profile they only take effect after restarting the game with that profile active
+  - Up to 8 profiles, names up to 31 characters, case insensitive. Without any `[name]` line `atpro.ini` works as a single configuration like before
 - On PSVita, https://github.com/Kethen/pspemu_inet_multithread can be used on top to make some games run faster during adhoc multiplayer
 
 - <details>
@@ -157,7 +180,7 @@ game, ef0:/seplugins/atpro.prx, on
 
 	</summary>
 
-	classic P2P mode can be enabled by renaming `kd/aemu_postoffice.prx` to `kd/aemu_postoffice.prx.bak`
+	<a id="classic-p2p-mode"/>classic P2P mode can be enabled by renaming `kd/aemu_postoffice.prx` to `kd/aemu_postoffice.prx.bak`, or by setting `postoffice = 0` in `atpro.ini`. With [profiles](#advanced-configurations), `postoffice` can be set per profile, so `kd/aemu_postoffice.prx` can stay installed for servers that use postoffice mode while classic P2P is used for others
 
 </details>
 

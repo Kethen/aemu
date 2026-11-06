@@ -41,6 +41,9 @@ int _postoffice = 0;
 int _vita_speedup = 0;
 
 static int postoffice_handle = -1;
+static int postoffice_started = 0;
+
+extern int _want_postoffice;
 
 // kernel module assisted load
 void load_inet_modules();
@@ -69,6 +72,9 @@ int proNetAdhocInit(void)
 			printk("%s: vita speedup not detected\n", __func__);
 		}
 
+		// pick up a profile switch from the L+R+SELECT menu
+		atpro_profile_refresh();
+
 		// precache port offset
 		get_port_offset();
 
@@ -92,24 +98,32 @@ int proNetAdhocInit(void)
 			.creserved = {0, 0}
 		};
 
-		// Load postoffice lib
-		if (postoffice_handle < 0){
-			postoffice_handle = sceKernelLoadModule("ms0:/kd/aemu_postoffice.prx", 0, &mod_load_high_option);
+		// Postoffice (relay) mode: "postoffice = 0/1" in the active atpro.ini
+		// profile, otherwise on whenever aemu_postoffice.prx exists. Once loaded
+		// the prx stays loaded, a profile without postoffice just doesn't use it.
+		_postoffice = 0;
+		if (_want_postoffice != 0){
+			// Load postoffice lib
 			if (postoffice_handle < 0){
-				postoffice_handle = sceKernelLoadModule("ms0:/PSP/PLUGINS/atpro/aemu_postoffice.prx", 0, NULL);
-			}
-			if (postoffice_handle >= 0){
-				int start_status = sceKernelStartModule(postoffice_handle, 0, NULL, NULL, NULL);
-				if (start_status >= 0){
-					_postoffice = 1;
-					printk("%s: postoffice prx loaded, enabling postoffice mode\n", __func__);
-				}else{
-					printk("%s: failed starting aemu postoffice, 0x%x\n", __func__, postoffice_handle);
+				postoffice_handle = sceKernelLoadModule("ms0:/kd/aemu_postoffice.prx", 0, &mod_load_high_option);
+				if (postoffice_handle < 0){
+					postoffice_handle = sceKernelLoadModule("ms0:/PSP/PLUGINS/atpro/aemu_postoffice.prx", 0, NULL);
 				}
-			}else{
-				printk("%s: failed loading aemu postoffice, 0x%x\n", __func__, postoffice_handle);
+				if (postoffice_handle >= 0){
+					int start_status = sceKernelStartModule(postoffice_handle, 0, NULL, NULL, NULL);
+					if (start_status >= 0){
+						postoffice_started = 1;
+						printk("%s: postoffice prx loaded\n", __func__);
+					}else{
+						printk("%s: failed starting aemu postoffice, 0x%x\n", __func__, postoffice_handle);
+					}
+				}else{
+					printk("%s: failed loading aemu postoffice, 0x%x\n", __func__, postoffice_handle);
+				}
 			}
+			_postoffice = postoffice_started;
 		}
+		printk("%s: postoffice mode %s\n", __func__, _postoffice ? "enabled" : "disabled");
 
 		// Enable Manual Infrastructure Module Control
 		_manage_modules = 1;

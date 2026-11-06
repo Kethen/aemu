@@ -104,6 +104,41 @@ void reset_port_offset(){
 	port_offset = -1;
 }
 
+void reset_server_ip_cache();
+
+// Profile the cached settings belong to (see atpro.ini profiles)
+static char applied_profile[ATPRO_PROFILE_NAME_MAX] = {0};
+static int profile_applied = 0;
+
+// postoffice setting of the active profile: 1 on, 0 off, -1 not set (use it if the prx exists)
+int _want_postoffice = -1;
+
+/**
+ * Called when a session starts (sceNetAdhocInit, sceNetAdhocctlInit). If the
+ * active atpro.ini profile changed since the settings were cached (switched in
+ * the L+R+SELECT menu), drop the cached server address and port offset and
+ * re-read the postoffice setting, so the next connection uses the new profile.
+ * @return 1 if the profile changed (or on the first call), 0 otherwise
+ */
+int atpro_profile_refresh(){
+	char profile[ATPRO_PROFILE_NAME_MAX] = {0};
+	atpro_config_active_profile(profile, sizeof(profile));
+
+	if (profile_applied && strcmp(profile, applied_profile) == 0){
+		return 0;
+	}
+
+	atpro_config_copy(applied_profile, profile, sizeof(applied_profile));
+	profile_applied = 1;
+
+	reset_server_ip_cache();
+	reset_port_offset();
+	_want_postoffice = atpro_config_get_bool("postoffice");
+
+	printk("%s: using profile \"%s\", postoffice %d\n", __func__, profile, _want_postoffice);
+	return 1;
+}
+
 // Stubs (Optimizer converts those to Jumps)
 int sceNetAdhocInit(void)
 {
