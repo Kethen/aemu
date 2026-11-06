@@ -38,6 +38,7 @@
 #include "logs.h"
 #include "systemctrl.h"
 #include "game_patches.h"
+#include "atpro_config.h"
 
 #define FAKE_FAT 0
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
@@ -3111,6 +3112,15 @@ s32 sceKernelPowerUnlockForUserPatched(s32 lockType)
 }
 
 static void load_nickname_override(){
+	if (atpro_config_get("nickname", 0, nickname, sizeof(nickname)) && nickname[0] != '\0'){
+		printk("%s: loaded nickname (%s) from atpro.ini\n", __func__, nickname);
+		for(int i = 0;i < 4;i++){
+			nickname[sizeof(nickname) - 1 - i] = 0;
+		}
+		return;
+	}
+	memset(nickname, 0, sizeof(nickname));
+
 	int fd = sceIoOpen("ms0:/seplugins/nickname.txt", PSP_O_RDONLY, 0777);
 	if (fd < 0){
 		fd = sceIoOpen("ef0:/seplugins/nickname.txt", PSP_O_RDONLY, 0777);

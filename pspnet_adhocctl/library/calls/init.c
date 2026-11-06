@@ -16,6 +16,7 @@
  */
 
 #include "../common.h"
+#include "../../../atpro/atpro_config.h"
 #include <ctype.h>
 
 // Library State
@@ -474,6 +475,36 @@ static void debug_log_profiles(void)
 #endif
 
 /**
+ * Add a configured Hotspot (SSID or Profile Name) to the Hotspot List
+ * @param line Hotspot SSID or Profile Name
+ */
+static void _addHotspot(char * line)
+{
+	// Skip empty lines or whitespace if any
+	if(strlen(line) == 0) return;
+
+	int id = _findHotspotConfigId(line);
+
+	if(id >= 0)
+	{
+		int exists = 0;
+		int i = 0;
+
+		for(; i < _hotspot_count; i++)
+		{
+			if(_hotspots[i] == id)
+			{
+				exists = 1;
+				break;
+			}
+		}
+
+		if(!exists)
+			_hotspots[_hotspot_count++] = id;
+	}
+}
+
+/**
  * Read Access Point Configuration Name
  * @return 0 on success or... -1
  */
@@ -489,44 +520,38 @@ void _readHotspotConfig(void)
 		return;
 	}
 
-	// Open Configuration File
-	int fd = sceIoOpen("ms0:/seplugins/hotspot.txt", PSP_O_RDONLY, 0777);
-	
-	// Opened Configuration File
-	if(fd >= 0)
+	// Line Buffer
+	char line[128];
+
+	// Consolidated Configuration File (hotspot = ... lines, in order)
+	int ini_hotspots = 0;
+	while(_hotspot_count < MAX_HOTSPOTS && atpro_config_get("hotspot", ini_hotspots, line, sizeof(line)))
 	{
-		// Line Buffer
-		char line[128];
-		
-		// Read lines until EOF
-		while(_readLine(fd, line, sizeof(line)) > 0 && _hotspot_count < MAX_HOTSPOTS)
+		ini_hotspots++;
+		_addHotspot(line);
+	}
+
+	if(ini_hotspots > 0)
+	{
+		printk("%s: read %d hotspot entries from atpro.ini\n", __func__, ini_hotspots);
+	}
+	else
+	{
+		// Open Configuration File
+		int fd = sceIoOpen("ms0:/seplugins/hotspot.txt", PSP_O_RDONLY, 0777);
+
+		// Opened Configuration File
+		if(fd >= 0)
 		{
-			// Skip empty lines or whitespace if any
-			if(strlen(line) == 0) continue;
-
-			int id = _findHotspotConfigId(line);
-
-			if(id >= 0)
+			// Read lines until EOF
+			while(_readLine(fd, line, sizeof(line)) > 0 && _hotspot_count < MAX_HOTSPOTS)
 			{
-				int exists = 0;
-				int i = 0;
-				
-				for(; i < _hotspot_count; i++)
-				{
-					if(_hotspots[i] == id)
-					{
-						exists = 1;
-						break;
-					}
-				}
-
-				if(!exists)
-					_hotspots[_hotspot_count++] = id;
+				_addHotspot(line);
 			}
+
+			// Close Configuration File
+			sceIoClose(fd);
 		}
-		
-		// Close Configuration File
-		sceIoClose(fd);
 	}
 
 	// Fallback to default 0 hotspot id

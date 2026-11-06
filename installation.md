@@ -136,6 +136,14 @@ game, ef0:/seplugins/atpro.prx, on
 - `ms0:/seplugins/port_offset.txt` / `ef0:/seplugins/port_offset.txt` / `ux0:/pspemu/seplugins/port_offset.txt` can be changed if you wish to change your port offset, mirrors the port offset option in PPSSPP
 - `ms0:/seplugins/nickname.txt` / `ef0:/seplugins/nickname.txt` / `ux0:/pspemu/seplugins/nickname.txt` can be added to override your system nickname, mostly useful for PSVita ARK Standalone if games don't work with your nickname generated from PSVita PSN
 - `hotspot.txt` lines can also contain the name of an infrastructure mode profile instead of its SSID. This is useful when several profiles use the same SSID, e.g. one with automatic and one with manual IP settings: a unique SSID match is used first, otherwise the line is looked up as a profile name
+- All of the above can also be set in one file, `ms0:/seplugins/atpro.ini` / `ef0:/seplugins/atpro.ini` / `ux0:/pspemu/seplugins/atpro.ini` (PPSSPP: `ms0:/PSP/PLUGINS/atpro/atpro.ini`). Settings found there take precedence, anything missing falls back to the separate files above. One `key = value` per line, lines starting with `#` or `;` are comments, `hotspot` can be repeated to list several profiles in order:
+  ```
+  server = socom.cc
+  port_offset = 10000
+  hotspot = MyProfileName
+  # hotspot = MyOtherProfile
+  nickname = Hunter
+  ```
 - On PSVita, https://github.com/Kethen/pspemu_inet_multithread can be used on top to make some games run faster during adhoc multiplayer
 
 - <details>
