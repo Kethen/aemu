@@ -81,7 +81,9 @@ static int gamemode_master_thread(SceSize args, void *argp)
 			//continue;
 		}
 
-		if (_gamemode.data_updated || !gamemode_info_same(&last_gamemode_info, &gamemode_info))
+		// PPSSPP's pspautotest showed that PSP always broadcast the data, even when there is no update from the game
+		// https://github.com/hrydgard/ppsspp/commit/0d686c1a959af464528899c74d9157e8d1d254fb
+		//if (_gamemode.data_updated || !gamemode_info_same(&last_gamemode_info, &gamemode_info))
 		{
 			// Peer changes or data is updated, broadcast
 			last_gamemode_info = gamemode_info;
