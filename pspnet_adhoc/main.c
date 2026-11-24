@@ -19,6 +19,7 @@
 #include <pspkernel.h>
 #include <stdlib.h>
 #include "library/common.h"
+#include "../atpro/atpro_config.h"
 
 #define USE_WORKER_COMMON 1
 #define USE_WORKER_PDP 1
@@ -63,6 +64,15 @@ int get_port_offset()
 
 	// Line Buffer
 	static char line[128];
+
+	// Consolidated Configuration File
+	char value[16] = {0};
+	if (atpro_config_get("port_offset", 0, value, sizeof(value)) && value[0] != '\0')
+	{
+		port_offset = atoi(value);
+		printk("%s: portoffset set to %d from atpro.ini\n", __func__, port_offset);
+		return port_offset;
+	}
 
 	// Open Configuration File
 	int fd = sceIoOpen("ms0:/seplugins/port_offset.txt", PSP_O_RDONLY, 0777);

@@ -16,6 +16,7 @@
  */
 
 #include "../../common.h"
+#include "../../../../atpro/atpro_config.h"
 
 static uint32_t server_ip = 0;
 
@@ -52,18 +53,24 @@ uint32_t resolve_server_ip(){
 
 	char namebuf[128] = {0};
 
-	int fd = sceIoOpen("ms0:/seplugins/server.txt", PSP_O_RDONLY, 0777);
-	if (fd < 0){
-		// PPSSPP style
-		fd = sceIoOpen("ms0:/PSP/PLUGINS/atpro/server.txt", PSP_O_RDONLY, 0777);
-	}
-
-	if (fd < 0){
-		memcpy(namebuf, DEFAULT_SERVER, sizeof(DEFAULT_SERVER));
-		printk("%s: failed opening server.txt for reading, 0x%x, falling back to %s\n", __func__, fd, namebuf);
+	if (atpro_config_get("server", 0, namebuf, sizeof(namebuf)) && namebuf[0] != '\0'){
+		printk("%s: server set in atpro.ini\n", __func__);
 	}else{
-		sceIoRead(fd, namebuf, sizeof(namebuf) - 1);
-		sceIoClose(fd);
+		memset(namebuf, 0, sizeof(namebuf));
+
+		int fd = sceIoOpen("ms0:/seplugins/server.txt", PSP_O_RDONLY, 0777);
+		if (fd < 0){
+			// PPSSPP style
+			fd = sceIoOpen("ms0:/PSP/PLUGINS/atpro/server.txt", PSP_O_RDONLY, 0777);
+		}
+
+		if (fd < 0){
+			memcpy(namebuf, DEFAULT_SERVER, sizeof(DEFAULT_SERVER));
+			printk("%s: failed opening server.txt for reading, 0x%x, falling back to %s\n", __func__, fd, namebuf);
+		}else{
+			sceIoRead(fd, namebuf, sizeof(namebuf) - 1);
+			sceIoClose(fd);
+		}
 	}
 
 	for(int i = 0;i < sizeof(namebuf) - 1;i++){

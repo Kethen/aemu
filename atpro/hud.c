@@ -40,7 +40,6 @@
 #define BUTTON_CLONE_SHIFT 279
 #define BUTTON_MAPPINGS_ON_SCREEN 8
 #define BOTTOM_LINE 256
-#define EXIT_MESSAGE_X 227
 #define MIDDLE_MESSAGE_Y 132
 #define MIDDLE_MESSAGE_X 90
 #define CHAT_BINDING_X 221
@@ -85,6 +84,9 @@ int phrasepackage = 0;
 
 // Online Mode Switch
 extern int onlinemode;
+
+// HOME toggles the HUD (main.c)
+int hud_toggled_by_home(void);
 
 // Server Connectivity Status
 int connected_to_prometheus = 0;
@@ -265,8 +267,9 @@ void drawInfo(CANVAS * canvas)
 	char time[16]; sprintf(time, "%02u:%02u", local_time.hour, local_time.minute);
 	drawSmallFont(canvas, time, HORIZONTAL_PADDING, VERTICAL_PADDING, RGB_8888(0xFF, 0xFF, 0xFF));
 	
-	// Draw Exit Example
-	drawSmallFont(canvas, "HOME: CLOSE MENU   HOLD START: EXIT GAME", EXIT_MESSAGE_X, BOTTOM_LINE, RGB_8888(0x00, 0xFF, 0x00));
+	// Draw Exit Example (right aligned, HOME doesn't toggle the HUD with hud_on_home = 0 or on ARK standalone)
+	char * exitmessage = hud_toggled_by_home() ? "HOME: CLOSE MENU   HOLD START: EXIT GAME" : "L+R+SELECT: CLOSE MENU   HOLD START: EXIT GAME";
+	drawSmallFont(canvas, exitmessage, 480 - HORIZONTAL_PADDING - strlen(exitmessage) * FONT_WIDTH, BOTTOM_LINE, RGB_8888(0x00, 0xFF, 0x00));
 }
 
 // Paint Notification Overlay
