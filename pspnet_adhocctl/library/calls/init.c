@@ -16,6 +16,7 @@
  */
 
 #include "../common.h"
+#include "../../../atpro/atpro_config.h"
 #include <ctype.h>
 
 // Library State
@@ -140,6 +141,9 @@ static struct SceKernelThreadOptParam thread_px_stack_opt = {
 
 int partition_to_use();
 
+// pspnet_adhoc: re-read profile dependent settings if the active atpro.ini profile changed
+int atpro_profile_refresh();
+
 /**
  * Initialize the Adhoc-Control Emulator
  * @param stacksize Stacksize of the Internal Thread
@@ -155,6 +159,9 @@ int proNetAdhocctlInit(int stacksize, int prio, const SceNetAdhocctlAdhocId * ad
 		// Minimum Stacksize (just to fake SCE behaviour)
 		if(stacksize >= 3072)
 		{
+			// pick up a profile switch from the L+R+SELECT menu before using server and hotspots
+			atpro_profile_refresh();
+
 			_readHotspotConfig();
 
 			if (_initNetwork(adhoc_id) != 0)
@@ -474,6 +481,36 @@ static void debug_log_profiles(void)
 #endif
 
 /**
+ * Add a configured Hotspot (SSID or Profile Name) to the Hotspot List
+ * @param line Hotspot SSID or Profile Name
+ */
+static void _addHotspot(char * line)
+{
+	// Skip empty lines or whitespace if any
+	if(strlen(line) == 0) return;
+
+	int id = _findHotspotConfigId(line);
+
+	if(id >= 0)
+	{
+		int exists = 0;
+		int i = 0;
+
+		for(; i < _hotspot_count; i++)
+		{
+			if(_hotspots[i] == id)
+			{
+				exists = 1;
+				break;
+			}
+		}
+
+		if(!exists)
+			_hotspots[_hotspot_count++] = id;
+	}
+}
+
+/**
  * Read Access Point Configuration Name
  * @return 0 on success or... -1
  */
@@ -489,44 +526,38 @@ void _readHotspotConfig(void)
 		return;
 	}
 
-	// Open Configuration File
-	int fd = sceIoOpen("ms0:/seplugins/hotspot.txt", PSP_O_RDONLY, 0777);
-	
-	// Opened Configuration File
-	if(fd >= 0)
+	// Line Buffer
+	char line[128];
+
+	// Consolidated Configuration File (hotspot = ... lines, in order)
+	int ini_hotspots = 0;
+	while(_hotspot_count < MAX_HOTSPOTS && atpro_config_get("hotspot", ini_hotspots, line, sizeof(line)))
 	{
-		// Line Buffer
-		char line[128];
-		
-		// Read lines until EOF
-		while(_readLine(fd, line, sizeof(line)) > 0 && _hotspot_count < MAX_HOTSPOTS)
+		ini_hotspots++;
+		_addHotspot(line);
+	}
+
+	if(ini_hotspots > 0)
+	{
+		printk("%s: read %d hotspot entries from atpro.ini\n", __func__, ini_hotspots);
+	}
+	else
+	{
+		// Open Configuration File
+		int fd = sceIoOpen("ms0:/seplugins/hotspot.txt", PSP_O_RDONLY, 0777);
+
+		// Opened Configuration File
+		if(fd >= 0)
 		{
-			// Skip empty lines or whitespace if any
-			if(strlen(line) == 0) continue;
-
-			int id = _findHotspotConfigId(line);
-
-			if(id >= 0)
+			// Read lines until EOF
+			while(_readLine(fd, line, sizeof(line)) > 0 && _hotspot_count < MAX_HOTSPOTS)
 			{
-				int exists = 0;
-				int i = 0;
-				
-				for(; i < _hotspot_count; i++)
-				{
-					if(_hotspots[i] == id)
-					{
-						exists = 1;
-						break;
-					}
-				}
-
-				if(!exists)
-					_hotspots[_hotspot_count++] = id;
+				_addHotspot(line);
 			}
+
+			// Close Configuration File
+			sceIoClose(fd);
 		}
-		
-		// Close Configuration File
-		sceIoClose(fd);
 	}
 
 	// Fallback to default 0 hotspot id
@@ -540,13 +571,47 @@ void _readHotspotConfig(void)
 }
 
 /**
+ * Find Infrastructure Configuration ID by Profile Name
+ * @param name Target Profile Name (as shown in XMB Network Settings)
+ * @return Configuration ID > 0 or... 0 if not found
+ */
+static int _findHotspotConfigIdByName(const char * name)
+{
+	if(name == NULL || name[0] == '\0')
+		return 0;
+
+	for(int i = 1; i <= MAX_HOTSPOTS; i++)
+	{
+		netData entry;
+		if(sceUtilityGetNetParam(i, PSP_NETPARAM_NAME, &entry) != 0)
+			continue;
+
+		if(strcmp(entry.asString, name) == 0)
+		{
+			printk("%s: matched profile %d with name %s\n", __func__, i, entry.asString);
+			return i;
+		}
+	}
+
+	return 0;
+}
+
+/**
  * Find Infrastructure Configuration ID for SSID
- * @param ssid Target SSID
+ *
+ * A unique SSID match wins. If no profile, or more than one profile, uses
+ * that SSID, the value is also tried as a profile name, since profile names
+ * are unique while SSIDs are not. Without a name match the SSID behaviour
+ * applies (first SSID match, else first usable profile).
+ *
+ * @param ssid Target SSID or Profile Name
  * @return Configuration ID > -1 or... -1
  */
 int _findHotspotConfigId(char * ssid)
 {
 	int fallback = 0;
+	int first_match = 0;
+	int match_count = 0;
 
 	for(int i = 1; i <= MAX_HOTSPOTS; i++)
 	{
@@ -557,14 +622,33 @@ int _findHotspotConfigId(char * ssid)
 		if(strcmp(entry.asString, ssid) == 0)
 		{
 			printk("%s: matched profile %d with ssid %s\n", __func__, i, entry.asString);
-			return i;
+			if(first_match == 0)
+				first_match = i;
+			match_count++;
 		}
 
 		if(fallback == 0 && strlen(entry.asString) != 0)
 			fallback = i;
 	}
 
-	printk("%s: warning: couldn't find profile with ssid %s, falling back to hotspot id %d\n", __func__, ssid, fallback);
+	// Unique SSID Match
+	if(match_count == 1)
+		return first_match;
+
+	// Ambiguous or missing SSID, try it as a Profile Name
+	printk("%s: %d profiles with ssid %s, trying it as a profile name\n", __func__, match_count, ssid);
+	int by_name = _findHotspotConfigIdByName(ssid);
+	if(by_name > 0)
+		return by_name;
+
+	// Ambiguous SSID without Name Match
+	if(match_count > 1)
+	{
+		printk("%s: no profile named %s, using first profile %d with that ssid\n", __func__, ssid, first_match);
+		return first_match;
+	}
+
+	printk("%s: warning: couldn't find profile with ssid or name %s, falling back to hotspot id %d\n", __func__, ssid, fallback);
 	return fallback;
 }
 

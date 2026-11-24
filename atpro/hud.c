@@ -24,6 +24,7 @@
 #include <psprtc.h>
 #include <pspimpose_driver.h>
 #include "hud.h"
+#include "atpro_config.h"
 
 // Logical Constants
 #define NICKNAME_TRUNCATE 8
@@ -40,11 +41,12 @@
 #define BUTTON_CLONE_SHIFT 279
 #define BUTTON_MAPPINGS_ON_SCREEN 8
 #define BOTTOM_LINE 256
-#define EXIT_MESSAGE_X 227
 #define MIDDLE_MESSAGE_Y 132
 #define MIDDLE_MESSAGE_X 90
 #define CHAT_BINDING_X 221
 #define INPUT_LINE_Y 140
+#define PROFILE_SWITCH_Y 152
+#define PROFILE_CONNECTED_Y 176
 
 // Graphical Macros
 #define GET_MIDDLE_ALIGN_X(t) (240 - strlen(t) * FONT_WIDTH / 2)
@@ -86,6 +88,9 @@ int phrasepackage = 0;
 // Online Mode Switch
 extern int onlinemode;
 
+// HOME toggles the HUD (main.c)
+int hud_toggled_by_home(void);
+
 // Server Connectivity Status
 int connected_to_prometheus = 0;
 
@@ -119,6 +124,110 @@ SceKernelSysClock delete_press_start, delete_press_end;
 // Last Time Battery got queried
 uint64_t lastbatteryquery = 0;
 
+// Dark box behind each menu text (hud_text_background in atpro.ini, loaded by main.c)
+int hud_text_background = 0;
+
+// Draw a menu text, on a black box sized to the text if hud_text_background
+// is set. Only used for the menu, not for the notifications.
+static void drawMenuText(CANVAS * canvas, const char * text, int x, int y, u32 color)
+{
+	if(hud_text_background && canvas != NULL && text != NULL && text[0] != 0)
+	{
+		// glyphs are 7x7 cells advancing FONT_WIDTH, 2 px margin around the text
+		int bx = x - 2;
+		int by = y - 2;
+		int bw = strlen(text) * FONT_WIDTH + 1 + 4;
+		int bh = 7 + 4;
+
+		// clip to the screen, fillRectangle doesn't
+		if(bx < 0) { bw += bx; bx = 0; }
+		if(by < 0) { bh += by; by = 0; }
+		if(bx + bw > canvas->width) bw = canvas->width - bx;
+		if(by + bh > canvas->height) bh = canvas->height - by;
+
+		if(bw > 2 && bh > 2) fillRectangle(canvas, bx, by, bw, bh, RGB_8888(0, 0, 0), RGB_8888(0, 0, 0));
+	}
+	drawSmallFont(canvas, text, x, y, color);
+}
+
+// atpro.ini Profiles (switched with LEFT/RIGHT while not connected)
+static char profiles[ATPRO_PROFILE_MAX][ATPRO_PROFILE_NAME_MAX];
+static int profile_count = -1;
+static int profile_active = 0;
+static int profile_switched = 0; // 1 saved, -1 saving failed
+static uint64_t profile_last_try = 0;
+
+// Read the profile list and the active profile from atpro.ini. Called from
+// the input thread only (drawInfo also runs in game threads via the vblank
+// hooks, where file access isn't allowed); until atpro.ini could be opened
+// it is retried at most once per second.
+static void loadProfiles(void)
+{
+	if(profile_count >= 0) return;
+	uint64_t now = sceKernelGetSystemTimeWide();
+	if(profile_last_try != 0 && now - profile_last_try < 1000000) return;
+	profile_last_try = now;
+
+	// path strings and buffers live in kernel memory
+	uint32_t k1 = pspSdkSetK1(0);
+	int fd = atpro_config_open(NULL);
+	if(fd >= 0)
+	{
+		sceIoClose(fd);
+		char active[ATPRO_PROFILE_NAME_MAX];
+		int count = atpro_config_profiles(profiles, ATPRO_PROFILE_MAX, NULL);
+		atpro_config_active_profile(active, sizeof(active));
+		profile_active = 0;
+		int i = 0; for(; i < count; i++)
+		{
+			if(strcmp(profiles[i], active) == 0) profile_active = i;
+		}
+		profile_count = count;
+	}
+	pspSdkSetK1(k1);
+}
+
+// Select the previous/next profile and save it to kd/atpro_profile.txt
+static void switchProfile(int step)
+{
+	if(profile_count < 2) return;
+	profile_active = (profile_active + step + profile_count) % profile_count;
+	uint32_t k1 = pspSdkSetK1(0);
+	profile_switched = (atpro_config_save_profile(profiles[profile_active]) == 0) ? 1 : -1;
+	pspSdkSetK1(k1);
+}
+
+// Draw "PROFILE: NAME" centered at y, with arrows and help text when switchable
+static void drawProfile(CANVAS * canvas, int y, int switchable)
+{
+	// list is loaded by the input thread (loadProfiles), never while drawing
+	if(profile_count <= 0) return;
+
+	char name[17];
+	int i = 0; for(; i < sizeof(name) - 1 && profiles[profile_active][i] != 0; i++)
+	{
+		name[i] = convertChar((uint8_t)profiles[profile_active][i]);
+	}
+	name[i] = 0;
+
+	char text[48];
+	if(switchable && profile_count > 1) sprintf(text, "PROFILE: < %s >", name);
+	else sprintf(text, "PROFILE: %s", name);
+	drawMenuText(canvas, text, GET_MIDDLE_ALIGN_X(text), y, RGB_8888(0xFF, 0xD7, 0x00));
+
+	if(switchable && profile_count > 1)
+	{
+		char * help = "LEFT/RIGHT: CHANGE PROFILE";
+		uint32_t color = RGB_8888(0xDE, 0xDE, 0xDE);
+		if(profile_switched < 0)
+		{
+			help = "COULD NOT SAVE KD/ATPRO_PROFILE.TXT";
+			color = RGB_8888(0xFF, 0x40, 0x40);
+		}
+		drawMenuText(canvas, help, GET_MIDDLE_ALIGN_X(help), y + FONT_WIDTH * 2, color);
+	}
+}
+
 // Paint HUD Overlay
 void drawInfo(CANVAS * canvas)
 {
@@ -133,7 +242,7 @@ void drawInfo(CANVAS * canvas)
 		if(connected_to_prometheus)
 		{
 			// Chat Headline
-			drawSmallFont(canvas, "PROMETHEUS CHATROOM", HORIZONTAL_PADDING + 48, VERTICAL_PADDING, RGB_8888(0xDE, 0xDE, 0xDE));
+			drawMenuText(canvas, "PROMETHEUS CHATROOM", HORIZONTAL_PADDING + 48, VERTICAL_PADDING, RGB_8888(0xDE, 0xDE, 0xDE));
 			
 			// Chat Output
 			int i = 0; for(; i < CHAT_MAX_LINES; i++)
@@ -142,13 +251,13 @@ void drawInfo(CANVAS * canvas)
 				if(chatlog[i].message[0] == 0) break;
 				
 				// Print 8-Character Truncated Nickname
-				drawSmallFont(canvas, chatlog[i].sender, HORIZONTAL_PADDING, VERTICAL_PADDING + FONT_WIDTH * (i+1) + 5, chatlog[i].color);
+				drawMenuText(canvas, chatlog[i].sender, HORIZONTAL_PADDING, VERTICAL_PADDING + FONT_WIDTH * (i+1) + 5, chatlog[i].color);
 				
 				// Print Delimiter
-				drawSmallFont(canvas, ":", HORIZONTAL_PADDING + FONT_WIDTH * NICKNAME_TRUNCATE, VERTICAL_PADDING + FONT_WIDTH * (i+1) + 5, RGB_8888(0xFF, 0xFF, 0xFF));
+				drawMenuText(canvas, ":", HORIZONTAL_PADDING + FONT_WIDTH * NICKNAME_TRUNCATE, VERTICAL_PADDING + FONT_WIDTH * (i+1) + 5, RGB_8888(0xFF, 0xFF, 0xFF));
 				
 				// Print 63-Character Text Message
-				drawSmallFont(canvas, chatlog[i].message, HORIZONTAL_PADDING + FONT_WIDTH * NICKNAME_TRUNCATE + FONT_WIDTH, VERTICAL_PADDING + FONT_WIDTH * (i+1) + 5, chatlog[i].color);
+				drawMenuText(canvas, chatlog[i].message, HORIZONTAL_PADDING + FONT_WIDTH * NICKNAME_TRUNCATE + FONT_WIDTH, VERTICAL_PADDING + FONT_WIDTH * (i+1) + 5, chatlog[i].color);
 			}
 			
 			// Fixed Chat Line Buffer
@@ -165,7 +274,7 @@ void drawInfo(CANVAS * canvas)
 			fixedchatline[j] = 0;
 			
 			// Draw Chat Line
-			drawSmallFont(canvas, fixedchatline, HORIZONTAL_PADDING, INPUT_LINE_Y, RGB_8888(0x00, 0xFF, 0x00));
+			drawMenuText(canvas, fixedchatline, HORIZONTAL_PADDING, INPUT_LINE_Y, RGB_8888(0x00, 0xFF, 0x00));
 			
 			// Fix Keyphrase Index
 			int phraseindex = BUTTON_MAPPINGS_ON_SCREEN * phrasepackage;
@@ -200,22 +309,28 @@ void drawInfo(CANVAS * canvas)
 				}
 				
 				// Print 8-Character Truncated Keyphrase
-				drawSmallFont(canvas, truncphrase, bpos_x[index] + shift - strlen(truncphrase) * FONT_WIDTH / 2, bpos_y[index], RGB_8888(0xDE, 0xDE, 0xDE));
+				drawMenuText(canvas, truncphrase, bpos_x[index] + shift - strlen(truncphrase) * FONT_WIDTH / 2, bpos_y[index], RGB_8888(0xDE, 0xDE, 0xDE));
 			}
 			
 			// User Counter Example
 			char strusercount[32]; sprintf(strusercount, "GROUP USER COUNT: %d", usercount);
-			drawSmallFont(canvas, strusercount, HORIZONTAL_PADDING, BOTTOM_LINE, RGB_8888(0x00, 0xFF, 0x00));
+			drawMenuText(canvas, strusercount, HORIZONTAL_PADDING, BOTTOM_LINE, RGB_8888(0x00, 0xFF, 0x00));
 			
 			// Chat Button Binding
-			drawSmallFont(canvas, "SELECT: CLEAR CHAT   TAP START: SEND TEXT", CHAT_BINDING_X, VERTICAL_PADDING, RGB_8888(0x00, 0xFF, 0x00));
+			drawMenuText(canvas, "SELECT: CLEAR CHAT   TAP START: SEND TEXT", CHAT_BINDING_X, VERTICAL_PADDING, RGB_8888(0x00, 0xFF, 0x00));
+
+			// Active Profile (switching only between sessions)
+			drawProfile(canvas, PROFILE_CONNECTED_Y, 0);
 		}
 		
 		// Currently Waiting for Network SSID Assignment
 		else
 		{
 			// Write Waiting Headline
-			drawSmallFont(canvas, "WAITING FOR ADHOC SSID SETUP...", HORIZONTAL_PADDING + 48, VERTICAL_PADDING, RGB_8888(0xDE, 0xDE, 0xDE));
+			drawMenuText(canvas, "WAITING FOR ADHOC SSID SETUP...", HORIZONTAL_PADDING + 48, VERTICAL_PADDING, RGB_8888(0xDE, 0xDE, 0xDE));
+
+			// Profile Switcher
+			drawProfile(canvas, PROFILE_SWITCH_Y, 1);
 		}
 		
 		// Show WLAN Reception
@@ -227,7 +342,10 @@ void drawInfo(CANVAS * canvas)
 	else
 	{
 		// Offline Mode Headline
-		drawSmallFont(canvas, "YOU'RE IN OFFLINE MODE! CHATROOM HAS BEEN DISABLED!", MIDDLE_MESSAGE_X, MIDDLE_MESSAGE_Y, RGB_8888(0xDE, 0xDE, 0xDE));
+		drawMenuText(canvas, "YOU'RE IN OFFLINE MODE! CHATROOM HAS BEEN DISABLED!", MIDDLE_MESSAGE_X, MIDDLE_MESSAGE_Y, RGB_8888(0xDE, 0xDE, 0xDE));
+
+		// Profile Switcher (used from the next game start with WLAN on)
+		drawProfile(canvas, PROFILE_SWITCH_Y, 1);
 	}
 	
 	// Battery Query required
@@ -253,7 +371,7 @@ void drawInfo(CANVAS * canvas)
 	// Show Speak Volume (0-30)
 	int volume = sceImposeGetParam(PSP_IMPOSE_MAIN_VOLUME);
 	char * volumestr = "VOLUME";
-	drawSmallFont(canvas, volumestr, GET_MIDDLE_ALIGN_X(volumestr), 190, RGB_8888(0xFF, 0xFF, 0xFF));
+	drawMenuText(canvas, volumestr, GET_MIDDLE_ALIGN_X(volumestr), 190, RGB_8888(0xFF, 0xFF, 0xFF));
 	fillRectangle(canvas, 211, 205, 60, 5, RGB_8888(0xFF, 0xFF, 0xFF), RGB_8888(0x00, 0x00, 0x00));
 	fillRectangle(canvas, 211, 205, 2 * volume, 5, RGB_8888(0xA0, 0xA0, 0xA0), RGB_8888(0x00, 0x00, 0x00));
 	
@@ -263,10 +381,11 @@ void drawInfo(CANVAS * canvas)
 	sceRtcGetCurrentClockLocalTime(&local_time);
 	pspSdkSetK1(k1);
 	char time[16]; sprintf(time, "%02u:%02u", local_time.hour, local_time.minute);
-	drawSmallFont(canvas, time, HORIZONTAL_PADDING, VERTICAL_PADDING, RGB_8888(0xFF, 0xFF, 0xFF));
+	drawMenuText(canvas, time, HORIZONTAL_PADDING, VERTICAL_PADDING, RGB_8888(0xFF, 0xFF, 0xFF));
 	
-	// Draw Exit Example
-	drawSmallFont(canvas, "HOME: CLOSE MENU   HOLD START: EXIT GAME", EXIT_MESSAGE_X, BOTTOM_LINE, RGB_8888(0x00, 0xFF, 0x00));
+	// Draw Exit Example (right aligned, HOME doesn't toggle the HUD with hud_on_home = 0 or on ARK standalone)
+	char * exitmessage = hud_toggled_by_home() ? "HOME: CLOSE MENU   HOLD START: EXIT GAME" : "L+R+SELECT: CLOSE MENU   HOLD START: EXIT GAME";
+	drawMenuText(canvas, exitmessage, 480 - HORIZONTAL_PADDING - strlen(exitmessage) * FONT_WIDTH, BOTTOM_LINE, RGB_8888(0x00, 0xFF, 0x00));
 }
 
 // Paint Notification Overlay
@@ -451,6 +570,18 @@ void setUserCount(int count)
 // Handle Key Event
 void handleKeyEvent(uint32_t prev, uint32_t curr)
 {
+	// Runs in the input thread while the HUD is open: load the profile list here
+	loadProfiles();
+
+	// Not in a session: LEFT/RIGHT switch the atpro.ini profile (the chat
+	// keys are only active while connected)
+	if(!onlinemode || !connected_to_prometheus)
+	{
+		if((prev & PSP_CTRL_LEFT) == 0 && (curr & PSP_CTRL_LEFT) != 0) switchProfile(-1);
+		else if((prev & PSP_CTRL_RIGHT) == 0 && (curr & PSP_CTRL_RIGHT) != 0) switchProfile(1);
+		return;
+	}
+
 	// Online Mode
 	if(onlinemode)
 	{

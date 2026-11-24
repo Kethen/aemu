@@ -19,6 +19,7 @@
 #include <pspkernel.h>
 #include <stdlib.h>
 #include "library/common.h"
+#include "../atpro/atpro_config.h"
 
 #define USE_WORKER_COMMON 1
 #define USE_WORKER_PDP 1
@@ -64,6 +65,15 @@ int get_port_offset()
 	// Line Buffer
 	static char line[128];
 
+	// Consolidated Configuration File
+	char value[16] = {0};
+	if (atpro_config_get("port_offset", 0, value, sizeof(value)) && value[0] != '\0')
+	{
+		port_offset = atoi(value);
+		printk("%s: portoffset set to %d from atpro.ini\n", __func__, port_offset);
+		return port_offset;
+	}
+
 	// Open Configuration File
 	int fd = sceIoOpen("ms0:/seplugins/port_offset.txt", PSP_O_RDONLY, 0777);
 	if (fd < 0){
@@ -92,6 +102,41 @@ int get_port_offset()
 
 void reset_port_offset(){
 	port_offset = -1;
+}
+
+void reset_server_ip_cache();
+
+// Profile the cached settings belong to (see atpro.ini profiles)
+static char applied_profile[ATPRO_PROFILE_NAME_MAX] = {0};
+static int profile_applied = 0;
+
+// postoffice setting of the active profile: 1 on, 0 off, -1 not set (use it if the prx exists)
+int _want_postoffice = -1;
+
+/**
+ * Called when a session starts (sceNetAdhocInit, sceNetAdhocctlInit). If the
+ * active atpro.ini profile changed since the settings were cached (switched in
+ * the L+R+SELECT menu), drop the cached server address and port offset and
+ * re-read the postoffice setting, so the next connection uses the new profile.
+ * @return 1 if the profile changed (or on the first call), 0 otherwise
+ */
+int atpro_profile_refresh(){
+	char profile[ATPRO_PROFILE_NAME_MAX] = {0};
+	atpro_config_active_profile(profile, sizeof(profile));
+
+	if (profile_applied && strcmp(profile, applied_profile) == 0){
+		return 0;
+	}
+
+	atpro_config_copy(applied_profile, profile, sizeof(applied_profile));
+	profile_applied = 1;
+
+	reset_server_ip_cache();
+	reset_port_offset();
+	_want_postoffice = atpro_config_get_bool("postoffice");
+
+	printk("%s: using profile \"%s\", postoffice %d\n", __func__, profile, _want_postoffice);
+	return 1;
 }
 
 // Stubs (Optimizer converts those to Jumps)

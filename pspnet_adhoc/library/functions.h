@@ -119,6 +119,9 @@ int sceNetAdhocPdpRecv(int id, SceNetEtherAddr * saddr, uint16_t * sport, void *
 
 int get_port_offset();
 
+// re-read profile dependent settings if the active atpro.ini profile changed
+int atpro_profile_refresh();
+
 // From kernel module
 void return_memory();
 void steal_memory();
